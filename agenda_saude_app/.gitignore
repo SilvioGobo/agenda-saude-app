@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# FVM Version Cache
+# Ignoramos apenas o SDK pesado, mantemos o config.json
+.fvm/flutter_sdk
+
+# VS Code settings
+# Não ignoramos a .vscode porque ela contém o path do SDK para o FVM funcionar nos dois PCs
+# .vscode/ 
+
+# Firebase configuration files (Opcional, mas recomendado por segurança)
+# Se vocês não quiserem que suas chaves de API fiquem públicas no GitHub:
+# ios/Runner/GoogleService-Info.plist
+# android/app/google-services.json
+# lib/firebase_options.dart
