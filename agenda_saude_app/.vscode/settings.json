@@ -1,9 +1,10 @@
 {
-  "dart.flutterSdkPath": ".fvm/flutter_sdk",
+  "dart.flutterSdkPath": ".fvm/versions/3.32.8",
   "search.exclude": {
     "**/.fvm": true
   },
   "files.watcherExclude": {
     "**/.fvm": true
-  }
+  },
+  "cmake.ignoreCMakeListsMissing": true
 }
