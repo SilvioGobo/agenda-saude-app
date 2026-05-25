@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "629145115004",
+    "project_id": "tcc-agenda-saude",
+    "storage_bucket": "tcc-agenda-saude.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:629145115004:android:bceec29e8412d2130b6cf9",
+        "android_client_info": {
+          "package_name": "com.example.agenda_saude_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtbKwxIh48fokO0tzQ5jwH0eX2B4pUwBs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
