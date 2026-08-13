@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
+import 'ui/auth/login_view.dart';
+import 'ui/auth/login_viewmodel.dart';
 
 void main() async {
 
@@ -27,13 +30,9 @@ class AgendaSaudeApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'Firebase Inicializado com Sucesso! 🚀',
-            style: TextStyle(fontSize: 20),
-          ),
-        ),
+      home: ChangeNotifierProvider(
+        create: (_) => LoginViewModel(),
+        child: const LoginView(),
       ),
     );
   }
