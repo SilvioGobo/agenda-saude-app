@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../shared/botao_selecionavel.dart';
+import '../shared/logo_agenda_saude.dart';
 import '../shared/tela_provisoria.dart';
 import '../triagem/triagem_view.dart';
 import '../triagem/triagem_viewmodel.dart';
@@ -88,6 +89,8 @@ class _AuthViewState extends State<AuthView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const LogoAgendaSaude(),
+              const SizedBox(height: 32),
               const Text(
                 'Você é:',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -98,6 +101,7 @@ class _AuthViewState extends State<AuthView> {
                   Expanded(
                     child: BotaoSelecionavel(
                       rotulo: 'Sou Paciente',
+                      icone: Icons.elderly_rounded,
                       selecionado: viewModel.perfilSelecionado == 'Paciente',
                       aoTocar: () => viewModel.selecionarPerfil('Paciente'),
                     ),
@@ -106,6 +110,7 @@ class _AuthViewState extends State<AuthView> {
                   Expanded(
                     child: BotaoSelecionavel(
                       rotulo: 'Sou Acompanhante',
+                      icone: Icons.groups_rounded,
                       selecionado:
                           viewModel.perfilSelecionado == 'Acompanhante',
                       aoTocar: () => viewModel.selecionarPerfil('Acompanhante'),
@@ -117,20 +122,14 @@ class _AuthViewState extends State<AuthView> {
               TextField(
                 controller: _nomeController,
                 style: const TextStyle(fontSize: 18),
-                decoration: const InputDecoration(
-                  labelText: 'Nome completo',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Nome completo'),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 style: const TextStyle(fontSize: 18),
-                decoration: const InputDecoration(
-                  labelText: 'E-mail',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'E-mail'),
               ),
               const SizedBox(height: 16),
               ValueListenableBuilder<TextEditingValue>(
@@ -144,10 +143,7 @@ class _AuthViewState extends State<AuthView> {
                         controller: _senhaController,
                         obscureText: true,
                         style: const TextStyle(fontSize: 18),
-                        decoration: const InputDecoration(
-                          labelText: 'Senha',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Senha'),
                       ),
                       if (valor.text.isNotEmpty) ...[
                         const SizedBox(height: 6),
@@ -174,30 +170,24 @@ class _AuthViewState extends State<AuthView> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              SizedBox(
-                height: 56,
-                child: ElevatedButton(
-                  onPressed:
-                      viewModel.carregando ? null : () => _cadastrar(context),
-                  child: viewModel.carregando
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : const Text('Cadastrar', style: TextStyle(fontSize: 20)),
-                ),
+              ElevatedButton(
+                onPressed:
+                    viewModel.carregando ? null : () => _cadastrar(context),
+                child: viewModel.carregando
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : const Text('Cadastrar'),
               ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => _irParaLogin(context),
-                child: const Text(
-                  'Já tem conta? Entrar',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Já tem conta? Entrar'),
               ),
             ],
           ),

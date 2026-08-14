@@ -6,11 +6,13 @@ import 'botao_selecionavel.dart';
 class SeletorSimNao extends StatelessWidget {
   final bool? valor;
   final ValueChanged<bool> aoResponder;
+  final bool pequeno;
 
   const SeletorSimNao({
     super.key,
     required this.valor,
     required this.aoResponder,
+    this.pequeno = false,
   });
 
   @override
@@ -22,6 +24,7 @@ class SeletorSimNao extends StatelessWidget {
             rotulo: 'Sim',
             selecionado: valor == true,
             aoTocar: () => aoResponder(true),
+            pequeno: pequeno,
           ),
         ),
         const SizedBox(width: 12),
@@ -30,6 +33,7 @@ class SeletorSimNao extends StatelessWidget {
             rotulo: 'Não',
             selecionado: valor == false,
             aoTocar: () => aoResponder(false),
+            pequeno: pequeno,
           ),
         ),
       ],

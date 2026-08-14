@@ -142,6 +142,42 @@ void main() {
       expect(pacienteSalvo.triagemConcluida, true);
     });
 
+    test('validarEAvancarSobreVoce deve falhar sem os dados básicos', () {
+      expect(viewModel.validarEAvancarSobreVoce(), false);
+      expect(viewModel.mensagemErro, isNotNull);
+    });
+
+    test('validarEAvancarSobreVoce deve passar com os dados básicos preenchidos', () {
+      preencherDadosBasicos();
+
+      expect(viewModel.validarEAvancarSobreVoce(), true);
+      expect(viewModel.mensagemErro, isNull);
+    });
+
+    test('validarEAvancarDiabetes deve passar quando a resposta é não', () {
+      viewModel.responderDiabetes(false);
+
+      expect(viewModel.validarEAvancarDiabetes(), true);
+      expect(viewModel.mensagemErro, isNull);
+    });
+
+    test('validarEAvancarDiabetes deve falhar sem responder', () {
+      expect(viewModel.validarEAvancarDiabetes(), false);
+      expect(viewModel.mensagemErro, isNotNull);
+    });
+
+    test('validarEAvancarCardiopatia deve passar quando a resposta é não', () {
+      viewModel.responderCardiopatia(false);
+
+      expect(viewModel.validarEAvancarCardiopatia(), true);
+      expect(viewModel.mensagemErro, isNull);
+    });
+
+    test('validarEAvancarCardiopatia deve falhar sem responder', () {
+      expect(viewModel.validarEAvancarCardiopatia(), false);
+      expect(viewModel.mensagemErro, isNotNull);
+    });
+
     test('Deve salvar a triagem sem nenhuma comorbidade e sem dados opcionais', () async {
       viewModel.responderDiabetes(false);
       viewModel.responderCardiopatia(false);
