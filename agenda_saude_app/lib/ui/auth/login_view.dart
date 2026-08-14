@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../shared/logo_agenda_saude.dart';
 import '../shared/tela_provisoria.dart';
 import '../triagem/triagem_view.dart';
 import '../triagem/triagem_viewmodel.dart';
@@ -75,31 +76,33 @@ class _LoginViewState extends State<LoginView> {
     final viewModel = context.watch<LoginViewModel>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Entrar')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 24),
+              const LogoAgendaSaude(),
+              const SizedBox(height: 12),
+              const Text(
+                'Bem-vindo',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 32),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 style: const TextStyle(fontSize: 18),
-                decoration: const InputDecoration(
-                  labelText: 'E-mail',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'E-mail'),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _senhaController,
                 obscureText: true,
                 style: const TextStyle(fontSize: 18),
-                decoration: const InputDecoration(
-                  labelText: 'Senha',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Senha'),
               ),
               const SizedBox(height: 24),
               if (viewModel.mensagemErro != null)
@@ -111,30 +114,24 @@ class _LoginViewState extends State<LoginView> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              SizedBox(
-                height: 56,
-                child: ElevatedButton(
-                  onPressed:
-                      viewModel.carregando ? null : () => _entrar(context),
-                  child: viewModel.carregando
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : const Text('Entrar', style: TextStyle(fontSize: 20)),
-                ),
+              ElevatedButton(
+                onPressed:
+                    viewModel.carregando ? null : () => _entrar(context),
+                child: viewModel.carregando
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : const Text('Entrar'),
               ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => _irParaCadastro(context),
-                child: const Text(
-                  'Não tem conta? Cadastre-se',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Não tem conta? Cadastre-se'),
               ),
             ],
           ),

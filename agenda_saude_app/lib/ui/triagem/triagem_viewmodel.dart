@@ -120,23 +120,10 @@ class TriagemViewModel extends ChangeNotifier {
     medicamentosEmUso = valor;
   }
 
-  Future<bool> concluirTriagem() async {
-    if (possuiDiabetes == null || possuiCardiopatia == null) {
-      mensagemErro = 'Responda as perguntas de diabetes e cardiopatia.';
-      notifyListeners();
-      return false;
-    }
-    if (possuiDiabetes == true &&
-        (tipoDiabetes == null || usaInsulina == null)) {
-      mensagemErro = 'Complete as perguntas sobre diabetes.';
-      notifyListeners();
-      return false;
-    }
-    if (possuiCardiopatia == true && usaMarcapasso == null) {
-      mensagemErro = 'Complete as perguntas sobre cardiopatia.';
-      notifyListeners();
-      return false;
-    }
+  // Cada etapa do assistente valida só os campos que ela mesma mostra, e
+  // guarda o erro em mensagemErro para a tela exibir. Retorna true quando
+  // pode avançar para a próxima etapa.
+  bool validarEAvancarSobreVoce() {
     if (dataNascimento == null ||
         sexoBiologico == null ||
         alturaCm == null ||
@@ -152,6 +139,48 @@ class TriagemViewModel extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    mensagemErro = null;
+    notifyListeners();
+    return true;
+  }
+
+  bool validarEAvancarDiabetes() {
+    if (possuiDiabetes == null) {
+      mensagemErro = 'Responda se você possui diabetes.';
+      notifyListeners();
+      return false;
+    }
+    if (possuiDiabetes == true &&
+        (tipoDiabetes == null || usaInsulina == null)) {
+      mensagemErro = 'Complete as perguntas sobre diabetes.';
+      notifyListeners();
+      return false;
+    }
+    mensagemErro = null;
+    notifyListeners();
+    return true;
+  }
+
+  bool validarEAvancarCardiopatia() {
+    if (possuiCardiopatia == null) {
+      mensagemErro = 'Responda se você possui alguma cardiopatia.';
+      notifyListeners();
+      return false;
+    }
+    if (possuiCardiopatia == true && usaMarcapasso == null) {
+      mensagemErro = 'Complete as perguntas sobre cardiopatia.';
+      notifyListeners();
+      return false;
+    }
+    mensagemErro = null;
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> concluirTriagem() async {
+    if (!validarEAvancarSobreVoce()) return false;
+    if (!validarEAvancarDiabetes()) return false;
+    if (!validarEAvancarCardiopatia()) return false;
 
     carregando = true;
     mensagemErro = null;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'core/theme/app_theme.dart';
+import 'core/theme/sem_brilho_ao_rolar.dart';
 import 'firebase_options.dart';
 import 'ui/auth/login_view.dart';
 import 'ui/auth/login_viewmodel.dart';
@@ -26,10 +28,8 @@ class AgendaSaudeApp extends StatelessWidget {
     return MaterialApp(
       title: 'Agenda Saúde',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.claro,
+      scrollBehavior: SemBrilhoAoRolar(),
       home: ChangeNotifierProvider(
         create: (_) => LoginViewModel(),
         child: const LoginView(),
