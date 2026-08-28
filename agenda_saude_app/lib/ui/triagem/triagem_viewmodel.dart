@@ -38,6 +38,11 @@ class TriagemViewModel extends ChangeNotifier {
   bool carregando = false;
   String? mensagemErro;
 
+  // Disponível para a tela apos concluirTriagem() ter sucesso, para navegar
+  // ja com os dados atualizados (ex: possuiCardiopatia) para o painel do
+  // paciente.
+  Paciente? pacienteAtualizado;
+
   void responderDiabetes(bool valor) {
     possuiDiabetes = valor;
     if (!valor) {
@@ -220,6 +225,7 @@ class TriagemViewModel extends ChangeNotifier {
 
       await _pacienteRepository.salvarPaciente(pacienteAtualizado);
 
+      this.pacienteAtualizado = pacienteAtualizado;
       carregando = false;
       notifyListeners();
       return true;

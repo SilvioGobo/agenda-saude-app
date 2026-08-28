@@ -34,4 +34,20 @@ class DadosMedicosRepository {
 
     return snapshot.docs.map((doc) => Alerta.fromJson(doc.data(), doc.id)).toList();
   }
+
+  // Leitura de BPM mais recente do paciente, em tempo real (RF04.3, NF003) -
+  // usada no destaque de batimentos do painel principal (Figura 13).
+  Stream<BatimentoCardiaco?> streamUltimoBatimento(String pacienteId) {
+    return _firestore
+        .collection('batimentos_cardiacos')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) return null;
+      final doc = snapshot.docs.first;
+      return BatimentoCardiaco.fromJson(doc.data(), doc.id);
+    });
+  }
 }
