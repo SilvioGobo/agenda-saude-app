@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../paciente/paciente_view.dart';
+import '../paciente/paciente_viewmodel.dart';
 import '../shared/logo_agenda_saude.dart';
 import '../shared/tela_provisoria.dart';
 import '../triagem/triagem_view.dart';
@@ -49,13 +51,24 @@ class _LoginViewState extends State<LoginView> {
       return;
     }
 
-    final mensagem = paciente != null
-        ? 'Bem-vindo(a) de volta! Este será o painel do Paciente.'
-        : 'Bem-vindo(a) de volta! Este será o painel do Acompanhante.';
+    if (paciente != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider(
+            create: (_) => PacienteViewModel(paciente: paciente),
+            child: const PacienteView(),
+          ),
+        ),
+      );
+      return;
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => TelaProvisoria(titulo: 'Início', mensagem: mensagem),
+        builder: (_) => const TelaProvisoria(
+          titulo: 'Início',
+          mensagem: 'Bem-vindo(a) de volta! Este será o painel do Acompanhante.',
+        ),
       ),
     );
   }

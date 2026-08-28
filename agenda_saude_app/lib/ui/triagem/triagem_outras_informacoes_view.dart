@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../paciente/paciente_view.dart';
+import '../paciente/paciente_viewmodel.dart';
 import '../shared/progresso_etapa.dart';
 import '../shared/rotulo_pergunta.dart';
-import '../shared/tela_provisoria.dart';
 import 'triagem_viewmodel.dart';
 
 // Etapa 4 de 4 (final) do assistente de triagem: informacoes opcionais.
@@ -33,11 +34,14 @@ class _TriagemOutrasInformacoesViewState
 
     if (!context.mounted || !sucesso) return;
 
+    final paciente = viewModel.pacienteAtualizado;
+    if (paciente == null) return;
+
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => const TelaProvisoria(
-          titulo: 'Início',
-          mensagem: 'Triagem concluída! Este será o painel do Paciente.',
+        builder: (_) => ChangeNotifierProvider(
+          create: (_) => PacienteViewModel(paciente: paciente),
+          child: const PacienteView(),
         ),
       ),
       (route) => false,
