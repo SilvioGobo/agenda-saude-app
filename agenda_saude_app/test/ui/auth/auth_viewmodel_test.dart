@@ -133,6 +133,25 @@ void main() {
 
       expect(viewModel.pacienteCriado, isNotNull);
       expect(viewModel.pacienteCriado!.id, 'uid_falso_1');
+      expect(viewModel.acompanhanteCriado, isNull);
+    });
+
+    test('Deve publicar o código de vínculo do Paciente recém-cadastrado', () async {
+      viewModel.selecionarPerfil('Paciente');
+
+      await viewModel.cadastrar(
+        nome: 'Maria Souza',
+        email: 'maria@email.com',
+        senha: '123456',
+      );
+
+      final codigo = viewModel.pacienteCriado!.codigoVinculo;
+      final encontrado = await PacienteRepository(firestore: fakeFirestore)
+          .buscarPorCodigoVinculo(codigo);
+
+      expect(encontrado, isNotNull);
+      expect(encontrado!.pacienteId, 'uid_falso_1');
+      expect(encontrado.nomePaciente, 'Maria Souza');
     });
 
     test('Deve cadastrar um Acompanhante e salvar no banco simulado', () async {
@@ -152,6 +171,10 @@ void main() {
       expect(acompanhante, isNotNull);
       expect(acompanhante!.nome, 'Carlos Souza');
       expect(acompanhante.pacientesVinculadosIds, isEmpty);
+
+      expect(viewModel.acompanhanteCriado, isNotNull);
+      expect(viewModel.acompanhanteCriado!.id, 'uid_falso_1');
+      expect(viewModel.pacienteCriado, isNull);
     });
   });
 

@@ -30,13 +30,44 @@ service cloud.firestore {
       return ehDono(pacienteId) || ehAcompanhanteVinculado(pacienteId);
     }
 
+    // Vinculo bidirecional (RF05.4): um Acompanhante pode alterar o doc de um
+    // Paciente apenas para entrar ou sair da lista `acompanhantesVinculadosIds`
+    // dele. Nenhum outro campo pode mudar, e o unico UID que entra ou sai da
+    // lista e o do proprio acompanhante logado.
+    function soEntraOuSaiDaListaDeAcompanhantes(pacienteId) {
+      let antes = resource.data.get('acompanhantesVinculadosIds', []).toSet();
+      let depois = request.resource.data.get('acompanhantesVinculadosIds', []).toSet();
+      let eu = [request.auth.uid].toSet();
+      return logado()
+        && request.auth.uid != pacienteId
+        && resource.data.perfil == 'Paciente'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['acompanhantesVinculadosIds'])
+        && (
+          (depois.difference(antes) == eu && antes.difference(depois).size() == 0)
+          || (antes.difference(depois) == eu && depois.difference(antes).size() == 0)
+        );
+    }
+
     // usuarios/{uid} - Paciente e Acompanhante na mesma colecao (campo `perfil`).
     // O doc id e sempre o UID do Firebase Auth, entao o cadastro so consegue
     // criar o proprio documento.
     match /usuarios/{uid} {
       allow read: if podeVerDadosDe(uid);
-      allow create, update: if ehDono(uid);
+      allow create: if ehDono(uid);
+      allow update: if ehDono(uid) || soEntraOuSaiDaListaDeAcompanhantes(uid);
       allow delete: if false;
+    }
+
+    // codigos_vinculo/{codigo} - indice publico (para usuarios logados) que
+    // liga o codigo de 6 caracteres ao UID e ao nome do paciente. E o unico
+    // dado do paciente visivel antes do vinculo existir. Permite apenas `get`
+    // pontual pelo codigo: sem `list`, ninguem enumera os pacientes.
+    match /codigos_vinculo/{codigo} {
+      allow get: if logado();
+      allow list: if false;
+      allow create, update: if ehDono(request.resource.data.pacienteId);
+      allow delete: if ehDono(resource.data.pacienteId);
     }
 
     // Registros diarios (agua, sono, exercicio, diabete): so o proprio

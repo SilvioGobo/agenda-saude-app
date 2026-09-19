@@ -57,6 +57,8 @@ void main() {
     expect(find.text('Sem leitura recente'), findsOneWidget);
     expect(find.text('AGUARDANDO LEITURA'), findsOneWidget);
     expect(find.text('Smartwatch indisponível'), findsOneWidget);
+    expect(find.text('Código para o acompanhante'), findsOneWidget);
+    expect(find.text('ABC123'), findsOneWidget);
     expect(find.text('Minha Rotina'), findsOneWidget);
     expect(find.text('Falar com Acompanhante'), findsOneWidget);
   });

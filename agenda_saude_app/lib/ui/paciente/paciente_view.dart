@@ -6,6 +6,7 @@ import '../shared/card_status.dart';
 import '../shared/tela_provisoria.dart';
 import '../sincronizacao/card_smartwatch.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
+import 'card_codigo_vinculo.dart';
 import 'paciente_viewmodel.dart';
 
 // Painel principal do paciente (RF05, Figura 13 do TCC): saudacao, destaque
@@ -159,6 +160,8 @@ class PacienteView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const CardSmartwatch(),
+              const SizedBox(height: 16),
+              CardCodigoVinculo(codigo: viewModel.paciente.codigoVinculo),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: () => _abrirMinhaRotina(context),

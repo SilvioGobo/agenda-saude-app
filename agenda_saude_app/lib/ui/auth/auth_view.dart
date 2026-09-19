@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../acompanhante/acompanhante_view.dart';
 import '../shared/botao_selecionavel.dart';
 import '../shared/logo_agenda_saude.dart';
-import '../shared/tela_provisoria.dart';
 import '../triagem/triagem_view.dart';
 import '../triagem/triagem_viewmodel.dart';
 import 'auth_viewmodel.dart';
@@ -50,13 +50,14 @@ class _AuthViewState extends State<AuthView> {
           ),
         ),
       );
-    } else {
+      return;
+    }
+
+    final acompanhanteCriado = viewModel.acompanhanteCriado;
+    if (acompanhanteCriado != null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => const TelaProvisoria(
-            titulo: 'Início',
-            mensagem: 'Cadastro concluído! Este será o painel do Acompanhante.',
-          ),
+          builder: (_) => AcompanhanteView.comProviders(acompanhanteCriado),
         ),
       );
     }

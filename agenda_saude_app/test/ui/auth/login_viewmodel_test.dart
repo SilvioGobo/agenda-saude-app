@@ -71,6 +71,28 @@ void main() {
       expect(viewModel.acompanhanteLogado, isNull);
     });
 
+    test('Deve publicar o código de vínculo de uma conta antiga de Paciente ao logar', () async {
+      // Conta criada antes do modulo de vinculo: tem o codigo no proprio doc,
+      // mas nenhuma entrada em codigos_vinculo.
+      await fakeFirestore.collection('usuarios').doc('uid_paciente').set({
+        'nome': 'Maria Souza',
+        'email': 'maria@email.com',
+        'perfil': 'Paciente',
+        'possuiDiabetes': false,
+        'possuiCardiopatia': false,
+        'codigoVinculo': 'QWE789',
+        'triagemConcluida': true,
+      });
+      final viewModel = criarViewModel('uid_paciente');
+
+      await viewModel.entrar(email: 'maria@email.com', senha: '123456');
+
+      final encontrado = await PacienteRepository(firestore: fakeFirestore)
+          .buscarPorCodigoVinculo('QWE789');
+      expect(encontrado, isNotNull);
+      expect(encontrado!.pacienteId, 'uid_paciente');
+    });
+
     test('Deve logar um Acompanhante e carregar seus dados', () async {
       await fakeFirestore.collection('usuarios').doc('uid_acompanhante').set({
         'nome': 'Carlos Souza',

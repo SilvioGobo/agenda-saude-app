@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../core/constants/codigo_vinculo.dart';
 import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/paciente_repository.dart';
@@ -52,6 +53,7 @@ class AuthViewModel extends ChangeNotifier {
   bool carregando = false;
   String? mensagemErro;
   Paciente? pacienteCriado;
+  Acompanhante? acompanhanteCriado;
 
   void selecionarPerfil(String perfil) {
     perfilSelecionado = perfil;
@@ -117,6 +119,7 @@ class AuthViewModel extends ChangeNotifier {
           pacientesVinculadosIds: [],
         );
         await _acompanhanteRepository.salvarAcompanhante(acompanhante);
+        acompanhanteCriado = acompanhante;
       }
 
       carregando = false;
@@ -157,14 +160,13 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  // Codigo de 6 caracteres que o Acompanhante usara para se vincular a este
-  // Paciente futuramente (RF05.4) - nao ha letras/numeros ambiguos (0,O,1,I).
+  // Codigo que o Acompanhante usara para se vincular a este Paciente (RF05.4).
   String _gerarCodigoVinculo() {
-    const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final aleatorio = Random();
     return List.generate(
-      6,
-      (_) => caracteres[aleatorio.nextInt(caracteres.length)],
+      tamanhoCodigoVinculo,
+      (_) => caracteresCodigoVinculo[
+          aleatorio.nextInt(caracteresCodigoVinculo.length)],
     ).join();
   }
 }

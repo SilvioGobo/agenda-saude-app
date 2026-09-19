@@ -57,7 +57,18 @@ class LoginViewModel extends ChangeNotifier {
       final perfil = doc.data()?['perfil'];
 
       if (perfil == 'Paciente') {
-        pacienteLogado = await _pacienteRepository.getPaciente(uid);
+        final paciente = await _pacienteRepository.getPaciente(uid);
+        pacienteLogado = paciente;
+        // Contas criadas antes do modulo de vinculo tem o codigo no proprio
+        // doc, mas nao em `codigos_vinculo`. Publicar aqui garante que o
+        // acompanhante consiga encontra-las; falhar nisso nao impede o login.
+        if (paciente != null) {
+          try {
+            await _pacienteRepository.publicarCodigoVinculo(paciente);
+          } catch (e) {
+            debugPrint('Falha ao publicar código de vínculo: $e');
+          }
+        }
       } else if (perfil == 'Acompanhante') {
         acompanhanteLogado = await _acompanhanteRepository.getAcompanhante(uid);
       } else {

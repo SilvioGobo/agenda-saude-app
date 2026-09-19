@@ -88,8 +88,17 @@ Convenções já estabelecidas nos repositories — manter:
 
 - `usuarios/{uid}` — doc id = UID do Firebase Auth. Paciente e Acompanhante na mesma
   coleção, discriminados pelo campo `perfil` (`'Paciente'` | `'Acompanhante'`).
-  Paciente tem `possuiDiabetes`, `possuiCardiopatia`, `codigoVinculo`;
+  Paciente tem `possuiDiabetes`, `possuiCardiopatia`, `codigoVinculo`,
+  `acompanhantesVinculadosIds: List<String>`;
   Acompanhante tem `pacientesVinculadosIds: List<String>`.
+- `codigos_vinculo/{codigo}` — doc id = o código de 6 caracteres; campos `pacienteId`,
+  `nomePaciente`. É o índice que o Acompanhante consulta (só `get`, sem `list`) para
+  achar o paciente antes do vínculo existir. `PacienteRepository.salvarPaciente` grava
+  os dois docs no mesmo batch.
+- **Vínculo (RF05.4) é bidirecional e atômico**: `AcompanhanteRepository.vincularPaciente`
+  faz `arrayUnion` nos dois lados num único batch. As rules só deixam o acompanhante
+  tocar em `acompanhantesVinculadosIds` do paciente (e só para entrar/sair ele mesmo);
+  um `arrayUnion` sem mudança é negado, por isso o ViewModel checa "já vinculado" antes.
 - `registros_diarios` — todas as subclasses de `RegistroBase` (água, sono, exercício,
   diabete), discriminadas pelo campo `tipo` gravado no `toJson()` de cada uma.
 - `batimentos_cardiacos` — leituras de BPM com `pacienteId` + `timestamp`.
@@ -113,7 +122,8 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008)
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas
-   push em tempo real via FCM (RF005, RF006)
+   push em tempo real via FCM (RF005, RF006). ← *vínculo por código e lista de
+   pacientes em cards já feitos (`ui/acompanhante/`); faltam BPM/status por card e FCM*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007)
 
@@ -140,5 +150,8 @@ Regras de negócio importantes do documento:
   alto contraste — é requisito do TCC, não estética opcional.
 - Testes: `group('X Testes', ...)`, descrições em português ("Deve salvar e buscar...").
   Todo model e repository novo ganha teste correspondente espelhando o caminho em `test/`.
+- Security rules: validar localmente antes de publicar com
+  `firebase emulators:exec --only firestore --project demo-rules "<script>"` (projeto
+  `demo-*` não toca no Firebase real). Publicar com `firebase deploy --only firestore:rules`.
 - Commits em português, minúsculos, prefixo convencional (`feat:`, `chore:`, `fix:`),
   sem acentos — ex.: `feat: implementacao do modulo de identidade`.
