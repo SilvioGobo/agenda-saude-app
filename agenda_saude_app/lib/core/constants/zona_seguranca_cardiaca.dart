@@ -11,6 +11,11 @@ class ZonaSegurancaCardiaca {
   static const int bpmMinimoCardiopata = 60;
   static const int bpmMaximoCardiopata = 90;
 
+  // Quanto tempo seguido fora da zona caracteriza "tempo prolongado" (UC04.4)
+  // e dispara o alerta de emergencia (UC06). O documento nao fixa o valor;
+  // 5 minutos evita alarme falso por um pico isolado (ex.: subir escada).
+  static const Duration tempoProlongadoParaAlerta = Duration(minutes: 5);
+
   static bool estaDentroDaZona(int bpm, {required bool possuiCardiopatia}) {
     final minimo = possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao;
     final maximo = possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao;

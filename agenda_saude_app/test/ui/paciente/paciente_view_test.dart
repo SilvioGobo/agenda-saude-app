@@ -7,6 +7,9 @@ import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_view.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_viewmodel.dart';
+import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
+
+import '../../core/services/fake_health_service.dart';
 
 void main() {
   testWidgets('Painel do paciente mostra saudação, BPM e atalhos', (
@@ -23,13 +26,27 @@ void main() {
       codigoVinculo: 'ABC123',
     );
 
+    final dadosRepository = DadosMedicosRepository(firestore: fakeFirestore);
+
     await tester.pumpWidget(
       MaterialApp(
-        home: ChangeNotifierProvider(
-          create: (_) => PacienteViewModel(
-            paciente: paciente,
-            dadosRepository: DadosMedicosRepository(firestore: fakeFirestore),
-          ),
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider(
+              create: (_) => PacienteViewModel(
+                paciente: paciente,
+                dadosRepository: dadosRepository,
+              ),
+            ),
+            ChangeNotifierProvider(
+              create: (_) => SincronizacaoBpmViewModel(
+                paciente: paciente,
+                healthService: FakeHealthService(),
+                dadosRepository: dadosRepository,
+                plataformaSuportada: false,
+              )..iniciar(),
+            ),
+          ],
           child: const PacienteView(),
         ),
       ),
@@ -39,6 +56,9 @@ void main() {
     expect(find.text('Olá, José'), findsOneWidget);
     expect(find.text('Sem leitura recente'), findsOneWidget);
     expect(find.text('AGUARDANDO LEITURA'), findsOneWidget);
+    expect(find.text('Smartwatch indisponível'), findsOneWidget);
+    expect(find.text('Código para o acompanhante'), findsOneWidget);
+    expect(find.text('ABC123'), findsOneWidget);
     expect(find.text('Minha Rotina'), findsOneWidget);
     expect(find.text('Falar com Acompanhante'), findsOneWidget);
   });

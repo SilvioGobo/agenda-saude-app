@@ -9,6 +9,10 @@ class Paciente extends Usuario {
   final String? tipoCardiopatia;
   final bool? usaMarcapasso;
   final String codigoVinculo;
+  // Lado do paciente do vinculo bidirecional (RF05.4): espelha o
+  // `pacientesVinculadosIds` do Acompanhante para o paciente saber quem o
+  // monitora sem precisar consultar outros usuarios.
+  final List<String> acompanhantesVinculadosIds;
   final bool triagemConcluida;
 
   // Dados fisicos/demograficos - usados para calcular IMC e personalizar
@@ -34,6 +38,7 @@ class Paciente extends Usuario {
     this.tipoCardiopatia,
     this.usaMarcapasso,
     required this.codigoVinculo,
+    this.acompanhantesVinculadosIds = const [],
     this.triagemConcluida = false,
     this.dataNascimento,
     this.sexoBiologico,
@@ -59,6 +64,8 @@ class Paciente extends Usuario {
       tipoCardiopatia: json['tipoCardiopatia'],
       usaMarcapasso: json['usaMarcapasso'],
       codigoVinculo: json['codigoVinculo'] ?? '',
+      acompanhantesVinculadosIds:
+          List<String>.from(json['acompanhantesVinculadosIds'] ?? []),
       triagemConcluida: json['triagemConcluida'] ?? false,
       dataNascimento: json['dataNascimento'] != null
           ? (json['dataNascimento']).toDate()
@@ -87,6 +94,7 @@ class Paciente extends Usuario {
       'tipoCardiopatia': tipoCardiopatia,
       'usaMarcapasso': usaMarcapasso,
       'codigoVinculo': codigoVinculo,
+      'acompanhantesVinculadosIds': acompanhantesVinculadosIds,
       'triagemConcluida': triagemConcluida,
       'dataNascimento': dataNascimento,
       'sexoBiologico': sexoBiologico,

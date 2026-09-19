@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../acompanhante/acompanhante_view.dart';
 import '../paciente/paciente_view.dart';
-import '../paciente/paciente_viewmodel.dart';
 import '../shared/logo_agenda_saude.dart';
-import '../shared/tela_provisoria.dart';
 import '../triagem/triagem_view.dart';
 import '../triagem/triagem_viewmodel.dart';
 import 'auth_view.dart';
@@ -54,23 +53,20 @@ class _LoginViewState extends State<LoginView> {
     if (paciente != null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider(
-            create: (_) => PacienteViewModel(paciente: paciente),
-            child: const PacienteView(),
-          ),
+          builder: (_) => PacienteView.comProviders(paciente),
         ),
       );
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const TelaProvisoria(
-          titulo: 'Início',
-          mensagem: 'Bem-vindo(a) de volta! Este será o painel do Acompanhante.',
+    final acompanhante = viewModel.acompanhanteLogado;
+    if (acompanhante != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => AcompanhanteView.comProviders(acompanhante),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _irParaCadastro(BuildContext context) {

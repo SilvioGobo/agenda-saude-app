@@ -1,0 +1,4 @@
+# Logs gerados pelo Firebase CLI / emuladores
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

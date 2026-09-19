@@ -1,14 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../domain/models/paciente.dart';
 import '../shared/card_status.dart';
 import '../shared/tela_provisoria.dart';
+import '../sincronizacao/card_smartwatch.dart';
+import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
+import 'card_codigo_vinculo.dart';
 import 'paciente_viewmodel.dart';
 
 // Painel principal do paciente (RF05, Figura 13 do TCC): saudacao, destaque
 // de BPM em tempo real e atalhos para a rotina diaria e para o acompanhante.
 class PacienteView extends StatelessWidget {
   const PacienteView({super.key});
+
+  // Monta o painel com os dois ViewModels de que ele depende: o do painel em
+  // si e o da sincronizacao com o smartwatch (que ja comeca a ler ao abrir).
+  static Widget comProviders(Paciente paciente) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => PacienteViewModel(paciente: paciente),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SincronizacaoBpmViewModel(paciente: paciente)..iniciar(),
+        ),
+      ],
+      child: const PacienteView(),
+    );
+  }
 
   void _abrirMinhaRotina(BuildContext context) {
     Navigator.of(context).push(
@@ -138,6 +158,10 @@ class PacienteView extends StatelessWidget {
                 icone: status.icone,
                 cor: status.cor,
               ),
+              const SizedBox(height: 16),
+              const CardSmartwatch(),
+              const SizedBox(height: 16),
+              CardCodigoVinculo(codigo: viewModel.paciente.codigoVinculo),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: () => _abrirMinhaRotina(context),

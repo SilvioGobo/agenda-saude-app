@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../core/constants/codigo_vinculo.dart';
 import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/paciente_repository.dart';
@@ -52,6 +53,7 @@ class AuthViewModel extends ChangeNotifier {
   bool carregando = false;
   String? mensagemErro;
   Paciente? pacienteCriado;
+  Acompanhante? acompanhanteCriado;
 
   void selecionarPerfil(String perfil) {
     perfilSelecionado = perfil;
@@ -117,18 +119,24 @@ class AuthViewModel extends ChangeNotifier {
           pacientesVinculadosIds: [],
         );
         await _acompanhanteRepository.salvarAcompanhante(acompanhante);
+        acompanhanteCriado = acompanhante;
       }
 
       carregando = false;
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
+      debugPrint('Cadastro falhou (FirebaseAuth ${e.code}): ${e.message}');
       mensagemErro = _traduzirErro(e.code);
       carregando = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      mensagemErro = 'Não foi possível completar o cadastro. Tente novamente.';
+    } catch (e) {
+      // Cai aqui quando o Auth deu certo mas gravar o perfil no Firestore
+      // falhou (ex.: security rules negando a escrita).
+      debugPrint('Cadastro falhou ao gravar perfil: $e');
+      mensagemErro =
+          'Conta criada, mas não foi possível salvar seu perfil. Tente entrar novamente.';
       carregando = false;
       notifyListeners();
       return false;
@@ -143,19 +151,22 @@ class AuthViewModel extends ChangeNotifier {
         return 'O e-mail informado não é válido.';
       case 'weak-password':
         return 'A senha é muito fraca. Use pelo menos 6 caracteres.';
+      case 'operation-not-allowed':
+        return 'Cadastro por e-mail e senha não está habilitado no servidor.';
+      case 'network-request-failed':
+        return 'Sem conexão com a internet. Verifique sua rede.';
       default:
         return 'Não foi possível completar o cadastro. Tente novamente.';
     }
   }
 
-  // Codigo de 6 caracteres que o Acompanhante usara para se vincular a este
-  // Paciente futuramente (RF05.4) - nao ha letras/numeros ambiguos (0,O,1,I).
+  // Codigo que o Acompanhante usara para se vincular a este Paciente (RF05.4).
   String _gerarCodigoVinculo() {
-    const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final aleatorio = Random();
     return List.generate(
-      6,
-      (_) => caracteres[aleatorio.nextInt(caracteres.length)],
+      tamanhoCodigoVinculo,
+      (_) => caracteresCodigoVinculo[
+          aleatorio.nextInt(caracteresCodigoVinculo.length)],
     ).join();
   }
 }

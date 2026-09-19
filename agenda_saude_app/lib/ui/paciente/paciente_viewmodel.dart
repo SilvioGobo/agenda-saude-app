@@ -23,10 +23,16 @@ class PacienteViewModel extends ChangeNotifier {
     DadosMedicosRepository? dadosRepository,
   }) : _dadosRepository = dadosRepository ?? DadosMedicosRepository() {
     _assinaturaBatimento =
-        _dadosRepository.streamUltimoBatimento(paciente.id).listen((batimento) {
-      _ultimoBatimento = batimento;
-      notifyListeners();
-    });
+        _dadosRepository.streamUltimoBatimento(paciente.id).listen(
+      (batimento) {
+        _ultimoBatimento = batimento;
+        notifyListeners();
+      },
+      // Sem isso um erro do Firestore (ex.: indice composto faltando) vira
+      // excecao nao tratada e o painel fica em "aguardando leitura" sem pista.
+      onError: (Object erro) =>
+          debugPrint('Stream de batimentos falhou: $erro'),
+    );
   }
 
   BatimentoCardiaco? _ultimoBatimento;

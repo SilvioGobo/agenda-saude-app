@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "batimentos_cardiacos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pacienteId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "alertas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pacienteId", "order": "ASCENDING" },
+        { "fieldPath": "dataHora", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

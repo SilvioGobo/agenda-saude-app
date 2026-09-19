@@ -80,6 +80,24 @@ void main() {
       expect(paciente.triagemConcluida, false);
       expect(paciente.dataNascimento, isNull);
       expect(paciente.alturaCm, isNull);
+      expect(paciente.acompanhantesVinculadosIds, isEmpty);
+    });
+
+    test('Deve converter a lista de acompanhantes vinculados a partir do JSON', () {
+      final mapJson = {
+        'nome': 'João Silva',
+        'email': 'joao@email.com',
+        'perfil': 'Paciente',
+        'possuiDiabetes': false,
+        'possuiCardiopatia': false,
+        'codigoVinculo': '12345',
+        'acompanhantesVinculadosIds': ['cuidador_1', 'cuidador_2'],
+      };
+
+      final paciente = Paciente.fromJson(mapJson, 'id-123');
+
+      expect(paciente.acompanhantesVinculadosIds, ['cuidador_1', 'cuidador_2']);
+      expect(paciente.toJson()['acompanhantesVinculadosIds'], ['cuidador_1', 'cuidador_2']);
     });
 
     test('Deve converter Objeto Paciente para JSON corretamente', () {

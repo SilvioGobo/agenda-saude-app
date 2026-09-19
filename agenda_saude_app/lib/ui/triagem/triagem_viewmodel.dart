@@ -211,6 +211,7 @@ class TriagemViewModel extends ChangeNotifier {
                 : null,
         usaMarcapasso: possuiCardiopatia! ? usaMarcapasso : null,
         codigoVinculo: _pacienteOriginal.codigoVinculo,
+        acompanhantesVinculadosIds: _pacienteOriginal.acompanhantesVinculadosIds,
         triagemConcluida: true,
         dataNascimento: dataNascimento,
         sexoBiologico: sexoBiologico,
