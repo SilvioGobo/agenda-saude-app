@@ -67,5 +67,68 @@ void main() {
       expect(alertasRecuperados.first.mensagem, 'Frequência cardíaca elevada detetada!');
       expect(alertasRecuperados.first.lido, false);
     });
+
+    test('Deve retornar null quando o paciente ainda não tem batimentos', () async {
+      expect(await repository.getUltimoBatimento('paciente_99'), isNull);
+    });
+
+    test('Deve buscar o batimento mais recente do paciente', () async {
+      final base = DateTime(2026, 9, 19, 10, 0);
+      await repository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_99', bpm: 70, timestamp: base,
+      ));
+      await repository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_99', bpm: 88,
+        timestamp: base.add(const Duration(minutes: 10)),
+      ));
+      await repository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'outro_paciente', bpm: 130,
+        timestamp: base.add(const Duration(hours: 1)),
+      ));
+
+      final ultimo = await repository.getUltimoBatimento('paciente_99');
+
+      expect(ultimo?.bpm, 88);
+      expect(ultimo?.timestamp, base.add(const Duration(minutes: 10)));
+    });
+
+    test('Deve salvar um lote de batimentos de uma vez', () async {
+      final base = DateTime(2026, 9, 19, 10, 0);
+      final lote = List.generate(
+        3,
+        (i) => BatimentoCardiaco(
+          id: '',
+          pacienteId: 'paciente_99',
+          bpm: 70 + i,
+          timestamp: base.add(Duration(minutes: i)),
+        ),
+      );
+
+      await repository.salvarBatimentos(lote);
+
+      final snapshot = await fakeFirestore
+          .collection('batimentos_cardiacos')
+          .orderBy('timestamp')
+          .get();
+      expect(snapshot.docs.map((d) => d.data()['bpm']), [70, 71, 72]);
+    });
+
+    test('Deve dividir lotes maiores que 500 batimentos', () async {
+      final base = DateTime(2026, 9, 19, 10, 0);
+      final lote = List.generate(
+        501,
+        (i) => BatimentoCardiaco(
+          id: '',
+          pacienteId: 'paciente_99',
+          bpm: 70,
+          timestamp: base.add(Duration(seconds: i)),
+        ),
+      );
+
+      await repository.salvarBatimentos(lote);
+
+      final snapshot = await fakeFirestore.collection('batimentos_cardiacos').get();
+      expect(snapshot.docs.length, 501);
+    });
   });
 }

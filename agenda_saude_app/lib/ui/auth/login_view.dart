@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../paciente/paciente_view.dart';
-import '../paciente/paciente_viewmodel.dart';
 import '../shared/logo_agenda_saude.dart';
 import '../shared/tela_provisoria.dart';
 import '../triagem/triagem_view.dart';
@@ -54,10 +53,7 @@ class _LoginViewState extends State<LoginView> {
     if (paciente != null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider(
-            create: (_) => PacienteViewModel(paciente: paciente),
-            child: const PacienteView(),
-          ),
+          builder: (_) => PacienteView.comProviders(paciente),
         ),
       );
       return;

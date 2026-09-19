@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../paciente/paciente_view.dart';
-import '../paciente/paciente_viewmodel.dart';
 import '../shared/progresso_etapa.dart';
 import '../shared/rotulo_pergunta.dart';
 import 'triagem_viewmodel.dart';
@@ -39,10 +38,7 @@ class _TriagemOutrasInformacoesViewState
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(
-          create: (_) => PacienteViewModel(paciente: paciente),
-          child: const PacienteView(),
-        ),
+        builder: (_) => PacienteView.comProviders(paciente),
       ),
       (route) => false,
     );
