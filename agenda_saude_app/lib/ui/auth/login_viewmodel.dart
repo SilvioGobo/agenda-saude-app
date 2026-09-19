@@ -75,7 +75,8 @@ class LoginViewModel extends ChangeNotifier {
       carregando = false;
       notifyListeners();
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Login falhou ao buscar perfil: $e');
       mensagemErro = 'Não foi possível entrar. Tente novamente.';
       carregando = false;
       notifyListeners();

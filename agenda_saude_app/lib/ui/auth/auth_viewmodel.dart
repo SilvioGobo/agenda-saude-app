@@ -123,12 +123,17 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
+      debugPrint('Cadastro falhou (FirebaseAuth ${e.code}): ${e.message}');
       mensagemErro = _traduzirErro(e.code);
       carregando = false;
       notifyListeners();
       return false;
-    } catch (_) {
-      mensagemErro = 'Não foi possível completar o cadastro. Tente novamente.';
+    } catch (e) {
+      // Cai aqui quando o Auth deu certo mas gravar o perfil no Firestore
+      // falhou (ex.: security rules negando a escrita).
+      debugPrint('Cadastro falhou ao gravar perfil: $e');
+      mensagemErro =
+          'Conta criada, mas não foi possível salvar seu perfil. Tente entrar novamente.';
       carregando = false;
       notifyListeners();
       return false;
@@ -143,6 +148,10 @@ class AuthViewModel extends ChangeNotifier {
         return 'O e-mail informado não é válido.';
       case 'weak-password':
         return 'A senha é muito fraca. Use pelo menos 6 caracteres.';
+      case 'operation-not-allowed':
+        return 'Cadastro por e-mail e senha não está habilitado no servidor.';
+      case 'network-request-failed':
+        return 'Sem conexão com a internet. Verifique sua rede.';
       default:
         return 'Não foi possível completar o cadastro. Tente novamente.';
     }

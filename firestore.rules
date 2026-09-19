@@ -1,0 +1,67 @@
+rules_version = '2';
+
+// Regras de seguranca do Firestore - Agenda Saude
+//
+// NF005 (privacidade): os dados de um Paciente so podem ser lidos por ele
+// mesmo ou pelo Acompanhante vinculado a ele. Todo acesso exige login.
+//
+// Publicar com:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() {
+      return request.auth != null;
+    }
+
+    function ehDono(uid) {
+      return logado() && request.auth.uid == uid;
+    }
+
+    // O usuario logado e um Acompanhante que tem este paciente na sua lista
+    // de vinculados (usuarios/{uid}.pacientesVinculadosIds).
+    function ehAcompanhanteVinculado(pacienteId) {
+      return logado()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && (pacienteId in get(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+              .data.get('pacientesVinculadosIds', []));
+    }
+
+    function podeVerDadosDe(pacienteId) {
+      return ehDono(pacienteId) || ehAcompanhanteVinculado(pacienteId);
+    }
+
+    // usuarios/{uid} - Paciente e Acompanhante na mesma colecao (campo `perfil`).
+    // O doc id e sempre o UID do Firebase Auth, entao o cadastro so consegue
+    // criar o proprio documento.
+    match /usuarios/{uid} {
+      allow read: if podeVerDadosDe(uid);
+      allow create, update: if ehDono(uid);
+      allow delete: if false;
+    }
+
+    // Registros diarios (agua, sono, exercicio, diabete): so o proprio
+    // paciente grava; leitura para ele e para o acompanhante vinculado.
+    match /registros_diarios/{registroId} {
+      allow read: if podeVerDadosDe(resource.data.pacienteId);
+      allow create: if ehDono(request.resource.data.pacienteId);
+      allow update, delete: if ehDono(resource.data.pacienteId);
+    }
+
+    // Leituras de BPM do smartwatch: mesmo criterio dos registros.
+    match /batimentos_cardiacos/{batimentoId} {
+      allow read: if podeVerDadosDe(resource.data.pacienteId);
+      allow create: if ehDono(request.resource.data.pacienteId);
+      allow update, delete: if false;
+    }
+
+    // Alertas: gerados pelo app do paciente; paciente e acompanhante podem
+    // ler e marcar como lido.
+    match /alertas/{alertaId} {
+      allow read: if podeVerDadosDe(resource.data.pacienteId);
+      allow create: if ehDono(request.resource.data.pacienteId);
+      allow update: if podeVerDadosDe(resource.data.pacienteId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lido']);
+      allow delete: if false;
+    }
+  }
+}
