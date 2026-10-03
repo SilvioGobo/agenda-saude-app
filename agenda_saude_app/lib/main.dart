@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/sem_brilho_ao_rolar.dart';
 import 'firebase_options.dart';
-import 'ui/auth/login_view.dart';
+import 'ui/auth/abertura_view.dart';
 import 'ui/auth/login_viewmodel.dart';
 
 void main() async {
@@ -32,7 +32,7 @@ class AgendaSaudeApp extends StatelessWidget {
       scrollBehavior: SemBrilhoAoRolar(),
       home: ChangeNotifierProvider(
         create: (_) => LoginViewModel(),
-        child: const LoginView(),
+        child: const AberturaView(),
       ),
     );
   }

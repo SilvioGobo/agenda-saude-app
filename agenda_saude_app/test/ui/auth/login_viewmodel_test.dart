@@ -19,6 +19,20 @@ class _AuthRepositoryFalso extends AuthRepository {
   }
 }
 
+// Simula um aparelho onde alguem ja entrou antes (sessao salva do Firebase Auth).
+class _AuthRepositoryComSessao extends AuthRepository {
+  final String? uidSessao;
+  bool saiu = false;
+
+  _AuthRepositoryComSessao(this.uidSessao);
+
+  @override
+  String? get uidUsuarioAtual => saiu ? null : uidSessao;
+
+  @override
+  Future<void> sair() async => saiu = true;
+}
+
 void main() {
   group('LoginViewModel Testes', () {
     late FakeFirebaseFirestore fakeFirestore;
@@ -124,6 +138,85 @@ void main() {
 
       expect(sucesso, false);
       expect(viewModel.mensagemErro, isNotNull);
+    });
+  });
+
+  group('LoginViewModel Sessão Salva Testes', () {
+    late FakeFirebaseFirestore fakeFirestore;
+
+    LoginViewModel criarViewModel(AuthRepository authRepository) {
+      return LoginViewModel(
+        authRepository: authRepository,
+        pacienteRepository: PacienteRepository(firestore: fakeFirestore),
+        acompanhanteRepository: AcompanhanteRepository(firestore: fakeFirestore),
+        firestore: fakeFirestore,
+      );
+    }
+
+    setUp(() {
+      fakeFirestore = FakeFirebaseFirestore();
+    });
+
+    test('Não deve restaurar nada quando ninguém entrou no aparelho', () async {
+      final viewModel = criarViewModel(_AuthRepositoryComSessao(null));
+
+      final restaurou = await viewModel.restaurarSessao();
+
+      expect(restaurou, false);
+      expect(viewModel.pacienteLogado, isNull);
+      expect(viewModel.acompanhanteLogado, isNull);
+      expect(viewModel.mensagemErro, isNull);
+    });
+
+    test('Deve restaurar a sessão salva de um Paciente sem pedir a senha', () async {
+      await fakeFirestore.collection('usuarios').doc('uid_paciente').set({
+        'nome': 'Maria Souza',
+        'email': 'maria@email.com',
+        'perfil': 'Paciente',
+        'possuiDiabetes': false,
+        'possuiCardiopatia': true,
+        'codigoVinculo': 'ABC123',
+        'triagemConcluida': true,
+      });
+      final auth = _AuthRepositoryComSessao('uid_paciente');
+      final viewModel = criarViewModel(auth);
+
+      final restaurou = await viewModel.restaurarSessao();
+
+      expect(restaurou, true);
+      expect(viewModel.pacienteLogado!.nome, 'Maria Souza');
+      expect(viewModel.pacienteLogado!.triagemConcluida, true);
+      expect(auth.saiu, false);
+    });
+
+    test('Deve restaurar a sessão salva de um Acompanhante', () async {
+      await fakeFirestore.collection('usuarios').doc('uid_acompanhante').set({
+        'nome': 'Carlos Souza',
+        'email': 'carlos@email.com',
+        'perfil': 'Acompanhante',
+        'pacientesVinculadosIds': [],
+      });
+      final viewModel =
+          criarViewModel(_AuthRepositoryComSessao('uid_acompanhante'));
+
+      final restaurou = await viewModel.restaurarSessao();
+
+      expect(restaurou, true);
+      expect(viewModel.acompanhanteLogado!.nome, 'Carlos Souza');
+      expect(viewModel.pacienteLogado, isNull);
+    });
+
+    test('Deve encerrar a sessão salva de uma conta sem perfil no Firestore', () async {
+      // Cadastro que criou a conta no Auth mas falhou ao gravar o perfil.
+      final auth = _AuthRepositoryComSessao('uid_sem_perfil');
+      final viewModel = criarViewModel(auth);
+
+      final restaurou = await viewModel.restaurarSessao();
+
+      expect(restaurou, false);
+      expect(auth.saiu, true);
+      expect(viewModel.pacienteLogado, isNull);
+      expect(viewModel.acompanhanteLogado, isNull);
     });
   });
 }
