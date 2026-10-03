@@ -92,6 +92,25 @@ void main() {
       expect(ultimo?.timestamp, base.add(const Duration(minutes: 10)));
     });
 
+    test('Deve buscar só os batimentos do paciente a partir de uma data', () async {
+      final base = DateTime(2026, 9, 19, 10, 0);
+      Future<void> salvar(String paciente, int bpm, Duration depois) =>
+          repository.salvarBatimento(BatimentoCardiaco(
+            id: '', pacienteId: paciente, bpm: bpm, timestamp: base.add(depois),
+          ));
+      await salvar('paciente_99', 60, Duration.zero);
+      await salvar('paciente_99', 70, const Duration(minutes: 10));
+      await salvar('paciente_99', 80, const Duration(minutes: 20));
+      await salvar('outro_paciente', 130, const Duration(minutes: 15));
+
+      final recentes = await repository.getBatimentosDesde(
+        'paciente_99',
+        base.add(const Duration(minutes: 10)),
+      );
+
+      expect(recentes.map((b) => b.bpm).toList()..sort(), [70, 80]);
+    });
+
     test('Deve salvar um lote de batimentos de uma vez', () async {
       final base = DateTime(2026, 9, 19, 10, 0);
       final lote = List.generate(

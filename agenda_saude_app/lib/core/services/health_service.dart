@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:health/health.dart';
 
 // Situacao do Health Connect no aparelho (Android). O smartwatch nao fala
@@ -31,6 +32,10 @@ abstract class HealthService {
   // Mostra a tela de permissoes do Health Connect; retorna se foi concedida.
   Future<bool> solicitarPermissaoBpm();
 
+  // Abre as configuracoes do Health Connect. Necessario quando o usuario ja
+  // negou a permissao e o Android nao mostra mais o pop-up.
+  Future<void> abrirConfiguracoesHealthConnect();
+
   // Leituras de BPM registradas entre [inicio] e [fim], da mais antiga para
   // a mais recente.
   Future<List<LeituraBpm>> lerBatimentos({
@@ -41,6 +46,8 @@ abstract class HealthService {
 
 // Implementacao real em cima do plugin `health`.
 class HealthServiceImpl implements HealthService {
+  static const _canal = MethodChannel('agenda_saude_app/health_connect');
+
   final Health _health;
   bool _configurado = false;
 
@@ -89,6 +96,11 @@ class HealthServiceImpl implements HealthService {
   Future<bool> solicitarPermissaoBpm() async {
     await _garantirConfigurado();
     return _health.requestAuthorization(_tipos, permissions: _permissoes);
+  }
+
+  @override
+  Future<void> abrirConfiguracoesHealthConnect() async {
+    await _canal.invokeMethod<bool>('abrirConfiguracoes');
   }
 
   @override

@@ -55,10 +55,25 @@ class CardSmartwatch extends StatelessWidget {
             'Permita que o app leia seus batimentos cardíacos.';
         icone = Icons.watch_rounded;
         cor = Colors.orange.shade800;
-        acao = ElevatedButton.icon(
-          onPressed: viewModel.conectar,
-          icon: const Icon(Icons.link_rounded),
-          label: const Text('Conectar smartwatch'),
+        acao = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton.icon(
+              onPressed: viewModel.conectar,
+              icon: const Icon(Icons.link_rounded),
+              label: const Text('Conectar smartwatch'),
+            ),
+            // So depois de uma tentativa negada: o Android deixa de mostrar o
+            // pop-up e o usuario precisa liberar nas configuracoes.
+            if (viewModel.mensagemErro != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: viewModel.abrirConfiguracoesHealthConnect,
+                icon: const Icon(Icons.settings_rounded),
+                label: const Text('Abrir configurações do Health Connect'),
+              ),
+            ],
+          ],
         );
       case EstadoSincronizacao.ativa:
         titulo = 'Smartwatch conectado';
