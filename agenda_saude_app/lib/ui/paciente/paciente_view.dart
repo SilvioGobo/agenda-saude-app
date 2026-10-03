@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/paciente.dart';
-import '../auth/login_view.dart';
-import '../auth/login_viewmodel.dart';
+import '../auth/botao_sair.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
 import '../shared/caixa_alerta.dart';
@@ -79,28 +78,7 @@ class PacienteView extends StatelessWidget {
       iconeConfirmar: Icons.logout_rounded,
     );
     if (!context.mounted || !confirmou) return;
-
-    try {
-      await context.read<PacienteViewModel>().sair();
-    } catch (e) {
-      debugPrint('Falha ao sair da conta: $e');
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível sair. Tente de novo.')),
-      );
-      return;
-    }
-
-    if (!context.mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(
-          create: (_) => LoginViewModel(),
-          child: const LoginView(),
-        ),
-      ),
-      (_) => false,
-    );
+    await sairDaConta(context, sair: context.read<PacienteViewModel>().sair);
   }
 
   // O que aparece no lugar de destaque: o problema do smartwatch (que deixa

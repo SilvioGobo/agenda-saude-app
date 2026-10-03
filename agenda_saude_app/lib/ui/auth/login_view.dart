@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
-import '../acompanhante/acompanhante_view.dart';
-import '../paciente/paciente_view.dart';
 import '../shared/logo_agenda_saude.dart';
-import '../triagem/triagem_view.dart';
-import '../triagem/triagem_viewmodel.dart';
 import 'auth_view.dart';
 import 'auth_viewmodel.dart';
 import 'login_viewmodel.dart';
+import 'tela_inicial_usuario.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -38,36 +35,11 @@ class _LoginViewState extends State<LoginView> {
 
     if (!context.mounted || !sucesso) return;
 
-    final paciente = viewModel.pacienteLogado;
-    if (paciente != null && !paciente.triagemConcluida) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider(
-            create: (_) => TriagemViewModel(paciente: paciente),
-            child: const TriagemView(),
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (paciente != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => PacienteView.comProviders(paciente),
-        ),
-      );
-      return;
-    }
-
-    final acompanhante = viewModel.acompanhanteLogado;
-    if (acompanhante != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => AcompanhanteView.comProviders(acompanhante),
-        ),
-      );
-    }
+    final tela = telaInicialDoUsuario(viewModel);
+    if (tela == null) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => tela),
+    );
   }
 
   void _irParaCadastro(BuildContext context) {

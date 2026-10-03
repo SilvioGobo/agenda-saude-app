@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/acompanhante.dart';
 import '../../domain/models/paciente.dart';
+import '../auth/botao_sair.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
 import 'vincular_paciente_view.dart';
@@ -82,6 +83,7 @@ class AcompanhanteView extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Monitoramento'),
         automaticallyImplyLeading: false,
+        actions: const [BotaoSair()],
       ),
       body: SafeArea(
         child: RefreshIndicator(

@@ -10,6 +10,12 @@ class AuthRepository {
 
   FirebaseAuth get _auth => _authInjetado ?? FirebaseAuth.instance;
 
+  // O Firebase Auth guarda a sessao no aparelho: depois de entrar uma vez,
+  // o usuario continua logado ao reabrir o app ate chamar sair().
+  String? get uidUsuarioAtual => _auth.currentUser?.uid;
+
+  Future<void> sair() => _auth.signOut();
+
   // Cria a conta no Firebase Auth e retorna o UID do novo usuario
   Future<String> cadastrar({required String email, required String senha}) async {
     final credential = await _auth.createUserWithEmailAndPassword(
@@ -27,7 +33,4 @@ class AuthRepository {
     );
     return credential.user!.uid;
   }
-
-  // Encerra a sessao do usuario atual (item "Sair da conta" do menu)
-  Future<void> sair() => _auth.signOut();
 }
