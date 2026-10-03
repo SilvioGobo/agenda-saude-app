@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 
+import 'app_cores.dart';
+
 // Tema visual central do app: cores, tipografia e formato dos componentes.
 // Segue o estilo dos mockups do TCC (fundo claro, verde-agua como cor
 // principal, botoes grandes e arredondados) e o requisito de acessibilidade
-// NF004 (fontes grandes, alto contraste, botoes grandes).
+// NF004 (fontes grandes, alto contraste, botoes grandes). A paleta e a escala
+// de tamanhos estao documentadas em GUIA_VISUAL.md (raiz do repo).
 class AppTheme {
   AppTheme._();
 
-  static const Color _corSemente = Color(0xFF14B8A6);
-
   static ThemeData get claro {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: _corSemente,
+      seedColor: AppCores.semente,
       brightness: Brightness.light,
     );
 
@@ -36,6 +37,16 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          minimumSize: const Size.fromHeight(56),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      ),
+      // Botao preenchido (fundo verde-agua, texto branco): acao principal
+      // que precisa se destacar do card onde esta (ex.: "Conectar
+      // smartwatch"). Mesmo tamanho e formato do ElevatedButton.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(56),
           shape: const StadiumBorder(),
           textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

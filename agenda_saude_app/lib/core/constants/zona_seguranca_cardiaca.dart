@@ -22,10 +22,15 @@ class ZonaSegurancaCardiaca {
   // uma notificacao por oscilacao.
   static const Duration intervaloMinimoEntreAvisos = Duration(minutes: 15);
 
+  static int bpmMinimo({required bool possuiCardiopatia}) =>
+      possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao;
+
+  static int bpmMaximo({required bool possuiCardiopatia}) =>
+      possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao;
+
   static bool estaDentroDaZona(int bpm, {required bool possuiCardiopatia}) {
-    final minimo = possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao;
-    final maximo = possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao;
-    return bpm >= minimo && bpm <= maximo;
+    return bpm >= bpmMinimo(possuiCardiopatia: possuiCardiopatia) &&
+        bpm <= bpmMaximo(possuiCardiopatia: possuiCardiopatia);
   }
 
   static bool estaAcimaDaZona(int bpm, {required bool possuiCardiopatia}) {

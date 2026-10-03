@@ -5,6 +5,37 @@ import '../../data/repositories/auth_repository.dart';
 import 'login_view.dart';
 import 'login_viewmodel.dart';
 
+// Encerra a sessao e volta para o login, limpando a pilha de telas (o
+// "voltar" nao retorna mais ao painel). Chamado depois da confirmacao pelo
+// BotaoSair e pelo item "Sair da conta" do menu do paciente.
+Future<void> sairDaConta(
+  BuildContext context, {
+  required Future<void> Function() sair,
+  LoginViewModel Function()? criarLoginViewModel,
+}) async {
+  try {
+    await sair();
+  } catch (e) {
+    debugPrint('Falha ao sair da conta: $e');
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível sair. Tente de novo.')),
+    );
+    return;
+  }
+  if (!context.mounted) return;
+
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(
+      builder: (_) => ChangeNotifierProvider(
+        create: (_) => criarLoginViewModel?.call() ?? LoginViewModel(),
+        child: const LoginView(),
+      ),
+    ),
+    (_) => false,
+  );
+}
+
 // Botao "Sair" da barra superior dos paineis. Como a sessao fica salva no
 // aparelho, e a unica forma de trocar de conta; pede confirmacao antes para
 // um toque acidental nao deslogar o usuario.
@@ -38,17 +69,10 @@ class BotaoSair extends StatelessWidget {
     );
 
     if (!context.mounted || confirmou != true) return;
-    await (authRepository ?? AuthRepository()).sair();
-    if (!context.mounted) return;
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(
-          create: (_) => criarLoginViewModel?.call() ?? LoginViewModel(),
-          child: const LoginView(),
-        ),
-      ),
-      (_) => false,
+    await sairDaConta(
+      context,
+      sair: (authRepository ?? AuthRepository()).sair,
+      criarLoginViewModel: criarLoginViewModel,
     );
   }
 

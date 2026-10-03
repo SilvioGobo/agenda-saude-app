@@ -149,6 +149,19 @@ Regras de negócio importantes do documento:
 - Horários de glicemia/insulina (entrevista E6): ao acordar, antes do almoço, antes do
   jantar e antes de dormir; insulina lenta tem horário fixo (22h).
 
+## Identidade visual
+
+Paleta, tipografia, tamanhos e padrões de navegação estão em `GUIA_VISUAL.md` (raiz) —
+seguir em toda tela nova. Resumo:
+
+- Cores de marca: `Theme.of(context).colorScheme` (semente `AppCores.semente`).
+  Estado/aviso: `AppCores.sucesso` / `aviso` / `perigo` (contraste ≥ 4,5:1).
+  Nunca `Colors.green/red/orange` direto. Vermelho só para alerta de saúde e erro.
+- Navegação do paciente: painel central + menu lateral aberto por botão "Menu"
+  rotulado (`BotaoBarraSuperior`); subtelas com "Voltar" rotulado e `TituloTela`.
+- Widgets prontos em `ui/shared/` (`BotaoGrande`, `CaixaAlerta`, `CardStatus`,
+  `mostrarDialogoConfirmacao`...) antes de criar outro.
+
 ## Convenções de código
 
 - **Tudo em português**: nomes de classes, campos, variáveis, testes e mensagens de UI

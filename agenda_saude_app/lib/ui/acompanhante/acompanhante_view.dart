@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/services/notification_service.dart';
+import '../../core/theme/app_cores.dart';
 import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/acompanhante.dart';
@@ -212,7 +213,7 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
                     viewModel.mensagemErro!,
-                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    style: const TextStyle(color: AppCores.perigo, fontSize: 16),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -234,8 +235,9 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Peça ao paciente o código de vínculo que aparece '
-                          'no painel dele e toque em "Vincular paciente".',
+                          'Peça ao paciente o código de vínculo (no app '
+                          'dele, em Menu > Meu código de vínculo) e toque em '
+                          '"Vincular paciente".',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 16),
                         ),
