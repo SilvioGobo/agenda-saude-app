@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_cores.dart';
 import '../acompanhante/acompanhante_view.dart';
 import '../shared/botao_selecionavel.dart';
 import '../shared/logo_agenda_saude.dart';
@@ -167,7 +168,7 @@ class _AuthViewState extends State<AuthView> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
                     viewModel.mensagemErro!,
-                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    style: const TextStyle(color: AppCores.perigo, fontSize: 16),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -213,11 +214,11 @@ String _rotuloForca(ForcaSenha forca) {
 Color _corForca(ForcaSenha forca) {
   switch (forca) {
     case ForcaSenha.forte:
-      return Colors.green;
+      return AppCores.sucesso;
     case ForcaSenha.media:
-      return Colors.orange;
+      return AppCores.aviso;
     case ForcaSenha.fraca:
     case ForcaSenha.vazia:
-      return Colors.red;
+      return AppCores.perigo;
   }
 }

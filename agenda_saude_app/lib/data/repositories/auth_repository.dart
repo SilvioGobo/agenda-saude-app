@@ -27,4 +27,7 @@ class AuthRepository {
     );
     return credential.user!.uid;
   }
+
+  // Encerra a sessao do usuario atual (item "Sair da conta" do menu)
+  Future<void> sair() => _auth.signOut();
 }

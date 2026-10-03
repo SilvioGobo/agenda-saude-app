@@ -108,7 +108,7 @@ void main() {
       );
 
       expect(find.text('Smartwatch indisponível'), findsOneWidget);
-      expect(find.byType(ElevatedButton), findsNothing);
+      expect(find.byType(FilledButton), findsNothing);
       naoSuportado.dispose();
     });
   });

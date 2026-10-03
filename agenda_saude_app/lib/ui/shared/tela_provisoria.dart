@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-// Tela temporaria usada como destino de navegacao enquanto os paineis reais
-// de Paciente e Acompanhante ainda nao foram construidos no cronograma.
+import 'botao_barra_superior.dart';
+import 'titulo_tela.dart';
+
+// Tela temporaria usada como destino de navegacao enquanto as telas reais
+// (ex.: Minha Rotina) ainda nao foram construidas no cronograma.
 class TelaProvisoria extends StatelessWidget {
   final String titulo;
   final String mensagem;
@@ -14,16 +17,24 @@ class TelaProvisoria extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final podeVoltar = Navigator.of(context).canPop();
+
     return Scaffold(
-      appBar: AppBar(title: Text(titulo), automaticallyImplyLeading: false),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            mensagem,
-            style: const TextStyle(fontSize: 20),
-            textAlign: TextAlign.center,
-          ),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leadingWidth: podeVoltar ? BotaoBarraSuperior.largura : null,
+        leading: podeVoltar
+            ? BotaoBarraSuperior.voltar(
+                aoTocar: () => Navigator.of(context).pop(),
+              )
+            : null,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          children: [
+            TituloTela(titulo, subtitulo: mensagem),
+          ],
         ),
       ),
     );

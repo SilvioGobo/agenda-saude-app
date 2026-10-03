@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_cores.dart';
 import '../shared/botao_selecionavel.dart';
 import '../shared/perguntas_aninhadas.dart';
 import '../shared/progresso_etapa.dart';
@@ -123,7 +124,7 @@ class _TriagemDiabetesViewState extends State<TriagemDiabetesView> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
                     viewModel.mensagemErro!,
-                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    style: const TextStyle(color: AppCores.perigo, fontSize: 16),
                     textAlign: TextAlign.center,
                   ),
                 ),

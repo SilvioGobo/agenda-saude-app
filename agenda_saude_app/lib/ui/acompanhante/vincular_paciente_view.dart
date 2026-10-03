@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_cores.dart';
 import '../../core/constants/codigo_vinculo.dart';
 import '../../domain/models/acompanhante.dart';
 import 'vincular_paciente_viewmodel.dart';
 
 // Tela de vinculo de um novo paciente (RF05.4). O acompanhante digita o codigo
-// que o paciente ve no painel dele; a tela mostra o nome encontrado e so
+// que o paciente ve no menu do app dele; a tela mostra o nome encontrado e so
 // grava o vinculo apos a confirmacao. Fecha devolvendo `true` quando conclui.
 class VincularPacienteView extends StatefulWidget {
   const VincularPacienteView({super.key});
@@ -63,8 +64,8 @@ class _VincularPacienteViewState extends State<VincularPacienteView> {
               Icon(Icons.link_rounded, size: 56, color: colorScheme.primary),
               const SizedBox(height: 16),
               const Text(
-                'Peça ao paciente o código de vínculo que aparece no painel '
-                'dele e digite abaixo.',
+                'Peça ao paciente o código de vínculo (no app dele, em '
+                'Menu > Meu código de vínculo) e digite abaixo.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 18),
               ),
@@ -102,7 +103,7 @@ class _VincularPacienteViewState extends State<VincularPacienteView> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       viewModel.mensagemErro!,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                      style: const TextStyle(color: AppCores.perigo, fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -172,7 +173,7 @@ class _VincularPacienteViewState extends State<VincularPacienteView> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       viewModel.mensagemErro!,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                      style: const TextStyle(color: AppCores.perigo, fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
                   ),
