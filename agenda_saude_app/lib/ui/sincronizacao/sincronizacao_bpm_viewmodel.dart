@@ -34,9 +34,8 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
   final DateTime Function() _agora;
   final bool _plataformaSuportada;
 
-  // Quanto de historico buscar quando ainda nao ha nada gravado (ou quando o
-  // ultimo registro e muito antigo) - evita importar dias de amostras de uma
-  // vez ao reabrir o app.
+  // Quanto de historico reler a cada sincronizacao - evita importar dias de
+  // amostras de uma vez ao reabrir o app.
   static const Duration janelaMaxima = Duration(hours: 12);
 
   SincronizacaoBpmViewModel({
@@ -73,9 +72,12 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
   Timer? _timer;
   bool _observandoCicloDeVida = false;
 
-  // Timestamp da leitura mais recente ja gravada no Firestore: so importamos
-  // o que veio depois dela.
-  DateTime? _ultimoTimestampGravado;
+  // Timestamps (em ms) das leituras da janela que ja estao no Firestore. Em vez
+  // de importar so o que e mais novo que a ultima leitura, relemos a janela
+  // inteira e ignoramos o que ja foi gravado: o relogio sincroniza em lote e
+  // leituras antigas podem chegar ao Health Connect depois das mais novas.
+  final Set<int> _timestampsGravados = {};
+  bool _carregouGravados = false;
 
   // Estado do episodio atual fora da zona de seguranca (UC04.4).
   DateTime? _inicioForaDaZona;
@@ -126,13 +128,22 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
       if (!concedida) {
         _estado = EstadoSincronizacao.semPermissao;
         _mensagemErro = 'Permissão não concedida. Sem ela o app não consegue '
-            'ler seus batimentos.';
+            'ler seus batimentos. Se a janela de permissão não aparecer, '
+            'libere o acesso nas configurações do Health Connect.';
         notifyListeners();
         return;
       }
       await _ativar();
     } catch (e) {
       _falhar('Não foi possível pedir a permissão ao Health Connect.', e);
+    }
+  }
+
+  Future<void> abrirConfiguracoesHealthConnect() async {
+    try {
+      await _healthService.abrirConfiguracoesHealthConnect();
+    } catch (e) {
+      _falhar('Não foi possível abrir as configurações do Health Connect.', e);
     }
   }
 
@@ -186,24 +197,30 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
     try {
       final agora = _agora();
 
-      if (_ultimoTimestampGravado == null) {
-        final ultimo = await _dadosRepository.getUltimoBatimento(paciente.id);
-        _ultimoTimestampGravado = ultimo?.timestamp;
-      }
-
       final limiteJanela = agora.subtract(janelaMaxima);
-      var inicio = _ultimoTimestampGravado ?? limiteJanela;
-      if (inicio.isBefore(limiteJanela)) inicio = limiteJanela;
+
+      if (!_carregouGravados) {
+        final gravados = await _dadosRepository.getBatimentosDesde(
+          paciente.id,
+          limiteJanela,
+        );
+        _timestampsGravados
+            .addAll(gravados.map((b) => b.timestamp.millisecondsSinceEpoch));
+        _carregouGravados = true;
+      }
+      final limiteMs = limiteJanela.millisecondsSinceEpoch;
+      _timestampsGravados.removeWhere((ms) => ms < limiteMs);
 
       final leituras = await _healthService.lerBatimentos(
-        inicio: inicio,
+        inicio: limiteJanela,
         fim: agora,
       );
 
-      final ultimoGravado = _ultimoTimestampGravado;
       final novas = leituras
-          .where((l) => ultimoGravado == null || l.timestamp.isAfter(ultimoGravado))
-          .toList();
+          .where((l) =>
+              !_timestampsGravados.contains(l.timestamp.millisecondsSinceEpoch))
+          .toList()
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       if (novas.isNotEmpty) {
         await _dadosRepository.salvarBatimentos(
@@ -216,7 +233,8 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
                   ))
               .toList(),
         );
-        _ultimoTimestampGravado = novas.last.timestamp;
+        _timestampsGravados
+            .addAll(novas.map((l) => l.timestamp.millisecondsSinceEpoch));
 
         for (final leitura in novas) {
           await _avaliarZonaDeSeguranca(leitura);

@@ -156,8 +156,27 @@ void main() {
 
       await viewModel.iniciar();
 
-      expect(await bpmsGravados(), [70, 74]);
-      expect(healthService.intervalosLidos.single.inicio, jaSalva);
+      // 68 e anterior a leitura ja salva, mas ainda nao estava gravada
+      expect(await bpmsGravados(), [68, 70, 74]);
+      viewModel.dispose();
+    });
+
+    test('Deve importar leitura antiga que chega depois de uma mais nova',
+        () async {
+      healthService.leituras = [
+        LeituraBpm(bpm: 72, timestamp: agora.subtract(const Duration(minutes: 2))),
+      ];
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+
+      // o relogio sincronizou depois: leitura de antes da ultima importada
+      healthService.leituras.add(
+        LeituraBpm(bpm: 80, timestamp: agora.subtract(const Duration(minutes: 20))),
+      );
+      await viewModel.sincronizarAgora();
+
+      expect(await bpmsGravados(), [80, 72]);
+      expect(viewModel.leiturasImportadasNaUltima, 1);
       viewModel.dispose();
     });
 

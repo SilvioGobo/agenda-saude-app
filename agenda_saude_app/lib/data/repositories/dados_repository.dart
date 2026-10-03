@@ -54,8 +54,26 @@ class DadosMedicosRepository {
     return snapshot.docs.map((doc) => Alerta.fromJson(doc.data(), doc.id)).toList();
   }
 
-  // Leitura de BPM mais recente ja gravada (consulta unica). A sincronizacao
-  // com o smartwatch usa o timestamp dela para importar so o que e novo.
+  // Leituras de BPM gravadas a partir de [desde]. A sincronizacao com o
+  // smartwatch usa essa lista para nao regravar o que ja foi importado.
+  Future<List<BatimentoCardiaco>> getBatimentosDesde(
+    String pacienteId,
+    DateTime desde,
+  ) async {
+    final snapshot = await _firestore
+        .collection('batimentos_cardiacos')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .where('timestamp', isGreaterThanOrEqualTo: desde)
+        // mesma ordem das outras consultas: reaproveita o indice existente
+        .orderBy('timestamp', descending: true)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => BatimentoCardiaco.fromJson(doc.data(), doc.id))
+        .toList();
+  }
+
+  // Leitura de BPM mais recente ja gravada (consulta unica).
   Future<BatimentoCardiaco?> getUltimoBatimento(String pacienteId) async {
     final snapshot = await _firestore
         .collection('batimentos_cardiacos')

@@ -11,6 +11,7 @@ class FakeHealthService implements HealthService {
 
   int solicitacoesDePermissao = 0;
   int aberturasDaLoja = 0;
+  int aberturasDasConfiguracoes = 0;
   final List<({DateTime inicio, DateTime fim})> intervalosLidos = [];
 
   FakeHealthService({
@@ -36,6 +37,11 @@ class FakeHealthService implements HealthService {
     solicitacoesDePermissao++;
     permissaoConcedida = concederAoSolicitar;
     return permissaoConcedida;
+  }
+
+  @override
+  Future<void> abrirConfiguracoesHealthConnect() async {
+    aberturasDasConfiguracoes++;
   }
 
   @override
