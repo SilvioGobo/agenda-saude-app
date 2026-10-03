@@ -1,28 +1,107 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_cores.dart';
+import '../../data/repositories/acompanhante_repository.dart';
+import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/acompanhante.dart';
 import '../../domain/models/paciente.dart';
+import '../alertas/alertas_view.dart';
+import '../alertas/alertas_viewmodel.dart';
+import '../alertas/aviso_alertas_nao_lidos.dart';
+import '../alertas/botao_notificacoes.dart';
+import '../alertas/card_permissao_notificacoes.dart';
+import '../alertas/detalhes_alerta.dart';
 import '../auth/botao_sair.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
 import 'vincular_paciente_view.dart';
 
 // Painel do acompanhante (RF05, Figura 15 do TCC): lista em cards dos
-// pacientes vinculados e atalho para vincular um novo paciente (RF05.4).
-class AcompanhanteView extends StatelessWidget {
+// pacientes vinculados, atalho para vincular um novo paciente (RF05.4) e os
+// alertas desses pacientes recebidos em tempo real (RF06).
+class AcompanhanteView extends StatefulWidget {
   const AcompanhanteView({super.key});
 
-  static Widget comProviders(Acompanhante acompanhante) {
-    return ChangeNotifierProvider(
-      create: (_) => AcompanhanteViewModel(acompanhante: acompanhante)
-        ..carregarPacientes(),
+  // Os parametros opcionais permitem aos testes montar o painel com
+  // repositories e notificacoes falsos.
+  static Widget comProviders(
+    Acompanhante acompanhante, {
+    AcompanhanteRepository? acompanhanteRepository,
+    DadosMedicosRepository? dadosRepository,
+    NotificationService? notificationService,
+  }) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AcompanhanteViewModel(
+            acompanhante: acompanhante,
+            acompanhanteRepository: acompanhanteRepository,
+          )..carregarPacientes(),
+        ),
+        // A central de alertas segue a lista de pacientes vinculados: a cada
+        // mudanca (carga, vinculo, desvinculo) abre ou encerra a escuta.
+        ChangeNotifierProxyProvider<AcompanhanteViewModel, AlertasViewModel>(
+          create: (_) => AlertasViewModel(
+            dadosRepository: dadosRepository,
+            notificationService: notificationService,
+          )..iniciar(),
+          update: (_, acompanhanteViewModel, alertasViewModel) =>
+              alertasViewModel!
+                ..acompanharPacientes(acompanhanteViewModel.pacientesVinculados),
+        ),
+      ],
       child: const AcompanhanteView(),
     );
   }
 
-  Future<void> _vincularPaciente(BuildContext context) async {
+  @override
+  State<AcompanhanteView> createState() => _AcompanhanteViewState();
+}
+
+class _AcompanhanteViewState extends State<AcompanhanteView> {
+  StreamSubscription<String>? _toquesEmNotificacao;
+
+  @override
+  void initState() {
+    super.initState();
+    _toquesEmNotificacao = context
+        .read<AlertasViewModel>()
+        .notificacaoTocada
+        .listen(_abrirAlertaDaNotificacao);
+  }
+
+  @override
+  void dispose() {
+    _toquesEmNotificacao?.cancel();
+    super.dispose();
+  }
+
+  void _abrirNotificacoes() {
+    Navigator.of(context).push(
+      AlertasView.rota(context.read<AlertasViewModel>()),
+    );
+  }
+
+  // Tocar na notificacao traz o app para a frente: volta ao painel (fechando
+  // o que estiver aberto por cima), abre a lista e os detalhes do alerta.
+  void _abrirAlertaDaNotificacao(String alertaId) {
+    if (!mounted) return;
+    final alertasViewModel = context.read<AlertasViewModel>();
+    final rotaDoPainel = ModalRoute.of(context);
+    Navigator.of(context).popUntil((rota) => rota == rotaDoPainel);
+    _abrirNotificacoes();
+
+    final alerta = alertasViewModel.alertaPorId(alertaId);
+    if (alerta != null) {
+      abrirDetalhesDoAlerta(context, alertasViewModel, alerta);
+    }
+  }
+
+  Future<void> _vincularPaciente() async {
     final viewModel = context.read<AcompanhanteViewModel>();
     final vinculou = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -30,18 +109,15 @@ class AcompanhanteView extends StatelessWidget {
       ),
     );
 
-    if (!context.mounted || vinculou != true) return;
+    if (!mounted || vinculou != true) return;
     await viewModel.carregarPacientes();
-    if (!context.mounted) return;
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Paciente vinculado com sucesso.')),
     );
   }
 
-  Future<void> _confirmarDesvinculo(
-    BuildContext context,
-    Paciente paciente,
-  ) async {
+  Future<void> _confirmarDesvinculo(Paciente paciente) async {
     final confirmou = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -64,10 +140,10 @@ class AcompanhanteView extends StatelessWidget {
       ),
     );
 
-    if (!context.mounted || confirmou != true) return;
+    if (!mounted || confirmou != true) return;
     final sucesso =
         await context.read<AcompanhanteViewModel>().desvincular(paciente);
-    if (!context.mounted || !sucesso) return;
+    if (!mounted || !sucesso) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${paciente.nome} foi desvinculado.')),
     );
@@ -76,14 +152,19 @@ class AcompanhanteView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<AcompanhanteViewModel>();
+    final alertasViewModel = context.watch<AlertasViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
     final pacientes = viewModel.pacientesVinculados;
+    final naoLidos = alertasViewModel.naoLidos;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monitoramento'),
         automaticallyImplyLeading: false,
-        actions: const [BotaoSair()],
+        actions: [
+          BotaoNotificacoes(onPressed: _abrirNotificacoes),
+          const BotaoSair(),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -110,6 +191,23 @@ class AcompanhanteView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              if (naoLidos.isNotEmpty) ...[
+                AvisoAlertasNaoLidos(
+                  alerta: naoLidos.first,
+                  nomePaciente:
+                      alertasViewModel.nomeDoPaciente(naoLidos.first.pacienteId),
+                  totalNaoLidos: naoLidos.length,
+                  onVerNotificacoes: _abrirNotificacoes,
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (alertasViewModel.notificacoesDesativadas &&
+                  pacientes.isNotEmpty) ...[
+                CardPermissaoNotificacoes(
+                  onAtivar: alertasViewModel.ativarNotificacoes,
+                ),
+                const SizedBox(height: 16),
+              ],
               if (viewModel.mensagemErro != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
@@ -153,16 +251,16 @@ class AcompanhanteView extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: CardPaciente(
                       paciente: paciente,
+                      alertasNaoLidos:
+                          alertasViewModel.naoLidosDoPaciente(paciente.id),
                       onDesvincular: viewModel.carregando
                           ? null
-                          : () => _confirmarDesvinculo(context, paciente),
+                          : () => _confirmarDesvinculo(paciente),
                     ),
                   ),
               const SizedBox(height: 28),
               ElevatedButton.icon(
-                onPressed: viewModel.carregando
-                    ? null
-                    : () => _vincularPaciente(context),
+                onPressed: viewModel.carregando ? null : _vincularPaciente,
                 icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Vincular paciente'),
               ),

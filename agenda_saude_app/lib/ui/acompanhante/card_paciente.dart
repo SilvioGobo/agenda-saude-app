@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import '../../domain/models/paciente.dart';
 
 // Cartao de um paciente vinculado no painel do acompanhante (Figura 15 do
-// TCC). Hoje mostra a identificacao e as comorbidades da triagem; BPM, status
-// consolidado e ultimo evento da rotina entram nas proximas etapas do modulo.
+// TCC). Mostra a identificacao, as comorbidades da triagem e quantos alertas
+// do paciente ainda nao foram lidos (RF06); BPM, status consolidado e ultimo
+// evento da rotina entram nas proximas etapas do modulo.
 class CardPaciente extends StatelessWidget {
   final Paciente paciente;
+  final int alertasNaoLidos;
   final VoidCallback? onDesvincular;
 
   const CardPaciente({
     super.key,
     required this.paciente,
+    this.alertasNaoLidos = 0,
     this.onDesvincular,
   });
 
@@ -78,6 +81,31 @@ class CardPaciente extends StatelessWidget {
                         )
                         .toList(),
                   ),
+                  if (alertasNaoLidos > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.warning_rounded,
+                          size: 20,
+                          color: Colors.red.shade700,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            alertasNaoLidos == 1
+                                ? '1 alerta não lido'
+                                : '$alertasNaoLidos alertas não lidos',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

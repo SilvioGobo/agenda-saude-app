@@ -16,6 +16,12 @@ class ZonaSegurancaCardiaca {
   // 5 minutos evita alarme falso por um pico isolado (ex.: subir escada).
   static const Duration tempoProlongadoParaAlerta = Duration(minutes: 5);
 
+  // Intervalo minimo entre dois avisos de "ATENÇÃO" ao acompanhante (RF06).
+  // Um BPM oscilando na borda da zona (ex.: 99, 101, 98, 102) entra e sai de
+  // "ATENÇÃO" a cada leitura; sem esse intervalo o acompanhante receberia
+  // uma notificacao por oscilacao.
+  static const Duration intervaloMinimoEntreAvisos = Duration(minutes: 15);
+
   static int bpmMinimo({required bool possuiCardiopatia}) =>
       possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao;
 
@@ -25,5 +31,10 @@ class ZonaSegurancaCardiaca {
   static bool estaDentroDaZona(int bpm, {required bool possuiCardiopatia}) {
     return bpm >= bpmMinimo(possuiCardiopatia: possuiCardiopatia) &&
         bpm <= bpmMaximo(possuiCardiopatia: possuiCardiopatia);
+  }
+
+  static bool estaAcimaDaZona(int bpm, {required bool possuiCardiopatia}) {
+    final maximo = possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao;
+    return bpm > maximo;
   }
 }

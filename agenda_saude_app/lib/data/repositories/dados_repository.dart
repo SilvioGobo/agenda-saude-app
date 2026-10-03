@@ -54,6 +54,44 @@ class DadosMedicosRepository {
     return snapshot.docs.map((doc) => Alerta.fromJson(doc.data(), doc.id)).toList();
   }
 
+  // Alertas mais recentes do paciente em tempo real (RF06), do mais novo para
+  // o mais antigo - usados pela central de notificacoes do acompanhante.
+  // `doServidor` e falso enquanto a lista vem so do cache local do aparelho
+  // (ex.: ao abrir o app), antes de o Firestore confirmar o estado atual.
+  Stream<({List<Alerta> alertas, bool doServidor})> streamAlertas(
+    String pacienteId, {
+    int limite = 50,
+  }) {
+    return _firestore
+        .collection('alertas')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .orderBy('dataHora', descending: true)
+        .limit(limite)
+        .snapshots()
+        .map((snapshot) => (
+              alertas: snapshot.docs
+                  .map((doc) => Alerta.fromJson(doc.data(), doc.id))
+                  .toList(),
+              doServidor: !snapshot.metadata.isFromCache,
+            ));
+  }
+
+  // As security rules so deixam o acompanhante (ou o paciente) mudar o campo
+  // `lido` de um alerta. O Firestore limita cada WriteBatch a 500 operacoes.
+  Future<void> marcarAlertasComoLidos(List<String> alertaIds) async {
+    const tamanhoLote = 500;
+    for (var i = 0; i < alertaIds.length; i += tamanhoLote) {
+      final lote = _firestore.batch();
+      final fim = (i + tamanhoLote < alertaIds.length)
+          ? i + tamanhoLote
+          : alertaIds.length;
+      for (final id in alertaIds.sublist(i, fim)) {
+        lote.update(_firestore.collection('alertas').doc(id), {'lido': true});
+      }
+      await lote.commit();
+    }
+  }
+
   // Leituras de BPM gravadas a partir de [desde]. A sincronizacao com o
   // smartwatch usa essa lista para nao regravar o que ja foi importado.
   Future<List<BatimentoCardiaco>> getBatimentosDesde(

@@ -22,7 +22,9 @@ enum EstadoSincronizacao {
 // Modulo de Sincronizacao IoT (RF004): enquanto o app esta em primeiro plano,
 // le periodicamente o BPM do smartwatch via Health Connect, grava as leituras
 // novas em `batimentos_cardiacos` e valida a zona de seguranca cardiaca.
-// BPM fora da zona por tempo prolongado gera um Alerta (UC04.4 -> UC06).
+// Quando o painel do paciente passa a mostrar "ATENÇÃO" gera um alerta de
+// atencao para o acompanhante (RF06); BPM fora da zona por tempo prolongado
+// gera um alerta de emergencia (UC04.4 -> UC06).
 //
 // Leitura com o app fechado (background) fica para uma etapa posterior.
 class SincronizacaoBpmViewModel extends ChangeNotifier
@@ -81,7 +83,12 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
 
   // Estado do episodio atual fora da zona de seguranca (UC04.4).
   DateTime? _inicioForaDaZona;
-  bool _alertaGeradoNesteEpisodio = false;
+  bool _emergenciaGeradaNesteEpisodio = false;
+
+  // Leitura que o painel do paciente mostra agora (a mais recente gravada) e
+  // horario da leitura que gerou o ultimo aviso de "ATENÇÃO" (RF06).
+  LeituraBpm? _leituraExibida;
+  DateTime? _ultimoAvisoDeAtencao;
 
   // Verifica Health Connect + permissao e, se tudo ok, comeca a sincronizar.
   Future<void> iniciar() async {
@@ -206,6 +213,13 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
         );
         _timestampsGravados
             .addAll(gravados.map((b) => b.timestamp.millisecondsSinceEpoch));
+        if (gravados.isNotEmpty) {
+          final ultimo = gravados.reduce(
+            (a, b) => a.timestamp.isAfter(b.timestamp) ? a : b,
+          );
+          _leituraExibida =
+              LeituraBpm(bpm: ultimo.bpm, timestamp: ultimo.timestamp);
+        }
         _carregouGravados = true;
       }
       final limiteMs = limiteJanela.millisecondsSinceEpoch;
@@ -239,6 +253,7 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
         for (final leitura in novas) {
           await _avaliarZonaDeSeguranca(leitura);
         }
+        await _avisarSeEntrouEmAtencao(novas.last);
       }
 
       _ultimaSincronizacao = agora;
@@ -254,23 +269,19 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
   }
 
   // UC04.4: leituras fora da zona por `tempoProlongadoParaAlerta` seguidos
-  // geram um unico alerta por episodio; voltar para a zona encerra o episodio.
+  // geram um unico alerta de emergencia por episodio; voltar para a zona
+  // encerra o episodio.
   Future<void> _avaliarZonaDeSeguranca(LeituraBpm leitura) async {
-    final dentroDaZona = ZonaSegurancaCardiaca.estaDentroDaZona(
-      leitura.bpm,
-      possuiCardiopatia: paciente.possuiCardiopatia,
-    );
-
-    if (dentroDaZona) {
+    if (_dentroDaZona(leitura.bpm)) {
       _inicioForaDaZona = null;
-      _alertaGeradoNesteEpisodio = false;
+      _emergenciaGeradaNesteEpisodio = false;
       return;
     }
 
     _inicioForaDaZona ??= leitura.timestamp;
     final duracao = leitura.timestamp.difference(_inicioForaDaZona!);
 
-    if (_alertaGeradoNesteEpisodio ||
+    if (_emergenciaGeradaNesteEpisodio ||
         duracao < ZonaSegurancaCardiaca.tempoProlongadoParaAlerta) {
       return;
     }
@@ -278,12 +289,62 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
     await _dadosRepository.gerarAlerta(Alerta(
       id: '',
       pacienteId: paciente.id,
+      tipo: Alerta.tipoEmergencia,
       mensagem: 'Batimentos fora da zona de segurança há '
           '${duracao.inMinutes} minutos (última leitura: ${leitura.bpm} BPM).',
+      bpm: leitura.bpm,
       dataHora: leitura.timestamp,
     ));
-    _alertaGeradoNesteEpisodio = true;
+    _emergenciaGeradaNesteEpisodio = true;
   }
+
+  // RF06: avisa o acompanhante quando o painel do paciente passa a mostrar
+  // "ATENÇÃO", isto e, quando a leitura mais recente sai da zona. So a
+  // transicao gera aviso: enquanto o painel continua em "ATENÇÃO" (inclusive
+  // ao reabrir o app, ja que a leitura exibida vem do Firestore) nao ha
+  // aviso repetido.
+  Future<void> _avisarSeEntrouEmAtencao(LeituraBpm maisRecente) async {
+    final anterior = _leituraExibida;
+    // Leitura antiga que chegou atrasada nao muda o que o painel mostra.
+    if (anterior != null &&
+        !maisRecente.timestamp.isAfter(anterior.timestamp)) {
+      return;
+    }
+    _leituraExibida = maisRecente;
+
+    final jaEstavaEmAtencao = anterior != null && !_dentroDaZona(anterior.bpm);
+    if (_dentroDaZona(maisRecente.bpm) || jaEstavaEmAtencao) return;
+
+    // O alerta de emergencia deste mesmo episodio ja avisou o acompanhante.
+    if (_emergenciaGeradaNesteEpisodio) return;
+
+    final ultimoAviso = _ultimoAvisoDeAtencao;
+    if (ultimoAviso != null &&
+        maisRecente.timestamp.difference(ultimoAviso) <
+            ZonaSegurancaCardiaca.intervaloMinimoEntreAvisos) {
+      return;
+    }
+
+    final acima = ZonaSegurancaCardiaca.estaAcimaDaZona(
+      maisRecente.bpm,
+      possuiCardiopatia: paciente.possuiCardiopatia,
+    );
+    await _dadosRepository.gerarAlerta(Alerta(
+      id: '',
+      pacienteId: paciente.id,
+      tipo: Alerta.tipoAtencao,
+      mensagem: 'Batimentos ${acima ? 'acima' : 'abaixo'} da zona de '
+          'segurança (${maisRecente.bpm} BPM).',
+      bpm: maisRecente.bpm,
+      dataHora: maisRecente.timestamp,
+    ));
+    _ultimoAvisoDeAtencao = maisRecente.timestamp;
+  }
+
+  bool _dentroDaZona(int bpm) => ZonaSegurancaCardiaca.estaDentroDaZona(
+        bpm,
+        possuiCardiopatia: paciente.possuiCardiopatia,
+      );
 
   void _falhar(String mensagem, Object erro) {
     debugPrint('$mensagem ($erro)');
