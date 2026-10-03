@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../domain/models/paciente.dart';
+import '../auth/botao_sair.dart';
 import '../shared/card_status.dart';
 import '../shared/tela_provisoria.dart';
 import '../sincronizacao/card_smartwatch.dart';
@@ -92,6 +93,7 @@ class PacienteView extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Início'),
         automaticallyImplyLeading: false,
+        actions: const [BotaoSair()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
