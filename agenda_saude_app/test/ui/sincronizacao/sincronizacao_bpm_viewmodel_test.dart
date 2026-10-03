@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:agenda_saude_app/core/services/health_service.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
@@ -36,12 +37,15 @@ void main() {
       );
     });
 
-    SincronizacaoBpmViewModel criarViewModel({Paciente? outroPaciente}) {
+    SincronizacaoBpmViewModel criarViewModel({
+      Paciente? outroPaciente,
+      DateTime Function()? relogio,
+    }) {
       return SincronizacaoBpmViewModel(
         paciente: outroPaciente ?? paciente,
         healthService: healthService,
         dadosRepository: dadosRepository,
-        agora: () => agora,
+        agora: relogio ?? () => agora,
         plataformaSuportada: true,
         intervalo: const Duration(hours: 1),
       );
@@ -58,6 +62,14 @@ void main() {
     Future<int> totalAlertas() async {
       final snapshot = await fakeFirestore.collection('alertas').get();
       return snapshot.docs.length;
+    }
+
+    Future<List<Map<String, dynamic>>> alertasDoTipo(String tipo) async {
+      final snapshot = await fakeFirestore
+          .collection('alertas')
+          .where('tipo', isEqualTo: tipo)
+          .get();
+      return snapshot.docs.map((d) => d.data()).toList();
     }
 
     test('Deve ficar "não suportado" fora do Android sem chamar o Health Connect',
@@ -217,10 +229,14 @@ void main() {
 
       await viewModel.iniciar();
 
+      // O alerta de emergencia ja avisa o acompanhante; nao vem junto um de
+      // "Atenção" para o mesmo episodio.
       expect(await totalAlertas(), 1);
       final alerta = (await fakeFirestore.collection('alertas').get()).docs.first;
       expect(alerta.data()['pacienteId'], 'paciente_01');
+      expect(alerta.data()['tipo'], Alerta.tipoEmergencia);
       expect(alerta.data()['lido'], false);
+      expect(alerta.data()['bpm'], 122);
       expect(alerta.data()['mensagem'], contains('122 BPM'));
       viewModel.dispose();
     });
@@ -291,6 +307,133 @@ void main() {
       await viewModel.iniciar();
 
       expect(await totalAlertas(), 1);
+      viewModel.dispose();
+    });
+
+    test('Deve avisar o acompanhante quando o painel passa a mostrar "Atenção"',
+        () async {
+      healthService.leituras = [
+        LeituraBpm(bpm: 72, timestamp: agora.subtract(const Duration(minutes: 3))),
+        LeituraBpm(bpm: 118, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      final alertas = await alertasDoTipo(Alerta.tipoAtencao);
+      expect(alertas, hasLength(1));
+      expect(alertas.single['pacienteId'], 'paciente_01');
+      expect(alertas.single['bpm'], 118);
+      expect(
+        alertas.single['mensagem'],
+        'Batimentos acima da zona de segurança (118 BPM).',
+      );
+      expect(await totalAlertas(), 1);
+      viewModel.dispose();
+    });
+
+    test('Deve indicar no aviso de "Atenção" quando o BPM está abaixo da zona',
+        () async {
+      healthService.leituras = [
+        LeituraBpm(bpm: 48, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      final alertas = await alertasDoTipo(Alerta.tipoAtencao);
+      expect(
+        alertas.single['mensagem'],
+        'Batimentos abaixo da zona de segurança (48 BPM).',
+      );
+      viewModel.dispose();
+    });
+
+    test('Não deve repetir o aviso enquanto o painel continua em "Atenção"',
+        () async {
+      var relogio = agora;
+      healthService.leituras = [
+        LeituraBpm(bpm: 118, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel(relogio: () => relogio);
+      await viewModel.iniciar();
+
+      relogio = agora.add(const Duration(minutes: 2));
+      healthService.leituras.add(
+        LeituraBpm(bpm: 119, timestamp: agora.add(const Duration(minutes: 1))),
+      );
+      await viewModel.sincronizarAgora();
+
+      expect(await alertasDoTipo(Alerta.tipoAtencao), hasLength(1));
+      viewModel.dispose();
+    });
+
+    test('Não deve avisar ao reabrir o app se o painel já estava em "Atenção"',
+        () async {
+      // Leitura fora da zona gravada antes de o app ser fechado: o painel ja
+      // mostrava "ATENÇÃO" e o acompanhante ja tinha sido avisado.
+      final anterior = agora.subtract(const Duration(minutes: 3));
+      await dadosRepository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_01', bpm: 118, timestamp: anterior,
+      ));
+      healthService.leituras = [
+        LeituraBpm(bpm: 118, timestamp: anterior),
+        LeituraBpm(bpm: 121, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(await totalAlertas(), 0);
+      viewModel.dispose();
+    });
+
+    test('Deve avisar de novo só depois do intervalo mínimo entre avisos',
+        () async {
+      var relogio = agora;
+      final viewModel = criarViewModel(relogio: () => relogio);
+      Future<void> sincronizarEm(int minutos, int bpm) async {
+        relogio = agora.add(Duration(minutes: minutos));
+        healthService.leituras.add(LeituraBpm(
+          bpm: bpm,
+          timestamp: relogio.subtract(const Duration(minutes: 1)),
+        ));
+        await viewModel.sincronizarAgora();
+      }
+
+      healthService.leituras = [
+        LeituraBpm(bpm: 118, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      await viewModel.iniciar();
+      await sincronizarEm(5, 72); // volta para a zona
+      await sincronizarEm(10, 119); // sai de novo, 10 min apos o aviso
+      expect(await alertasDoTipo(Alerta.tipoAtencao), hasLength(1));
+
+      await sincronizarEm(20, 70);
+      await sincronizarEm(30, 121); // 30 min apos o primeiro aviso
+      expect(await alertasDoTipo(Alerta.tipoAtencao), hasLength(2));
+      viewModel.dispose();
+    });
+
+    test('Deve escalar de "Atenção" para emergência quando o BPM continua fora da zona',
+        () async {
+      var relogio = agora;
+      healthService.leituras = [
+        LeituraBpm(bpm: 118, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel(relogio: () => relogio);
+      await viewModel.iniciar();
+      expect(await alertasDoTipo(Alerta.tipoAtencao), hasLength(1));
+
+      relogio = agora.add(const Duration(minutes: 6));
+      healthService.leituras.addAll([
+        LeituraBpm(bpm: 120, timestamp: agora.add(const Duration(minutes: 2))),
+        LeituraBpm(bpm: 122, timestamp: agora.add(const Duration(minutes: 5))),
+      ]);
+      await viewModel.sincronizarAgora();
+
+      expect(await alertasDoTipo(Alerta.tipoAtencao), hasLength(1));
+      expect(await alertasDoTipo(Alerta.tipoEmergencia), hasLength(1));
       viewModel.dispose();
     });
 

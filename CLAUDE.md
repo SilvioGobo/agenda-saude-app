@@ -102,7 +102,12 @@ Convenções já estabelecidas nos repositories — manter:
 - `registros_diarios` — todas as subclasses de `RegistroBase` (água, sono, exercício,
   diabete), discriminadas pelo campo `tipo` gravado no `toJson()` de cada uma.
 - `batimentos_cardiacos` — leituras de BPM com `pacienteId` + `timestamp`.
-- `alertas` — `pacienteId`, `mensagem`, `dataHora`, `lido`.
+- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
+  `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM:
+  `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
+  `emergencia` com BPM fora da zona por 5 min. Doc sem `tipo` é tratado como emergência.
+  O acompanhante escuta em tempo real (`AlertasViewModel`) e mostra notificação local
+  (`flutter_local_notifications`) — só com o app aberto ou em segundo plano.
 
 Padrões dos models: classe abstrata (`Usuario`, `RegistroBase`) + subclasses;
 `fromJson(Map, documentId)` factory + `toJson()`; campos com fallback (`?? ''`, `?? 0`).
@@ -122,8 +127,10 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008)
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas
-   push em tempo real via FCM (RF005, RF006). ← *vínculo por código e lista de
-   pacientes em cards já feitos (`ui/acompanhante/`); faltam BPM/status por card e FCM*
+   push em tempo real via FCM (RF005, RF006). ← *vínculo por código, lista de
+   pacientes em cards e central de alertas em tempo real com notificação local
+   (`ui/acompanhante/`, `ui/alertas/`) já feitos; faltam BPM/status por card, tela de
+   emergência (overlay) e push FCM com o app fechado (exige Cloud Functions)*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007)
 

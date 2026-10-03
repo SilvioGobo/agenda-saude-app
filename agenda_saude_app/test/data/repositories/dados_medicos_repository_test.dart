@@ -51,6 +51,7 @@ void main() {
       final alerta = Alerta(
         id: '',
         pacienteId: 'paciente_99',
+        tipo: Alerta.tipoEmergencia,
         mensagem: 'Frequência cardíaca elevada detetada!',
         dataHora: DateTime.now(),
         lido: false,
@@ -66,6 +67,68 @@ void main() {
       expect(alertasRecuperados.length, 1);
       expect(alertasRecuperados.first.mensagem, 'Frequência cardíaca elevada detetada!');
       expect(alertasRecuperados.first.lido, false);
+    });
+
+    test('Deve transmitir em tempo real os alertas do paciente, do mais novo para o mais antigo', () async {
+      final base = DateTime(2026, 9, 19, 10, 0);
+      Future<void> gerar(String paciente, String mensagem, Duration depois) =>
+          repository.gerarAlerta(Alerta(
+            id: '',
+            pacienteId: paciente,
+            tipo: Alerta.tipoAtencao,
+            mensagem: mensagem,
+            dataHora: base.add(depois),
+          ));
+      await gerar('paciente_99', 'primeiro', Duration.zero);
+      await gerar('outro_paciente', 'de outro paciente', const Duration(minutes: 5));
+
+      final leituras = <List<String>>[];
+      final assinatura = repository.streamAlertas('paciente_99').listen(
+            (leitura) => leituras.add(leitura.alertas.map((a) => a.mensagem).toList()),
+          );
+      await Future<void>.delayed(Duration.zero);
+      await gerar('paciente_99', 'segundo', const Duration(minutes: 10));
+      await Future<void>.delayed(Duration.zero);
+      await assinatura.cancel();
+
+      expect(leituras.first, ['primeiro']);
+      expect(leituras.last, ['segundo', 'primeiro']);
+    });
+
+    test('Deve limitar a quantidade de alertas transmitidos', () async {
+      final base = DateTime(2026, 9, 19, 10, 0);
+      for (var i = 0; i < 3; i++) {
+        await repository.gerarAlerta(Alerta(
+          id: '',
+          pacienteId: 'paciente_99',
+          tipo: Alerta.tipoAtencao,
+          mensagem: 'alerta $i',
+          dataHora: base.add(Duration(minutes: i)),
+        ));
+      }
+
+      final leitura = await repository.streamAlertas('paciente_99', limite: 2).first;
+
+      expect(leitura.alertas.map((a) => a.mensagem), ['alerta 2', 'alerta 1']);
+      expect(leitura.doServidor, true);
+    });
+
+    test('Deve marcar alertas como lidos', () async {
+      for (final mensagem in ['um', 'dois']) {
+        await repository.gerarAlerta(Alerta(
+          id: '',
+          pacienteId: 'paciente_99',
+          tipo: Alerta.tipoAtencao,
+          mensagem: mensagem,
+          dataHora: DateTime.now(),
+        ));
+      }
+      final alertas = await repository.getAlertas('paciente_99');
+
+      await repository.marcarAlertasComoLidos(alertas.map((a) => a.id).toList());
+
+      final atualizados = await repository.getAlertas('paciente_99');
+      expect(atualizados.every((a) => a.lido), true);
     });
 
     test('Deve retornar null quando o paciente ainda não tem batimentos', () async {
