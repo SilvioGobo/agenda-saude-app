@@ -98,6 +98,8 @@ void main() {
       expect(tester.widget<OutlinedButton>(botaoMenos()).onPressed, isNull);
       expect(tester.widget<FilledButton>(botaoMais()).onPressed, isNotNull);
       expect(find.text('META DE HOJE ATINGIDA'), findsNothing);
+      // Paciente sem diabetes na triagem não vê glicemia/insulina (RF008).
+      expect(find.text('Glicemia e Insulina'), findsNothing);
 
       await desmontar(tester);
     });

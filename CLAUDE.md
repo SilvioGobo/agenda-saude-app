@@ -136,9 +136,14 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"
    (`ui/rotina/`) com hidratação (RF03.1) já feita: meta de 8 copos de 250 ml em
-   `MetaHidratacao`, `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`; faltam sono,
-   exercício, alimentação, medicação e insulina/glicemia como novos cartões na mesma
-   tela. A consulta do dia exige o índice composto de `registros_diarios` em
+   `MetaHidratacao`, `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`. Glicemia e
+   insulina (RF008) também feitas (`ui/insulina/`): cartão só para `possuiDiabetes`,
+   checklist dos momentos da E6 (`MomentoGlicemia`) + insulina lenta 22h para quem
+   `usaInsulina`, "Outra medição" avulsa, faixas em `FaixasGlicemia` (alvo 70–180) e
+   última glicemia/dose no card do acompanhante. `RegistroDiabete` tem `nivelGlicose`
+   e `doseInsulina` opcionais (registro só de glicemia ou só de insulina). Faltam sono,
+   exercício, alimentação, medicação e os lembretes de glicemia/insulina (RF 07.3).
+   A consulta do dia exige o índice composto de `registros_diarios` em
    `firestore.indexes.json` (publicar com `firebase deploy --only firestore:indexes`)*
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas
    push em tempo real via FCM (RF005, RF006). ← *vínculo por código, lista de

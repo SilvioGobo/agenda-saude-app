@@ -25,20 +25,65 @@ class DadosMedicosRepository {
   // instante no horario do aparelho), do mais recente para o mais antigo, em
   // tempo real - alimenta a barra de progresso da hidratacao (RF03.1).
   Stream<List<RegistroAgua>> streamAguaDoDia(String pacienteId, DateTime dia) {
+    return _registrosDoDia(pacienteId, 'agua', dia)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroAgua.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Medicoes de glicemia e aplicacoes de insulina do paciente no dia de
+  // [dia], do mais recente para o mais antigo, em tempo real - alimenta o
+  // checklist "Glicemia e Insulina" da rotina (RF008).
+  Stream<List<RegistroDiabete>> streamDiabeteDoDia(
+    String pacienteId,
+    DateTime dia,
+  ) {
+    return _registrosDoDia(pacienteId, 'diabete', dia)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroDiabete.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Ultimos registros de diabetes do paciente, do mais recente para o mais
+  // antigo, em tempo real. O card do acompanhante tira deles a ultima
+  // glicemia e a ultima dose de insulina (Figura 15); [limite] cobre cerca
+  // de dois dias de checklist completo.
+  Stream<List<RegistroDiabete>> streamUltimosRegistrosDiabete(
+    String pacienteId, {
+    int limite = 10,
+  }) {
+    return _firestore
+        .collection('registros_diarios')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .where('tipo', isEqualTo: 'diabete')
+        .orderBy('dataHora', descending: true)
+        .limit(limite)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroDiabete.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Registros de um [tipo] no dia de [dia] (do primeiro ao ultimo instante no
+  // horario do aparelho). Usa o indice composto de registros_diarios
+  // (pacienteId + tipo + dataHora) de firestore.indexes.json.
+  Query<Map<String, dynamic>> _registrosDoDia(
+    String pacienteId,
+    String tipo,
+    DateTime dia,
+  ) {
     final inicio = DateTime(dia.year, dia.month, dia.day);
     final fim = DateTime(dia.year, dia.month, dia.day + 1);
 
     return _firestore
         .collection('registros_diarios')
         .where('pacienteId', isEqualTo: pacienteId)
-        .where('tipo', isEqualTo: 'agua')
+        .where('tipo', isEqualTo: tipo)
         .where('dataHora', isGreaterThanOrEqualTo: inicio)
         .where('dataHora', isLessThan: fim)
-        .orderBy('dataHora', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => RegistroAgua.fromJson(doc.data(), doc.id))
-            .toList());
+        .orderBy('dataHora', descending: true);
   }
 
   Future<void> salvarBatimento(BatimentoCardiaco batimento) async {

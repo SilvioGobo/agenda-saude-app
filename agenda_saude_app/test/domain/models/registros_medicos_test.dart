@@ -43,5 +43,47 @@ void main() {
       expect(json.containsKey('id'), false);
     });
 
+    test('Deve converter RegistroDiabete só de glicemia, sem insulina', () {
+      final json = {
+        'tipo': 'diabete',
+        'pacienteId': 'paciente_123',
+        'dataHora': Timestamp.fromDate(DateTime(2026, 10, 25, 7, 0)),
+        'nivelGlicose': 98,
+        'momento': 'Ao acordar',
+        'doseInsulina': null,
+        'tipoInsulina': null,
+      };
+
+      final registro = RegistroDiabete.fromJson(json, 'doc_003');
+
+      expect(registro.nivelGlicose, 98.0);
+      expect(registro.temGlicemia, isTrue);
+      expect(registro.doseInsulina, isNull);
+      expect(registro.temInsulina, isFalse);
+      expect(registro.tipoInsulina, isNull);
+    });
+
+    test('Deve converter RegistroDiabete só de insulina, sem glicemia', () {
+      final registro = RegistroDiabete(
+        id: '',
+        pacienteId: 'paciente_123',
+        dataHora: DateTime(2026, 10, 25, 22, 0),
+        momento: 'Insulina lenta (22h)',
+        doseInsulina: 14,
+        tipoInsulina: 'Lenta',
+      );
+
+      final json = registro.toJson();
+      final convertido = RegistroDiabete.fromJson({
+        ...json,
+        'dataHora': Timestamp.fromDate(registro.dataHora),
+      }, 'doc_004');
+
+      expect(json['nivelGlicose'], isNull);
+      expect(convertido.temGlicemia, isFalse);
+      expect(convertido.doseInsulina, 14.0);
+      expect(convertido.tipoInsulina, 'Lenta');
+    });
+
   });
 }
