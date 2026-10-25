@@ -85,6 +85,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Localizacao do paciente: um doc por paciente (doc id = UID dele) com a
+    // ultima posicao. So o proprio paciente grava, e o `pacienteId` do doc
+    // tem de ser o dele; leitura para ele e para o acompanhante vinculado.
+    // A leitura vale tambem para o doc que ainda nao existe: o acompanhante
+    // pode abrir a tela antes de o paciente ligar o compartilhamento.
+    match /localizacoes/{pacienteId} {
+      allow read: if podeVerDadosDe(pacienteId);
+      allow create, update: if ehDono(pacienteId)
+        && request.resource.data.pacienteId == pacienteId;
+      allow delete: if ehDono(pacienteId);
+    }
+
     // Alertas: gerados pelo app do paciente; paciente e acompanhante podem
     // ler e marcar como lido.
     match /alertas/{alertaId} {

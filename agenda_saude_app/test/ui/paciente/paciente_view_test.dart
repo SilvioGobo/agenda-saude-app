@@ -5,13 +5,16 @@ import 'package:provider/provider.dart';
 
 import 'package:agenda_saude_app/data/repositories/auth_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/data/repositories/localizacao_repository.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
+import 'package:agenda_saude_app/ui/localizacao/compartilhamento_localizacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_view.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_viewmodel.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
 
 import '../../core/services/fake_health_service.dart';
+import '../../core/services/fake_localizacao_service.dart';
 
 class _AuthRepositoryFalso extends AuthRepository {
   int saidas = 0;
@@ -75,6 +78,16 @@ void main() {
                   healthService: FakeHealthService(),
                   dadosRepository: dadosRepository,
                   plataformaSuportada: smartwatchSuportado,
+                  intervalo: const Duration(hours: 1),
+                )..iniciar(),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => CompartilhamentoLocalizacaoViewModel(
+                  paciente: paciente,
+                  localizacaoService: FakeLocalizacaoService(),
+                  localizacaoRepository:
+                      LocalizacaoRepository(firestore: fakeFirestore),
+                  plataformaSuportada: true,
                   intervalo: const Duration(hours: 1),
                 )..iniciar(),
               ),
@@ -187,7 +200,12 @@ void main() {
       );
       expect(find.text('Sair da conta'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Meu código de vínculo'));
+      // O primeiro item ja saiu da tela (e da lista montada): rola de volta.
+      await tester.scrollUntilVisible(
+        find.text('Meu código de vínculo'),
+        -200,
+        scrollable: listaDoMenu,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Meu código de vínculo'));
       await tester.pumpAndSettle();
@@ -207,6 +225,8 @@ void main() {
       expect(find.text('Meu código de vínculo'), findsOneWidget);
       expect(find.text('Meu smartwatch'), findsOneWidget);
       expect(find.text('Conectado'), findsOneWidget);
+      expect(find.text('Minha localização'), findsOneWidget);
+      expect(find.text('Não compartilhada'), findsOneWidget);
       expect(find.text('Sair da conta'), findsOneWidget);
 
       await tester.tap(find.text('Meu código de vínculo'));
@@ -235,6 +255,29 @@ void main() {
 
       expect(find.text('Smartwatch conectado'), findsOneWidget);
       expect(find.text('Sincronizar agora'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve ligar o compartilhamento da localização pelo menu',
+        (tester) async {
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Minha localização'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Compartilhar minha localização'));
+      await tester.pumpAndSettle();
+      expect(find.text('Compartilhando sua localização'), findsOneWidget);
+
+      // De volta ao painel, o menu mostra que esta compartilhando.
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Compartilhando'), findsOneWidget);
 
       await desmontar(tester);
     });

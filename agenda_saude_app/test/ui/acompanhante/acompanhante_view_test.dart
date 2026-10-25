@@ -118,6 +118,8 @@ void main() {
     expect(find.text('Diabetes'), findsOneWidget);
     expect(find.text('Maria Souza'), findsOneWidget);
     expect(find.text('Triagem pendente'), findsOneWidget);
+    // Cada card tem o atalho para a localizacao do paciente.
+    expect(find.text('Ver localização'), findsNWidgets(2));
   });
 
   testWidgets('Desvincular pelo menu do card pede confirmação e remove o paciente', (
