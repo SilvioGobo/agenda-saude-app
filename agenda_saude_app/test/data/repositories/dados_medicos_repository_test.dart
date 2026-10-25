@@ -212,5 +212,81 @@ void main() {
       final snapshot = await fakeFirestore.collection('batimentos_cardiacos').get();
       expect(snapshot.docs.length, 501);
     });
+
+    group('Hidratação', () {
+      final hoje = DateTime(2026, 10, 25, 15, 0);
+
+      Future<void> salvarAgua(
+        String pacienteId,
+        DateTime dataHora, {
+        int ml = 250,
+      }) {
+        return repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: pacienteId,
+          dataHora: dataHora,
+          quantidadeML: ml,
+        ));
+      }
+
+      test('Deve listar só a água do paciente no dia pedido, da mais recente para a mais antiga', () async {
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 8, 0), ml: 100);
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 12, 0), ml: 200);
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 23, 59, 59), ml: 300);
+        // Fora do dia (limites exatos) e de outro paciente.
+        await salvarAgua('paciente_99', DateTime(2026, 10, 24, 23, 59, 59));
+        await salvarAgua('paciente_99', DateTime(2026, 10, 26, 0, 0));
+        await salvarAgua('outro_paciente', DateTime(2026, 10, 25, 9, 0));
+
+        final registros =
+            await repository.streamAguaDoDia('paciente_99', hoje).first;
+
+        expect(registros.map((r) => r.quantidadeML), [300, 200, 100]);
+      });
+
+      test('Deve ignorar registros do dia que não são de água', () async {
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 8, 0));
+        await fakeFirestore.collection('registros_diarios').add({
+          'tipo': 'sono',
+          'pacienteId': 'paciente_99',
+          'dataHora': DateTime(2026, 10, 25, 7, 0),
+          'horasTotais': 8.0,
+        });
+
+        final registros =
+            await repository.streamAguaDoDia('paciente_99', hoje).first;
+
+        expect(registros.length, 1);
+        expect(registros.first.quantidadeML, 250);
+      });
+
+      test('Deve emitir a lista atualizada quando um copo é registrado', () async {
+        final emissoes = <int>[];
+        final assinatura = repository
+            .streamAguaDoDia('paciente_99', hoje)
+            .listen((registros) => emissoes.add(registros.length));
+
+        await Future<void>.delayed(Duration.zero);
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 9, 0));
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes, [0, 1]);
+      });
+
+      test('Deve remover um registro pelo id', () async {
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 9, 0));
+        await salvarAgua('paciente_99', DateTime(2026, 10, 25, 10, 0));
+        final antes =
+            await repository.streamAguaDoDia('paciente_99', hoje).first;
+
+        await repository.removerRegistro(antes.first.id);
+
+        final depois =
+            await repository.streamAguaDoDia('paciente_99', hoje).first;
+        expect(depois.length, 1);
+        expect(depois.first.id, antes.last.id);
+      });
+    });
   });
 }

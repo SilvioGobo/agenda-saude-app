@@ -17,6 +17,30 @@ class DadosMedicosRepository {
     await _firestore.collection('registros_diarios').add(registro.toJson());
   }
 
+  Future<void> removerRegistro(String registroId) async {
+    await _firestore.collection('registros_diarios').doc(registroId).delete();
+  }
+
+  // Registros de agua do paciente no dia de [dia] (do primeiro ao ultimo
+  // instante no horario do aparelho), do mais recente para o mais antigo, em
+  // tempo real - alimenta a barra de progresso da hidratacao (RF03.1).
+  Stream<List<RegistroAgua>> streamAguaDoDia(String pacienteId, DateTime dia) {
+    final inicio = DateTime(dia.year, dia.month, dia.day);
+    final fim = DateTime(dia.year, dia.month, dia.day + 1);
+
+    return _firestore
+        .collection('registros_diarios')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .where('tipo', isEqualTo: 'agua')
+        .where('dataHora', isGreaterThanOrEqualTo: inicio)
+        .where('dataHora', isLessThan: fim)
+        .orderBy('dataHora', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroAgua.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
   Future<void> salvarBatimento(BatimentoCardiaco batimento) async {
     await _firestore.collection('batimentos_cardiacos').add(batimento.toJson());
   }
