@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/paciente.dart';
 import '../auth/botao_sair.dart';
+import '../metas/metas_view.dart';
 import '../rotina/rotina_view.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
@@ -51,6 +52,17 @@ class PacienteView extends StatelessWidget {
     _abrir(
       context,
       RotinaView.comProviders(context.read<PacienteViewModel>().paciente),
+    );
+  }
+
+  void _abrirMinhasMetas(BuildContext context) {
+    final viewModel = context.read<PacienteViewModel>();
+    _abrir(
+      context,
+      MetasView.comProviders(
+        viewModel.paciente,
+        aoAtualizar: viewModel.atualizarPaciente,
+      ),
     );
   }
 
@@ -161,6 +173,7 @@ class PacienteView extends StatelessWidget {
       // com o "voltar" do Android e abriria o menu sem querer.
       drawerEnableOpenDragGesture: false,
       drawer: MenuPaciente(
+        aoAbrirMetas: () => _abrirMinhasMetas(context),
         aoAbrirCodigo: () => _abrir(
           context,
           CodigoVinculoView(codigo: viewModel.paciente.codigoVinculo),

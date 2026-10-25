@@ -259,5 +259,27 @@ void main() {
 
       await desmontar(tester);
     });
+
+    testWidgets('Deve abrir Minhas metas pelo menu e voltar ao painel', (tester) async {
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Água, passos, calorias e mais'), findsOneWidget);
+
+      await tester.tap(find.text('Minhas metas'));
+      await tester.pumpAndSettle();
+
+      // Este paciente nao tem dados fisicos, entao ainda nao ha metas.
+      expect(find.text('Minhas metas'), findsOneWidget);
+      expect(find.text('Atualizar meu peso'), findsOneWidget);
+
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Olá, José'), findsOneWidget);
+
+      await desmontar(tester);
+    });
   });
 }

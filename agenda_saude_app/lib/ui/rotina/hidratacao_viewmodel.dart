@@ -51,13 +51,20 @@ class HidratacaoViewModel extends ChangeNotifier {
 
   int get copos => totalMl ~/ MetaHidratacao.mlPorCopo;
 
-  int get metaCopos => MetaHidratacao.copos;
+  // Meta do paciente (calculada na triagem); contas sem metas usam o padrao.
+  int get metaMl {
+    final calculada = paciente.metas?.hidratacaoMl;
+    return calculada != null && calculada >= MetaHidratacao.mlPorCopo
+        ? calculada
+        : MetaHidratacao.mlDiaria;
+  }
+
+  int get metaCopos => metaMl ~/ MetaHidratacao.mlPorCopo;
 
   // De 0 a 1; passar da meta nao estoura a barra.
-  double get progresso =>
-      (totalMl / MetaHidratacao.mlDiaria).clamp(0.0, 1.0).toDouble();
+  double get progresso => (totalMl / metaMl).clamp(0.0, 1.0).toDouble();
 
-  bool get metaAtingida => totalMl >= MetaHidratacao.mlDiaria;
+  bool get metaAtingida => totalMl >= metaMl;
 
   bool get podeRemover => _registros.isNotEmpty;
 

@@ -1,8 +1,9 @@
-// Meta diaria de hidratacao (RF03.1). O mockup do checklist (Figura 14 do TCC)
-// conta a agua em copos - "5/8 copos" -, entao a meta e de 8 copos de 250 ml,
-// os 2 litros por dia que sao a orientacao geral para adultos. O documento nao
-// fixa o valor: se a equipe medica pedir outra meta (ex.: restricao de liquido
-// para cardiopata), e so mudar aqui.
+// Hidratacao (RF03.1). O mockup do checklist (Figura 14 do TCC) conta a agua
+// em copos - "5/8 copos" -, entao tudo e medido em copos de 250 ml.
+//
+// A meta de cada paciente vem de `Paciente.metas` (CalculadoraMetas, a partir
+// da triagem). Os 8 copos / 2 litros daqui, a orientacao geral para adultos,
+// so valem como padrao para quem ainda nao tem metas calculadas.
 class MetaHidratacao {
   MetaHidratacao._();
 

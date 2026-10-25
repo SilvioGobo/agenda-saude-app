@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/meta_hidratacao.dart';
 import '../../core/theme/app_cores.dart';
 import '../shared/card_status.dart';
 import 'hidratacao_viewmodel.dart';
@@ -114,14 +113,13 @@ class _Resumo extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final mostrarProgresso = !viewModel.carregando && !viewModel.erroDeLeitura;
     final copos = '${viewModel.copos} de ${viewModel.metaCopos} copos';
-    final mililitros =
-        '${viewModel.totalMl} ml de ${MetaHidratacao.mlDiaria} ml';
+    final mililitros = '${viewModel.totalMl} ml de ${viewModel.metaMl} ml';
 
     return Semantics(
       container: true,
       label: mostrarProgresso
           ? 'Hidratação: $copos, ${viewModel.totalMl} de '
-              '${MetaHidratacao.mlDiaria} mililitros.'
+              '${viewModel.metaMl} mililitros.'
           : 'Hidratação',
       child: ExcludeSemantics(
         child: Column(

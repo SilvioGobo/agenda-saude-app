@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/ui/rotina/hidratacao_viewmodel.dart';
@@ -17,6 +18,27 @@ class _RepositorioSemLeitura extends DadosMedicosRepository {
   @override
   Stream<List<RegistroAgua>> streamAguaDoDia(String pacienteId, DateTime dia) =>
       Stream.error(Exception('indice faltando'));
+}
+
+// Metas completas; so a agua muda de um teste para outro.
+MetasPersonalizadas metasComAgua(int hidratacaoMl) {
+  return MetasPersonalizadas(
+    imc: 24.7,
+    classificacaoImc: ClassificacaoImc.adequado,
+    hidratacaoMl: hidratacaoMl,
+    sonoMinHoras: 7,
+    sonoMaxHoras: 9,
+    passos: 8000,
+    exercicioMinutosSemana: 150,
+    calorias: 1800,
+    carboidratosG: 225,
+    proteinasG: 90,
+    gordurasG: 60,
+    fibrasG: 25,
+    gorduraSaturadaMaxG: 20,
+    acucarLivreMaxG: 45,
+    sodioMaxMg: 2000,
+  );
 }
 
 void main() {
@@ -43,6 +65,7 @@ void main() {
     Future<void> montar(
       WidgetTester tester, {
       DadosMedicosRepository? repositorio,
+      Paciente? pacienteDaTela,
       double escalaTexto = 1,
     }) async {
       await tester.pumpWidget(
@@ -55,7 +78,7 @@ void main() {
           ),
           home: ChangeNotifierProvider(
             create: (_) => HidratacaoViewModel(
-              paciente: paciente,
+              paciente: pacienteDaTela ?? paciente,
               dadosRepository: repositorio ?? dadosRepository,
               agora: () => hoje,
             ),
@@ -243,6 +266,26 @@ void main() {
 
       expect(find.text('Minha Rotina'), findsNothing);
       expect(find.text('Abrir'), findsOneWidget);
+    });
+
+    testWidgets('Deve mostrar a meta de água calculada para o paciente', (tester) async {
+      await salvarCopos(5);
+      await montar(
+        tester,
+        pacienteDaTela: paciente.copyWith(metas: metasComAgua(1500)),
+      );
+
+      expect(find.text('5 de 6 copos'), findsOneWidget);
+      expect(find.text('1250 ml de 1500 ml'), findsOneWidget);
+      expect(find.text('META DE HOJE ATINGIDA'), findsNothing);
+
+      await tester.tap(botaoMais());
+      await tester.pumpAndSettle();
+
+      expect(find.text('6 de 6 copos'), findsOneWidget);
+      expect(find.text('META DE HOJE ATINGIDA'), findsOneWidget);
+
+      await desmontar(tester);
     });
   });
 }
