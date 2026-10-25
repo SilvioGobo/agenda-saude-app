@@ -62,6 +62,7 @@ lib/
     constants/      # zonas de segurança de BPM, metas de hidratação, momentos de glicemia
     services/       # tts_service, health_service, notification_service (wrappers de plugin)
   domain/models/    # já completo (ver abaixo)
+  domain/metas/     # CalculadoraMetas + MetasPersonalizadas: metas a partir da triagem
   data/repositories/
     auth_repository.dart          # a criar: wrapper do FirebaseAuth (RF001)
     paciente_repository.dart      # existente
@@ -77,6 +78,7 @@ lib/
     historico/      # gráficos e relatórios consolidados (RF005)
     alertas/        # tela de emergência (overlay vermelho) + lista de notificações (RF006)
     configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007)
+    metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
     shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, etc.)
 test/               # espelha lib/ (test/domain/models, test/data/repositories, test/ui)
 integration_test/   # fluxos completos no emulador
@@ -91,6 +93,14 @@ Convenções já estabelecidas nos repositories — manter:
   Paciente tem `possuiDiabetes`, `possuiCardiopatia`, `codigoVinculo`,
   `acompanhantesVinculadosIds: List<String>`;
   Acompanhante tem `pacientesVinculadosIds: List<String>`.
+  O Paciente também guarda `metas` (map, `MetasPersonalizadas`) e `limiteLiquidoMl`
+  (restrição de líquido do médico, perguntada só a cardiopatas). As `metas` saem da
+  `CalculadoraMetas` (`domain/metas/`): fórmulas consagradas (Mifflin-St Jeor, OMS,
+  Lipschitz para idosos ≥ 60 anos) e **sem IA**, para o resultado ser auditável e
+  testável. São calculadas ao concluir a triagem e recalculadas em "Minhas metas →
+  Atualizar meu peso"; `metas.ajustadaManualmente` marca quando o paciente mexeu em
+  água/passos/exercício (as metas de alimentação não são editáveis no app). O cálculo
+  devolve `null` se faltar dado (contas antigas): as telas caem nos padrões.
 - `codigos_vinculo/{codigo}` — doc id = o código de 6 caracteres; campos `pacienteId`,
   `nomePaciente`. É o índice que o Acompanhante consulta (só `get`, sem `list`) para
   achar o paciente antes do vínculo existir. `PacienteRepository.salvarPaciente` grava
@@ -126,8 +136,9 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"
-   (`ui/rotina/`) com hidratação (RF03.1) já feita: meta de 8 copos de 250 ml em
-   `MetaHidratacao`, `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`; faltam sono,
+   (`ui/rotina/`) com hidratação (RF03.1) já feita: meta do paciente em
+   `Paciente.metas.hidratacaoMl` (padrão de 8 copos de 250 ml em `MetaHidratacao`
+   para quem não tem metas), `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`; faltam sono,
    exercício, alimentação, medicação e insulina/glicemia como novos cartões na mesma
    tela. A consulta do dia exige o índice composto de `registros_diarios` em
    `firestore.indexes.json` (publicar com `firebase deploy --only firestore:indexes`)*

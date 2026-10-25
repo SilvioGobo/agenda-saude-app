@@ -100,7 +100,7 @@ Textos longos de orientação usam altura de linha `1.35`.
 
 - **Painel como centro**: cada tela principal (painel do paciente/acompanhante) tem
   botões grandes que abrem telas; de cada tela se volta com "Voltar".
-- **Menu lateral** para o que se usa pouco (código de vínculo, smartwatch, sair). Abre
+- **Menu lateral** para o que se usa pouco (minhas metas, código de vínculo, smartwatch, sair). Abre
   só pelo botão **"Menu" com ícone + texto** (`BotaoBarraSuperior.menu`); o gesto de
   arrastar da borda fica desligado, porque se confunde com o "voltar" do Android.
 - **Subtelas**: barra superior só com "Voltar" escrito (`BotaoBarraSuperior.voltar`) e
@@ -133,4 +133,5 @@ Textos longos de orientação usam altura de linha `1.35`.
 | `CaixaAlerta`                | caixa vermelha de alerta de saúde com orientação          |
 | `mostrarDialogoConfirmacao` | pergunta "tem certeza?" com botões grandes                |
 | `BotaoSelecionavel`         | escolha entre poucas opções (Sim/Não, perfil)             |
+| `BarraAcoes`                | botões fixos na base (`bottomNavigationBar`) em telas longas, para a ação principal nunca sair da vista |
 | `LogoAgendaSaude`           | marca nas telas de entrada                                |
