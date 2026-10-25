@@ -114,7 +114,8 @@ Convenções já estabelecidas nos repositories — manter:
   só `ativo: false`. Fora do documento do TCC — pedido da dupla. O paciente liga em
   Menu > Minha localização (`CompartilhamentoLocalizacaoViewModel`, `geolocator`,
   permissão "durante o uso"): envia a cada 1 min só com o app em primeiro plano. O
-  acompanhante abre pelo botão "Ver localização" do card (`ui/localizacao/`): endereço
+  acompanhante abre pelo botão "Ver localização" do card ou dos detalhes de um alerta de
+  emergência (`ui/localizacao/`): endereço
   via `geocoding` e "Abrir no mapa" via `url_launcher` (link do Google Maps, sem chave).
 
 Padrões dos models: classe abstrata (`Usuario`, `RegistroBase`) + subclasses;
