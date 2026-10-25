@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/models/alerta.dart';
+import '../../domain/models/paciente.dart';
+import '../localizacao/localizacao_paciente_view.dart';
 import 'alertas_viewmodel.dart';
 import 'card_alerta.dart';
 
@@ -20,6 +22,7 @@ Future<void> abrirDetalhesDoAlerta(
     builder: (_) => _DetalhesAlerta(
       alerta: alerta,
       nomePaciente: viewModel.nomeDoPaciente(alerta.pacienteId),
+      paciente: viewModel.pacienteDoAlerta(alerta),
     ),
   );
 }
@@ -27,14 +30,34 @@ Future<void> abrirDetalhesDoAlerta(
 class _DetalhesAlerta extends StatelessWidget {
   final Alerta alerta;
   final String nomePaciente;
+  final Paciente? paciente;
 
-  const _DetalhesAlerta({required this.alerta, required this.nomePaciente});
+  const _DetalhesAlerta({
+    required this.alerta,
+    required this.nomePaciente,
+    this.paciente,
+  });
+
+  // Na emergencia o acompanhante precisa saber onde o paciente esta, para ir
+  // ate ele ou passar o endereco ao SAMU.
+  bool get _mostrarLocalizacao => alerta.ehEmergencia && paciente != null;
+
+  void _verLocalizacao(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LocalizacaoPacienteView.comProviders(paciente!),
+      ),
+    );
+  }
 
   String get _orientacao {
     if (alerta.ehEmergencia) {
+      final endereco = _mostrarLocalizacao
+          ? ' e informe o endereço que aparece em "Ver localização"'
+          : '';
       return 'Os batimentos de $nomePaciente estão fora da zona de segurança '
           'há vários minutos. Ligue agora para saber como está. Se não '
-          'atender ou relatar mal-estar, ligue para o SAMU (192).';
+          'atender ou relatar mal-estar, ligue para o SAMU (192)$endereco.';
     }
     return 'Os batimentos de $nomePaciente saíram da zona de segurança. Entre '
         'em contato para saber como está se sentindo. Se continuar assim por '
@@ -127,6 +150,16 @@ class _DetalhesAlerta extends StatelessWidget {
             const SizedBox(height: 6),
             Text(_orientacao, style: const TextStyle(fontSize: 17)),
             const SizedBox(height: 28),
+            if (_mostrarLocalizacao) ...[
+              // A folha continua aberta por baixo: ao voltar do mapa, a
+              // orientacao ainda esta a mao.
+              FilledButton.icon(
+                onPressed: () => _verLocalizacao(context),
+                icon: const Icon(Icons.location_on_rounded),
+                label: const Text('Ver localização'),
+              ),
+              const SizedBox(height: 12),
+            ],
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Entendi'),

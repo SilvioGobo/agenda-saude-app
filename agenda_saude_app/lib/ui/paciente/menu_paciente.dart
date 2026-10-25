@@ -4,17 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
+import '../localizacao/compartilhamento_localizacao_viewmodel.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
 import 'paciente_viewmodel.dart';
 
 // Menu lateral do painel do paciente, aberto pelo botao "Menu". Guarda o que
-// o paciente usa pouco (codigo de vinculo, conexao do smartwatch, sair) para
-// o painel ficar so com o BPM e os atalhos principais. Itens com 72dp de
-// altura, icone 32 e texto 20, com uma linha de explicacao embaixo (NF004).
+// o paciente usa pouco (codigo de vinculo, conexao do smartwatch,
+// compartilhamento da localizacao, sair) para o painel ficar so com o BPM e
+// os atalhos principais. Itens com 72dp de altura, icone 32 e texto 20, com
+// uma linha de explicacao embaixo (NF004).
 class MenuPaciente extends StatelessWidget {
   final VoidCallback aoAbrirMetas;
   final VoidCallback aoAbrirCodigo;
   final VoidCallback aoAbrirSmartwatch;
+  final VoidCallback aoAbrirLocalizacao;
   final VoidCallback aoSair;
 
   const MenuPaciente({
@@ -22,6 +25,7 @@ class MenuPaciente extends StatelessWidget {
     required this.aoAbrirMetas,
     required this.aoAbrirCodigo,
     required this.aoAbrirSmartwatch,
+    required this.aoAbrirLocalizacao,
     required this.aoSair,
   });
 
@@ -53,12 +57,39 @@ class MenuPaciente extends StatelessWidget {
     }
   }
 
+  ({String texto, Color cor}) _situacaoLocalizacao(
+    BuildContext context,
+    CompartilhamentoLocalizacaoViewModel localizacao,
+  ) {
+    final neutra = Theme.of(context).colorScheme.onSurfaceVariant;
+    switch (localizacao.estado) {
+      case EstadoCompartilhamento.verificando:
+        return (texto: 'Verificando...', cor: neutra);
+      case EstadoCompartilhamento.ativo:
+        return localizacao.mensagemErro == null
+            ? (texto: 'Compartilhando', cor: AppCores.sucesso)
+            : (texto: 'Falha ao enviar', cor: AppCores.aviso);
+      case EstadoCompartilhamento.desligado:
+        return (texto: 'Não compartilhada', cor: neutra);
+      case EstadoCompartilhamento.naoSuportado:
+        return (texto: 'Indisponível neste celular', cor: neutra);
+      case EstadoCompartilhamento.semPermissao:
+        return (texto: 'Sem permissão', cor: AppCores.aviso);
+      case EstadoCompartilhamento.gpsDesligado:
+        return (texto: 'GPS desligado', cor: AppCores.aviso);
+      case EstadoCompartilhamento.erro:
+        return (texto: 'Com problema', cor: AppCores.aviso);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<PacienteViewModel>();
     final sincronizacao = context.watch<SincronizacaoBpmViewModel>();
+    final localizacao = context.watch<CompartilhamentoLocalizacaoViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
     final situacao = _situacaoSmartwatch(context, sincronizacao);
+    final situacaoLocalizacao = _situacaoLocalizacao(context, localizacao);
     final nome = viewModel.paciente.nome.trim();
 
     return Drawer(
@@ -147,6 +178,13 @@ class MenuPaciente extends StatelessWidget {
               descricao: situacao.texto,
               corDescricao: situacao.cor,
               aoTocar: () => _tocar(context, aoAbrirSmartwatch),
+            ),
+            _ItemMenu(
+              icone: Icons.location_on_rounded,
+              rotulo: 'Minha localização',
+              descricao: situacaoLocalizacao.texto,
+              corDescricao: situacaoLocalizacao.cor,
+              aoTocar: () => _tocar(context, aoAbrirLocalizacao),
             ),
             const SizedBox(height: 8),
             const Divider(height: 1),
