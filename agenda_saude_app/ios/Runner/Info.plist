@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Sua localização é compartilhada com quem acompanha você pelo aplicativo, para saberem onde você está caso precise de ajuda.</string>
 </dict>
 </plist>

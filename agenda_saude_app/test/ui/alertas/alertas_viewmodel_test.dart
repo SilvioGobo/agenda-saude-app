@@ -124,6 +124,23 @@ void main() {
       viewModel.dispose();
     });
 
+    test('Deve encontrar o paciente de cada alerta para abrir a localização', () async {
+      await gerarAlerta('paciente_01', tipo: Alerta.tipoEmergencia);
+      await gerarAlerta('paciente_02');
+      final viewModel = criarViewModel()..acompanharPacientes([jose, maria]);
+      await aguardarEscuta();
+
+      final doJose = viewModel.alertas.firstWhere((a) => a.pacienteId == 'paciente_01');
+      final daMaria = viewModel.alertas.firstWhere((a) => a.pacienteId == 'paciente_02');
+      expect(viewModel.pacienteDoAlerta(doJose)!.nome, 'José Silva');
+      expect(viewModel.pacienteDoAlerta(daMaria)!.nome, 'Maria Souza');
+
+      // Depois do desvinculo nao ha mais paciente para mostrar.
+      viewModel.acompanharPacientes([maria]);
+      expect(viewModel.pacienteDoAlerta(doJose), isNull);
+      viewModel.dispose();
+    });
+
     test('Não deve notificar alertas de pacientes que não estão vinculados', () async {
       final viewModel = criarViewModel()..acompanharPacientes([jose]);
       await aguardarEscuta();

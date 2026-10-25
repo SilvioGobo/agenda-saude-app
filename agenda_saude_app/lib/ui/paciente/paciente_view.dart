@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/paciente.dart';
 import '../auth/botao_sair.dart';
+import '../localizacao/compartilhamento_localizacao_viewmodel.dart';
+import '../localizacao/minha_localizacao_view.dart';
 import '../rotina/rotina_view.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
@@ -27,8 +29,9 @@ import 'paciente_viewmodel.dart';
 class PacienteView extends StatelessWidget {
   const PacienteView({super.key});
 
-  // Monta o painel com os dois ViewModels de que ele depende: o do painel em
-  // si e o da sincronizacao com o smartwatch (que ja comeca a ler ao abrir).
+  // Monta o painel com os ViewModels de que ele depende: o do painel em si, o
+  // da sincronizacao com o smartwatch (que ja comeca a ler ao abrir) e o do
+  // compartilhamento da localizacao (que retoma o envio se estiver ligado).
   static Widget comProviders(Paciente paciente) {
     return MultiProvider(
       providers: [
@@ -37,6 +40,10 @@ class PacienteView extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => SincronizacaoBpmViewModel(paciente: paciente)..iniciar(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) =>
+              CompartilhamentoLocalizacaoViewModel(paciente: paciente)..iniciar(),
         ),
       ],
       child: const PacienteView(),
@@ -155,6 +162,7 @@ class PacienteView extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<PacienteViewModel>();
     final sincronizacao = context.read<SincronizacaoBpmViewModel>();
+    final localizacao = context.read<CompartilhamentoLocalizacaoViewModel>();
 
     return Scaffold(
       // So abre pelo botao "Menu": o gesto de arrastar da borda se confunde
@@ -167,6 +175,8 @@ class PacienteView extends StatelessWidget {
         ),
         aoAbrirSmartwatch: () =>
             _abrir(context, SmartwatchView.comViewModel(sincronizacao)),
+        aoAbrirLocalizacao: () =>
+            _abrir(context, MinhaLocalizacaoView.comViewModel(localizacao)),
         aoSair: () => _confirmarSaida(context),
       ),
       appBar: AppBar(

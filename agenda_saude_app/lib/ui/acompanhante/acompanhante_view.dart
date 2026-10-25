@@ -16,6 +16,7 @@ import '../alertas/botao_notificacoes.dart';
 import '../alertas/card_permissao_notificacoes.dart';
 import '../alertas/detalhes_alerta.dart';
 import '../auth/botao_sair.dart';
+import '../localizacao/localizacao_paciente_view.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
 import 'vincular_paciente_view.dart';
@@ -114,6 +115,14 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Paciente vinculado com sucesso.')),
+    );
+  }
+
+  void _verLocalizacao(Paciente paciente) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LocalizacaoPacienteView.comProviders(paciente),
+      ),
     );
   }
 
@@ -256,6 +265,7 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                       onDesvincular: viewModel.carregando
                           ? null
                           : () => _confirmarDesvinculo(paciente),
+                      onVerLocalizacao: () => _verLocalizacao(paciente),
                     ),
                   ),
               const SizedBox(height: 28),

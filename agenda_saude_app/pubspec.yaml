@@ -40,6 +40,9 @@ dependencies:
   provider: ^6.1.2
   health: ^13.3.1
   flutter_local_notifications: ^20.1.0
+  geolocator: ^14.0.2
+  geocoding: ^5.0.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

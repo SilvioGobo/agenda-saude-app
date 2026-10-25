@@ -71,6 +71,9 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
     return nome.isEmpty ? 'Paciente' : nome;
   }
 
+  // Null se o paciente ja foi desvinculado.
+  Paciente? pacienteDoAlerta(Alerta alerta) => _pacientes[alerta.pacienteId];
+
   // Prepara as notificacoes e pede a permissao do sistema (Android 13+).
   Future<void> iniciar() async {
     if (!_notificationService.disponivel) return;

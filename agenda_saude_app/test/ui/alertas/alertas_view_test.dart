@@ -108,12 +108,37 @@ void main() {
     expect(find.text('118 BPM', findRichText: true), findsOneWidget);
     expect(find.text('O que fazer'), findsOneWidget);
     expect(find.textContaining('Entre em contato'), findsOneWidget);
+    // A localizacao so e oferecida nos alertas de emergencia.
+    expect(find.text('Ver localização'), findsNothing);
     expect(viewModel.totalNaoLidos, 0);
 
     await tester.ensureVisible(find.text('Entendi'));
     await tester.tap(find.text('Entendi'));
     await tester.pumpAndSettle();
     expect(find.text('Nenhuma notificação nova.'), findsOneWidget);
+  });
+
+  testWidgets('Detalhes da emergência oferecem ver a localização do paciente', (
+    tester,
+  ) async {
+    await gerarAlerta(
+      tipo: Alerta.tipoEmergencia,
+      mensagem: 'Batimentos fora da zona de segurança há 6 minutos.',
+      bpm: 132,
+    );
+    await montarTela(tester);
+
+    await tester.tap(find.byType(CardAlerta));
+    await tester.pumpAndSettle();
+
+    expect(find.text('132 BPM', findRichText: true), findsOneWidget);
+    expect(
+      find.textContaining('informe o endereço que aparece em "Ver localização"'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Ver localização'));
+    expect(find.text('Ver localização'), findsOneWidget);
+    expect(find.text('Entendi'), findsOneWidget);
   });
 
   testWidgets('Botão "Marcar todas como lidas" zera as não lidas', (
