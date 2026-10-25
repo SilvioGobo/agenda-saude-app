@@ -128,3 +128,35 @@ class SeloFaixaGlicemia extends StatelessWidget {
     );
   }
 }
+
+// Erro em caixa alta com icone, anunciado pelo leitor de tela.
+class TextoErroDiabete extends StatelessWidget {
+  final String texto;
+
+  const TextoErroDiabete(this.texto, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_rounded, color: AppCores.perigo, size: 24),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: const TextStyle(
+                fontSize: 18,
+                height: 1.35,
+                fontWeight: FontWeight.bold,
+                color: AppCores.perigo,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
