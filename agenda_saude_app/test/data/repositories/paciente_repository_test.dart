@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 void main() {
@@ -107,6 +108,65 @@ void main() {
       final resultado = await repository.buscarPorCodigoVinculo('QWE789');
       expect(resultado, isNotNull);
       expect(resultado!.pacienteId, 'paciente_001');
+    });
+
+    const metas = MetasPersonalizadas(
+      imc: 24.7,
+      classificacaoImc: ClassificacaoImc.adequado,
+      hidratacaoMl: 2000,
+      sonoMinHoras: 7,
+      sonoMaxHoras: 9,
+      passos: 8000,
+      exercicioMinutosSemana: 150,
+      calorias: 1800,
+      carboidratosG: 225,
+      proteinasG: 90,
+      gordurasG: 60,
+      fibrasG: 25,
+      gorduraSaturadaMaxG: 20,
+      acucarLivreMaxG: 45,
+      sodioMaxMg: 2000,
+    );
+
+    test('Deve gravar as metas sem mexer no resto do documento', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.atualizarMetas('paciente_001', metas);
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.metas, isNotNull);
+      expect(resultado.metas!.calorias, 1800);
+      expect(resultado.metas!.hidratacaoMl, 2000);
+      expect(resultado.nome, 'João da Silva');
+      expect(resultado.codigoVinculo, 'ABC12');
+    });
+
+    test('Deve atualizar também o peso e a atividade ao recalcular as metas', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.atualizarMetas(
+        'paciente_001',
+        metas,
+        pesoKg: 72.5,
+        nivelAtividadeFisica: 'Moderado',
+      );
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.pesoKg, 72.5);
+      expect(resultado.nivelAtividadeFisica, 'Moderado');
+      expect(resultado.metas, isNotNull);
+    });
+
+    test('Deve substituir as metas antigas por inteiro', () async {
+      await repository.salvarPaciente(criarPaciente());
+      await repository.atualizarMetas('paciente_001', metas);
+
+      await repository.atualizarMetas(
+          'paciente_001', metas.comAjustes(passos: 4000));
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.metas!.passos, 4000);
+      expect(resultado.metas!.ajustadaManualmente, true);
     });
   });
 }

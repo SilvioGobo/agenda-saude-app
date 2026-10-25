@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart'; // ajuste o import
 
 void main() {
@@ -132,6 +133,87 @@ void main() {
       expect(json['nivelAtividadeFisica'], 'Moderado');
       expect(json['triagemConcluida'], true);
       expect(json.containsKey('id'), false);
+    });
+
+    test('Deve guardar e ler as metas e a restrição de líquido pelo JSON', () {
+      final paciente = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: true,
+        codigoVinculo: '12345',
+        limiteLiquidoMl: 1500,
+        metas: const MetasPersonalizadas(
+          imc: 24.7,
+          classificacaoImc: ClassificacaoImc.adequado,
+          hidratacaoMl: 1500,
+          sonoMinHoras: 7,
+          sonoMaxHoras: 8,
+          passos: 6000,
+          exercicioMinutosSemana: 150,
+          calorias: 1800,
+          carboidratosG: 225,
+          proteinasG: 90,
+          gordurasG: 60,
+          fibrasG: 25,
+          gorduraSaturadaMaxG: 14,
+          acucarLivreMaxG: 45,
+          sodioMaxMg: 2000,
+        ),
+      );
+
+      final lido = Paciente.fromJson(paciente.toJson(), 'id-123');
+
+      expect(lido.limiteLiquidoMl, 1500);
+      expect(lido.metas, isNotNull);
+      expect(lido.metas!.hidratacaoMl, 1500);
+      expect(lido.metas!.calorias, 1800);
+      expect(lido.metas!.gorduraSaturadaMaxG, 14);
+    });
+
+    test('Deve ler como sem metas um paciente antigo, sem esses campos', () {
+      final paciente = Paciente.fromJson({
+        'nome': 'João Silva',
+        'perfil': 'Paciente',
+        'codigoVinculo': '12345',
+      }, 'id-123');
+
+      expect(paciente.metas, isNull);
+      expect(paciente.limiteLiquidoMl, isNull);
+    });
+
+    test('copyWith deve trocar peso, atividade e metas e manter o resto', () {
+      final paciente = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: true,
+        possuiCardiopatia: false,
+        codigoVinculo: '12345',
+        acompanhantesVinculadosIds: const ['acomp-1'],
+        triagemConcluida: true,
+        sexoBiologico: 'Masculino',
+        alturaCm: 175,
+        pesoKg: 80,
+        nivelAtividadeFisica: 'Leve',
+        limiteLiquidoMl: 1500,
+      );
+
+      final novo = paciente.copyWith(pesoKg: 75, nivelAtividadeFisica: 'Intenso');
+      final igual = paciente.copyWith();
+
+      expect(novo.pesoKg, 75);
+      expect(novo.nivelAtividadeFisica, 'Intenso');
+      expect(novo.id, 'id-123');
+      expect(novo.possuiDiabetes, true);
+      expect(novo.acompanhantesVinculadosIds, ['acomp-1']);
+      expect(novo.alturaCm, 175);
+      expect(novo.limiteLiquidoMl, 1500);
+      expect(igual.pesoKg, 80);
+      expect(igual.nivelAtividadeFisica, 'Leve');
     });
   });
 }
