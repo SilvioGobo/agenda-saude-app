@@ -9,6 +9,15 @@
       ]
     },
     {
+      "collectionGroup": "registros_diarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pacienteId", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "dataHora", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "alertas",
       "queryScope": "COLLECTION",
       "fields": [

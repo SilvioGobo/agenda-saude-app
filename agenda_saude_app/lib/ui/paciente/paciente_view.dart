@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/paciente.dart';
 import '../auth/botao_sair.dart';
+import '../rotina/rotina_view.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
 import '../shared/caixa_alerta.dart';
@@ -49,11 +50,7 @@ class PacienteView extends StatelessWidget {
   void _abrirMinhaRotina(BuildContext context) {
     _abrir(
       context,
-      const TelaProvisoria(
-        titulo: 'Minha Rotina',
-        mensagem: 'O checklist de rotina diária (água, sono, exercícios e '
-            'medicação) ainda está em desenvolvimento.',
-      ),
+      RotinaView.comProviders(context.read<PacienteViewModel>().paciente),
     );
   }
 

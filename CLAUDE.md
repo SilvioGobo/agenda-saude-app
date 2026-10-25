@@ -125,7 +125,12 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 2. **Módulo de Sincronização IoT** — integração com smartwatch via pacote `health`,
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
-   (RF003) e insulina/glicemia habilitado pela triagem (RF008)
+   (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"
+   (`ui/rotina/`) com hidratação (RF03.1) já feita: meta de 8 copos de 250 ml em
+   `MetaHidratacao`, `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`; faltam sono,
+   exercício, alimentação, medicação e insulina/glicemia como novos cartões na mesma
+   tela. A consulta do dia exige o índice composto de `registros_diarios` em
+   `firestore.indexes.json` (publicar com `firebase deploy --only firestore:indexes`)*
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas
    push em tempo real via FCM (RF005, RF006). ← *vínculo por código, lista de
    pacientes em cards e central de alertas em tempo real com notificação local
