@@ -49,9 +49,13 @@ class PacienteView extends StatelessWidget {
   }
 
   void _abrirMinhaRotina(BuildContext context) {
+    final viewModel = context.read<PacienteViewModel>();
     _abrir(
       context,
-      RotinaView.comProviders(context.read<PacienteViewModel>().paciente),
+      RotinaView.comProviders(
+        viewModel.paciente,
+        aoAtualizarPaciente: viewModel.atualizarPaciente,
+      ),
     );
   }
 

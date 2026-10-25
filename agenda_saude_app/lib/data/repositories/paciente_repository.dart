@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/metas/metas_personalizadas.dart';
 import '../../domain/models/codigo_vinculo.dart';
 import '../../domain/models/paciente.dart';
+import '../../domain/models/refeicao_planejada.dart';
 
 class PacienteRepository {
   final FirebaseFirestore _firestore;
@@ -46,6 +47,17 @@ class PacienteRepository {
       if (pesoKg != null) 'pesoKg': pesoKg,
       if (nivelAtividadeFisica != null)
         'nivelAtividadeFisica': nivelAtividadeFisica,
+    });
+  }
+
+  // Grava o plano de refeicoes personalizado (RF03.4) sem reescrever o resto
+  // do documento do paciente.
+  Future<void> salvarRefeicoes(
+    String pacienteId,
+    List<RefeicaoPlanejada> refeicoes,
+  ) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'refeicoes': refeicoes.map((refeicao) => refeicao.toJson()).toList(),
     });
   }
 

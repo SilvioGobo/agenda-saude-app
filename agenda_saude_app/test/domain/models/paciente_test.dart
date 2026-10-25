@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
+import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart'; // ajuste o import
+import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 
 void main() {
   group('Paciente Model Test', () {
@@ -214,6 +216,95 @@ void main() {
       expect(novo.limiteLiquidoMl, 1500);
       expect(igual.pesoKg, 80);
       expect(igual.nivelAtividadeFisica, 'Leve');
+    });
+
+    test('Deve usar o plano de refeições padrão enquanto não houver um personalizado', () {
+      Paciente criar({required bool diabetes}) => Paciente(
+            id: 'id-123',
+            nome: 'João Silva',
+            email: 'joao@email.com',
+            perfil: 'Paciente',
+            possuiDiabetes: diabetes,
+            possuiCardiopatia: false,
+            codigoVinculo: '12345',
+          );
+
+      expect(criar(diabetes: false).refeicoes, isNull);
+      expect(criar(diabetes: false).planoDeRefeicoes.length, 4);
+      expect(criar(diabetes: true).planoDeRefeicoes.length, 6);
+    });
+
+    test('Deve guardar e ler o plano de refeições pelo JSON', () {
+      final paciente = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: false,
+        codigoVinculo: '12345',
+        refeicoes: const [
+          RefeicaoPlanejada(
+          id: 'r1',
+          nome: 'Café',
+          itens: [
+            ItemRefeicao(
+              alimentoId: 53,
+              nome: 'Pão, trigo, francês',
+              quantidadeG: 50,
+            ),
+          ],
+        ),
+          RefeicaoPlanejada(id: 'r2', nome: 'Almoço'),
+        ],
+      );
+
+      final lido = Paciente.fromJson(paciente.toJson(), 'id-123');
+
+      expect(lido.refeicoes!.map((r) => r.nome), ['Café', 'Almoço']);
+      final item = lido.refeicoes!.first.itens.single;
+      expect(item.alimentoId, 53);
+      expect(item.quantidadeG, 50);
+      expect(lido.refeicoes!.last.itens, isEmpty);
+      expect(lido.planoDeRefeicoes.length, 2);
+    });
+
+    test('Deve diferenciar plano vazio de plano nunca personalizado', () {
+      final semPersonalizar = Paciente.fromJson({
+        'nome': 'João',
+        'perfil': 'Paciente',
+        'codigoVinculo': '1',
+      }, 'id-1');
+      final comPlanoVazio = Paciente.fromJson({
+        'nome': 'João',
+        'perfil': 'Paciente',
+        'codigoVinculo': '1',
+        'refeicoes': <Map<String, dynamic>>[],
+      }, 'id-1');
+
+      expect(semPersonalizar.refeicoes, isNull);
+      expect(semPersonalizar.planoDeRefeicoes, isNotEmpty);
+      expect(comPlanoVazio.refeicoes, isEmpty);
+      expect(comPlanoVazio.planoDeRefeicoes, isEmpty);
+    });
+
+    test('copyWith deve trocar o plano de refeições', () {
+      final paciente = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: false,
+        codigoVinculo: '12345',
+      );
+
+      final novo = paciente.copyWith(
+        refeicoes: const [RefeicaoPlanejada(id: 'r1', nome: 'Café')],
+      );
+
+      expect(novo.planoDeRefeicoes.single.nome, 'Café');
+      expect(paciente.refeicoes, isNull);
     });
   });
 }

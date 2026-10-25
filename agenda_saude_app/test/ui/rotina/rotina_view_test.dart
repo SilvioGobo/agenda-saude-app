@@ -7,7 +7,10 @@ import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
+import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
+import 'package:agenda_saude_app/ui/rotina/card_hidratacao.dart';
 import 'package:agenda_saude_app/ui/rotina/hidratacao_viewmodel.dart';
+import 'package:agenda_saude_app/ui/rotina/refeicoes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/rotina_view.dart';
 
 // Leitura do dia que sempre falha (ex.: indice composto ainda nao publicado).
@@ -76,12 +79,24 @@ void main() {
                 .copyWith(textScaler: TextScaler.linear(escalaTexto)),
             child: child!,
           ),
-          home: ChangeNotifierProvider(
-            create: (_) => HidratacaoViewModel(
-              paciente: pacienteDaTela ?? paciente,
-              dadosRepository: repositorio ?? dadosRepository,
-              agora: () => hoje,
-            ),
+          home: MultiProvider(
+            providers: [
+              ChangeNotifierProvider(
+                create: (_) => HidratacaoViewModel(
+                  paciente: pacienteDaTela ?? paciente,
+                  dadosRepository: repositorio ?? dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => RefeicoesViewModel(
+                  paciente: pacienteDaTela ?? paciente,
+                  dadosRepository: repositorio ?? dadosRepository,
+                  pacienteRepository: PacienteRepository(firestore: fakeFirestore),
+                  agora: () => hoje,
+                ),
+              ),
+            ],
             child: const RotinaView(),
           ),
         ),
@@ -106,8 +121,20 @@ void main() {
     }
 
     // `.icon` cria uma subclasse privada, que o byType exato nao acha.
-    Finder botaoMais() => find.bySubtype<FilledButton>();
-    Finder botaoMenos() => find.bySubtype<OutlinedButton>();
+    Finder barraDaAgua() => find.descendant(
+          of: find.byType(CardHidratacao),
+          matching: find.byType(LinearProgressIndicator),
+        );
+
+    // So os botoes do cartao de hidratacao: o de refeicoes tem os seus.
+    Finder botaoMais() => find.descendant(
+          of: find.byType(CardHidratacao),
+          matching: find.bySubtype<FilledButton>(),
+        );
+    Finder botaoMenos() => find.descendant(
+          of: find.byType(CardHidratacao),
+          matching: find.bySubtype<OutlinedButton>(),
+        );
 
     testWidgets('Deve mostrar o título, a hidratação zerada e o botão de tirar copo desativado',
         (tester) async {
@@ -162,7 +189,7 @@ void main() {
 
       expect(find.text('5 de 8 copos'), findsOneWidget);
       final barra = tester.widget<LinearProgressIndicator>(
-        find.byType(LinearProgressIndicator),
+        barraDaAgua(),
       );
       expect(barra.value, closeTo(5 / 8, 0.0001));
 
@@ -188,7 +215,7 @@ void main() {
       await montar(tester, repositorio: _RepositorioSemLeitura(fakeFirestore));
 
       expect(find.textContaining('Não foi possível carregar'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(barraDaAgua(), findsNothing);
       expect(botaoMais(), findsNothing);
       expect(botaoMenos(), findsNothing);
 
@@ -241,12 +268,23 @@ void main() {
               body: TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider(
-                      create: (_) => HidratacaoViewModel(
-                        paciente: paciente,
-                        dadosRepository: dadosRepository,
-                        agora: () => hoje,
-                      ),
+                    builder: (_) => MultiProvider(
+                      providers: [
+                        ChangeNotifierProvider(
+                          create: (_) => HidratacaoViewModel(
+                            paciente: paciente,
+                            dadosRepository: dadosRepository,
+                            agora: () => hoje,
+                          ),
+                        ),
+                        ChangeNotifierProvider(
+                          create: (_) => RefeicoesViewModel(
+                            paciente: paciente,
+                            dadosRepository: dadosRepository,
+                            agora: () => hoje,
+                          ),
+                        ),
+                      ],
                       child: const RotinaView(),
                     ),
                   ),
