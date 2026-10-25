@@ -8,15 +8,15 @@ import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/paciente.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_selecionavel.dart';
-import '../shared/rotulo_pergunta.dart';
-import '../shared/seletor_sim_nao.dart';
 import '../shared/titulo_tela.dart';
 import 'registrar_glicemia_viewmodel.dart';
 
-// Tela de registro de um momento do checklist "Glicemia e Insulina" (RF008).
-// Campos numericos grandes, com teclado numerico, e o "Aplicou insulina?" em
-// botoes Sim/Nao - o mesmo padrao da triagem. Fecha devolvendo true quando o
-// registro foi salvo.
+// Tela de anotacao de um momento do checklist "Glicemia e Insulina" (RF008).
+// Pensada para idosos (NF004): perguntas numeradas em caixa alta, uma por
+// vez na ordem em que a pessoa faz as coisas; campos grandes com borda bem
+// visivel, que ficam claramente vazios ate a pessoa digitar (o exemplo fica
+// fora do campo); respostas em botoes grandes; erros em caixa alta com icone.
+// Fecha devolvendo true quando o registro foi salvo.
 class RegistrarGlicemiaView extends StatefulWidget {
   const RegistrarGlicemiaView({super.key});
 
@@ -68,6 +68,9 @@ class _RegistrarGlicemiaViewState extends State<RegistrarGlicemiaView> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<RegistrarGlicemiaViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
+    // As perguntas visiveis sao numeradas na ordem em que aparecem.
+    var numero = 0;
+    String pergunta(String texto) => '${++numero}. $texto';
 
     return Scaffold(
       appBar: AppBar(
@@ -82,89 +85,101 @@ class _RegistrarGlicemiaViewState extends State<RegistrarGlicemiaView> {
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
             TituloTela(
-              viewModel.momento.nome,
+              viewModel.momento.rotulo,
               subtitulo: viewModel.pedeGlicemia
-                  ? 'Anote o valor que apareceu no seu aparelho de glicemia.'
-                  : 'Anote a dose de insulina lenta que você aplicou.',
+                  ? 'Responda e toque em SALVAR.'
+                  : 'Digite a dose de insulina lenta e toque em SALVAR.',
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             if (viewModel.pedeGlicemia) ...[
-              const RotuloPergunta('Glicemia (mg/dL)'),
+              _Pergunta(pergunta('QUAL FOI A SUA GLICEMIA?')),
+              const _Explicacao(
+                'O número que apareceu no aparelho de medir glicemia.',
+              ),
+              const SizedBox(height: 12),
               _CampoNumerico(
                 controller: _glicemiaController,
-                rotulo: 'Glicemia em mg/dL',
-                dica: 'Ex.: 110',
-                sufixo: 'mg/dL',
+                rotuloParaLeitor: 'Glicemia em miligramas por decilitro',
+                unidade: 'mg/dL',
+                exemplo: 'EXEMPLO: 110',
                 erro: viewModel.erroGlicemia,
                 permiteDecimal: false,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
             ],
             if (viewModel.perguntaSeAplicouInsulina) ...[
-              const RotuloPergunta('Aplicou insulina agora?'),
-              SeletorSimNao(
-                valor: viewModel.aplicouInsulina,
-                aoResponder: viewModel.responderAplicouInsulina,
+              _Pergunta(pergunta('VOCÊ APLICOU INSULINA AGORA?')),
+              const SizedBox(height: 4),
+              _ParDeOpcoes(
+                opcoes: const ['SIM', 'NÃO'],
+                selecionada: switch (viewModel.aplicouInsulina) {
+                  true => 'SIM',
+                  false => 'NÃO',
+                  null => null,
+                },
+                aoEscolher: (opcao) =>
+                    viewModel.responderAplicouInsulina(opcao == 'SIM'),
               ),
-              if (viewModel.erroInsulina != null)
+              if (viewModel.erroInsulina != null) ...[
+                const SizedBox(height: 8),
                 _TextoErro(viewModel.erroInsulina!),
-              const SizedBox(height: 24),
+              ],
+              const SizedBox(height: 32),
             ],
             if (viewModel.mostrarCamposInsulina) ...[
               if (viewModel.escolheTipoInsulina) ...[
-                const RotuloPergunta('Qual insulina?'),
-                Row(
-                  children: [
-                    for (final tipo in TipoInsulina.todos) ...[
-                      if (tipo != TipoInsulina.todos.first)
-                        const SizedBox(width: 12),
-                      Expanded(
-                        child: BotaoSelecionavel(
-                          rotulo: tipo,
-                          selecionado: viewModel.tipoInsulina == tipo,
-                          aoTocar: () => viewModel.selecionarTipoInsulina(tipo),
-                        ),
-                      ),
-                    ],
+                _Pergunta(pergunta('QUAL INSULINA?')),
+                const SizedBox(height: 4),
+                _ParDeOpcoes(
+                  opcoes: [
+                    for (final tipo in TipoInsulina.todos) tipo.toUpperCase(),
                   ],
+                  selecionada: viewModel.tipoInsulina.toUpperCase(),
+                  aoEscolher: (opcao) => viewModel.selecionarTipoInsulina(
+                    TipoInsulina.todos
+                        .firstWhere((tipo) => tipo.toUpperCase() == opcao),
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
               ],
-              const RotuloPergunta('Quantas unidades?'),
+              _Pergunta(pergunta('QUANTAS UNIDADES?')),
+              const SizedBox(height: 12),
               _CampoNumerico(
                 controller: _doseController,
-                rotulo: 'Unidades de insulina',
-                dica: 'Ex.: 10',
-                sufixo: 'unidades',
+                rotuloParaLeitor: 'Unidades de insulina',
+                unidade: 'UNIDADES',
+                exemplo: 'EXEMPLO: 10',
                 erro: viewModel.erroDose,
                 permiteDecimal: true,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
             ],
             if (viewModel.mensagemErro != null) ...[
               _TextoErro(viewModel.mensagemErro!),
               const SizedBox(height: 16),
             ],
-            const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: viewModel.salvando ? null : _salvar,
               style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(64),
-                textStyle:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                iconSize: 28,
+                minimumSize: const Size.fromHeight(72),
+                textStyle: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+                iconSize: 32,
               ),
               icon: viewModel.salvando
                   ? SizedBox(
-                      width: 24,
-                      height: 24,
+                      width: 28,
+                      height: 28,
                       child: CircularProgressIndicator(
                         strokeWidth: 3,
                         color: colorScheme.onPrimary,
                       ),
                     )
                   : const Icon(Icons.check_rounded),
-              label: const Text('Salvar'),
+              label: const Text('SALVAR'),
             ),
           ],
         ),
@@ -173,52 +188,208 @@ class _RegistrarGlicemiaViewState extends State<RegistrarGlicemiaView> {
   }
 }
 
-// Campo numerico grande (fonte 28) para o valor medido ou a dose.
-class _CampoNumerico extends StatelessWidget {
-  final TextEditingController controller;
-  final String rotulo;
-  final String dica;
-  final String sufixo;
-  final String? erro;
-  final bool permiteDecimal;
+// Pergunta numerada em caixa alta (20, negrito), marcada como cabecalho para
+// o leitor de tela.
+class _Pergunta extends StatelessWidget {
+  final String texto;
 
-  const _CampoNumerico({
-    required this.controller,
-    required this.rotulo,
-    required this.dica,
-    required this.sufixo,
-    required this.erro,
-    required this.permiteDecimal,
-  });
+  const _Pergunta(this.texto);
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: rotulo,
-      textField: true,
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.numberWithOptions(decimal: permiteDecimal),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(
-            permiteDecimal ? RegExp(r'[0-9.,]') : RegExp(r'[0-9]'),
+      header: true,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text(
+          texto,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
-          LengthLimitingTextInputFormatter(5),
-        ],
-        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        decoration: InputDecoration(
-          hintText: dica,
-          suffixText: sufixo,
-          suffixStyle: const TextStyle(fontSize: 18),
-          errorText: erro,
-          errorStyle: const TextStyle(fontSize: 16),
-          errorMaxLines: 3,
         ),
       ),
     );
   }
 }
 
+// Frase curta que explica a pergunta logo abaixo dela.
+class _Explicacao extends StatelessWidget {
+  final String texto;
+
+  const _Explicacao(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      texto,
+      style: TextStyle(
+        fontSize: 18,
+        height: 1.35,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+// Campo numerico grande. Vazio, mostra so "Toque aqui" em letra fina; o
+// numero digitado aparece grande e em negrito, entao nao da para confundir
+// campo vazio com campo preenchido. Borda de 2dp sempre visivel (3dp e cor
+// principal quando selecionado), unidade a direita e o exemplo embaixo.
+class _CampoNumerico extends StatelessWidget {
+  final TextEditingController controller;
+  final String rotuloParaLeitor;
+  final String unidade;
+  final String exemplo;
+  final String? erro;
+  final bool permiteDecimal;
+
+  const _CampoNumerico({
+    required this.controller,
+    required this.rotuloParaLeitor,
+    required this.unidade,
+    required this.exemplo,
+    required this.erro,
+    required this.permiteDecimal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    OutlineInputBorder borda(Color cor, double largura) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: cor, width: largura),
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          label: rotuloParaLeitor,
+          textField: true,
+          child: TextField(
+            controller: controller,
+            keyboardType:
+                TextInputType.numberWithOptions(decimal: permiteDecimal),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                permiteDecimal ? RegExp(r'[0-9.,]') : RegExp(r'[0-9]'),
+              ),
+              LengthLimitingTextInputFormatter(5),
+            ],
+            style: TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: colorScheme.surface,
+              hintText: 'Toque aqui',
+              hintStyle: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.normal,
+                fontStyle: FontStyle.italic,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              // Como icone (e nao suffixText) a unidade aparece sempre,
+              // mesmo com o campo vazio e sem foco.
+              suffixIcon: Padding(
+                padding: const EdgeInsets.only(right: 20, left: 8),
+                child: Center(
+                  widthFactor: 1,
+                  child: Text(
+                    unidade,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+              suffixIconConstraints:
+                  const BoxConstraints(minWidth: 48, minHeight: 48),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              enabledBorder: borda(colorScheme.outline, 2),
+              focusedBorder: borda(colorScheme.primary, 3),
+              errorBorder: borda(AppCores.perigo, 3),
+              focusedErrorBorder: borda(AppCores.perigo, 3),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (erro != null)
+          _TextoErro(erro!)
+        else
+          ExcludeSemantics(
+            child: Text(
+              exemplo,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// Dois botoes grandes lado a lado (64dp), com check no escolhido.
+class _ParDeOpcoes extends StatelessWidget {
+  final List<String> opcoes;
+  final String? selecionada;
+  final ValueChanged<String> aoEscolher;
+
+  const _ParDeOpcoes({
+    required this.opcoes,
+    required this.selecionada,
+    required this.aoEscolher,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final opcao in opcoes) ...[
+          if (opcao != opcoes.first) const SizedBox(width: 12),
+          Expanded(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(64),
+                    textStyle: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              child: BotaoSelecionavel(
+                rotulo: opcao,
+                selecionado: selecionada == opcao,
+                aoTocar: () => aoEscolher(opcao),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// Erro em caixa alta, com icone, anunciado pelo leitor de tela.
 class _TextoErro extends StatelessWidget {
   final String texto;
 
@@ -228,15 +399,24 @@ class _TextoErro extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       liveRegion: true,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Text(
-          texto,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppCores.perigo,
-          ),
+      label: texto,
+      child: ExcludeSemantics(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.error_rounded, color: AppCores.perigo, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                texto.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppCores.perigo,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

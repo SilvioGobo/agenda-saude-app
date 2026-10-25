@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/faixas_glicemia.dart';
+import '../../core/constants/momentos_glicemia.dart';
 import '../../domain/models/paciente.dart';
 import '../../domain/models/registro_diabete.dart';
 import '../alertas/card_alerta.dart';
@@ -175,8 +176,9 @@ class CardPaciente extends StatelessWidget {
   }
 }
 
-// Ultima glicemia (com a classificacao em texto e cor) e ultima dose de
-// insulina, cada uma com o momento e o horario do registro.
+// Ultima glicemia (com a faixa em selo de texto, icone e cor) e ultima dose
+// de insulina, cada uma com o momento e o horario do registro. Em caixa
+// alta, no mesmo padrao do cartao de glicemia do paciente (NF004).
 class _ResumoDiabete extends StatelessWidget {
   final ResumoDiabete resumo;
   final bool usaInsulina;
@@ -194,8 +196,8 @@ class _ResumoDiabete extends StatelessWidget {
         _LinhaResumo(
           icone: Icons.bloodtype_rounded,
           titulo: glicemia == null
-              ? 'Glicemia: nenhum registro ainda'
-              : 'Glicemia: ${formatarGlicemia(glicemia.nivelGlicose!)}',
+              ? 'GLICEMIA: NADA ANOTADO AINDA'
+              : 'GLICEMIA: ${formatarGlicemia(glicemia.nivelGlicose!)}',
           classificacao: glicemia == null
               ? null
               : FaixasGlicemia.classificar(glicemia.nivelGlicose!),
@@ -206,11 +208,11 @@ class _ResumoDiabete extends StatelessWidget {
           _LinhaResumo(
             icone: Icons.vaccines_rounded,
             titulo: insulina == null
-                ? 'Insulina: nenhum registro ainda'
+                ? 'INSULINA: NADA ANOTADO AINDA'
                 : descreverInsulina(
                     insulina.tipoInsulina,
                     insulina.doseInsulina!,
-                  ),
+                  ).toUpperCase(),
             registro: insulina,
           ),
         ],
@@ -254,35 +256,22 @@ class _LinhaResumo extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (classificacao != null)
-                Row(
-                  children: [
-                    Icon(
-                      iconeDaClassificacao(classificacao),
-                      size: 20,
-                      color: corDaClassificacao(classificacao),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        descreverClassificacao(classificacao),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: corDaClassificacao(classificacao),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              if (registro != null)
+              if (classificacao != null) ...[
+                const SizedBox(height: 4),
+                SeloFaixaGlicemia(classificacao),
+              ],
+              if (registro != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  '${registro.momento} · ${descreverHorario(registro.dataHora)}',
+                  '${MomentoGlicemia.porNome(registro.momento).rotulo} · '
+                  '${descreverHorario(registro.dataHora).toUpperCase()}',
                   style: TextStyle(
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
+              ],
             ],
           ),
         ),

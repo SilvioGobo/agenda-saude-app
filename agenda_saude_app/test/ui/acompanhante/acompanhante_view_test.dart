@@ -10,6 +10,7 @@ import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/ui/acompanhante/acompanhante_view.dart';
+import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 
 import '../../core/services/fake_notification_service.dart';
 
@@ -158,11 +159,11 @@ void main() {
 
     await montarPainel(tester);
 
-    expect(find.text('Glicemia: 62 mg/dL'), findsOneWidget);
-    expect(find.text('Baixa'), findsOneWidget);
-    expect(find.text('Ao acordar · Há 5 minutos'), findsOneWidget);
-    expect(find.text('Insulina lenta: 14 unidades'), findsOneWidget);
-    expect(find.text('Insulina lenta (22h) · Ontem às 22:00'), findsOneWidget);
+    expect(find.text('GLICEMIA: ${formatarGlicemia(62)}'), findsOneWidget);
+    expect(find.text('BAIXA'), findsOneWidget);
+    expect(find.text('AO ACORDAR · HÁ 5 MINUTOS'), findsOneWidget);
+    expect(find.text(descreverInsulina('Lenta', 14).toUpperCase()), findsOneWidget);
+    expect(find.text('INSULINA LENTA (22\u00A0HORAS) · ONTEM ÀS 22:00'), findsOneWidget);
   });
 
   testWidgets('Card do paciente sem diabetes não mostra glicemia', (
@@ -172,7 +173,7 @@ void main() {
     await montarPainel(tester);
 
     expect(find.text('José Silva'), findsOneWidget);
-    expect(find.textContaining('Glicemia'), findsNothing);
+    expect(find.textContaining('GLICEMIA'), findsNothing);
   });
 
   testWidgets('Desvincular pelo menu do card pede confirmação e remove o paciente', (

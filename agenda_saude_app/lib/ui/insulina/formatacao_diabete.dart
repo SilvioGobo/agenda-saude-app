@@ -7,8 +7,19 @@ import '../../core/theme/app_cores.dart';
 // checklist do paciente e pelo card do acompanhante para os dois mostrarem
 // o mesmo valor do mesmo jeito.
 
+// Espaco que nao quebra linha e "juncao de palavras" (invisivel): mantem
+// numero e unidade juntos na mesma linha, sem "60 mg/" numa linha e "dL" na
+// outra.
+const String _espacoFixo = '\u00A0';
+const String _semQuebra = '\u2060';
+
+// Tira os caracteres de "nao quebrar linha" - para textos do leitor de tela.
+String semMarcasDeQuebra(String texto) =>
+    texto.replaceAll(_espacoFixo, ' ').replaceAll(_semQuebra, '');
+
 // "112 mg/dL" - glicemia capilar sempre como numero inteiro.
-String formatarGlicemia(double mgDl) => '${mgDl.round()} mg/dL';
+String formatarGlicemia(double mgDl) =>
+    '${mgDl.round()}${_espacoFixo}mg/${_semQuebra}dL';
 
 // "112 miligramas por decilitro", para o leitor de tela.
 String falarGlicemia(double mgDl) =>
@@ -20,7 +31,7 @@ String formatarDose(double unidades) {
   final numero = inteiro
       ? unidades.round().toString()
       : unidades.toString().replaceAll('.', ',');
-  return '$numero ${unidades == 1 ? 'unidade' : 'unidades'}';
+  return '$numero$_espacoFixo${unidades == 1 ? 'unidade' : 'unidades'}';
 }
 
 // "Insulina rápida: 6 unidades".
@@ -76,4 +87,44 @@ IconData iconeDaClassificacao(ClassificacaoGlicemia classificacao) {
 String descreverHora(DateTime dataHora) {
   String doisDigitos(int valor) => valor.toString().padLeft(2, '0');
   return 'às ${doisDigitos(dataHora.hour)}:${doisDigitos(dataHora.minute)}';
+}
+
+// Selo da faixa da glicemia ("NA FAIXA", "BAIXA"...): texto em caixa alta,
+// icone e fundo na cor da faixa - nunca so a cor.
+class SeloFaixaGlicemia extends StatelessWidget {
+  final ClassificacaoGlicemia classificacao;
+
+  const SeloFaixaGlicemia(this.classificacao, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cor = corDaClassificacao(classificacao);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cor, width: 2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(iconeDaClassificacao(classificacao), size: 22, color: cor),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              descreverClassificacao(classificacao).toUpperCase(),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+                color: cor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

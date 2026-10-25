@@ -43,5 +43,14 @@ void main() {
       expect(momentos.last.medeGlicemia, isFalse);
       expect(momentos.last.tipoInsulinaFixo, TipoInsulina.lenta);
     });
+
+    test('Deve achar o momento pelo nome gravado e tratar nome desconhecido como medição avulsa', () {
+      expect(MomentoGlicemia.porNome('Antes do jantar').rotulo, 'ANTES DO JANTAR');
+      expect(
+        MomentoGlicemia.porNome('Insulina lenta (22h)').rotulo,
+        'INSULINA LENTA (22\u00A0HORAS)',
+      );
+      expect(MomentoGlicemia.porNome('Jejum'), MomentoGlicemia.outraMedicao);
+    });
   });
 }

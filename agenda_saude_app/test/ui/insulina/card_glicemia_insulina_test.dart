@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
+import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 import 'package:agenda_saude_app/ui/insulina/glicemia_insulina_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/hidratacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/rotina_view.dart';
@@ -112,52 +113,70 @@ void main() {
       ));
     }
 
-    testWidgets('Deve mostrar o cartão com as quatro medições pendentes', (tester) async {
+    testWidgets('Deve mostrar o cartão em caixa alta com as quatro medições pendentes', (tester) async {
       await montar(tester);
 
-      expect(find.text('Glicemia e Insulina'), findsOneWidget);
-      expect(find.text('0 de 4 medições'), findsOneWidget);
-      expect(find.text('Ao acordar'), findsOneWidget);
-      expect(find.text('Antes do almoço'), findsOneWidget);
-      expect(find.text('Antes do jantar'), findsOneWidget);
-      expect(find.text('Antes de dormir'), findsOneWidget);
-      expect(find.text('Insulina lenta (22h)'), findsNothing);
-      expect(find.text('Toque para registrar'), findsNWidgets(4));
-      expect(find.text('Outra medição'), findsOneWidget);
+      expect(find.text('GLICEMIA E INSULINA'), findsOneWidget);
+      expect(find.text('HOJE: 0 DE 4 MEDIÇÕES'), findsOneWidget);
+      expect(find.text('AO ACORDAR'), findsOneWidget);
+      expect(find.text('ANTES DO ALMOÇO'), findsOneWidget);
+      expect(find.text('ANTES DO JANTAR'), findsOneWidget);
+      expect(find.text('ANTES DE DORMIR'), findsOneWidget);
+      expect(find.text('INSULINA LENTA (22\u00A0HORAS)'), findsNothing);
+      expect(find.text('AINDA NÃO ANOTADO'), findsNWidgets(4));
+      expect(find.text('TOQUE AQUI PARA ANOTAR'), findsNWidgets(4));
+      expect(find.text('ANOTAR OUTRA MEDIÇÃO'), findsOneWidget);
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve registrar a glicemia de um momento e mostrar o valor classificado', (tester) async {
+    testWidgets('Deve mostrar o campo vazio com dica fina e o exemplo fora do campo', (tester) async {
       await montar(tester);
 
-      await tocar(tester, find.text('Ao acordar'));
-      expect(find.text('Glicemia (mg/dL)'), findsOneWidget);
-      expect(find.text('Aplicou insulina agora?'), findsNothing);
+      await tocar(tester, find.text('AO ACORDAR'));
 
+      expect(find.text('1. QUAL FOI A SUA GLICEMIA?'), findsOneWidget);
+      expect(find.textContaining('APLICOU INSULINA'), findsNothing);
+      expect(find.text('EXEMPLO: 110'), findsOneWidget);
+      final campo = tester.widget<TextField>(find.byType(TextField));
+      expect(campo.decoration!.hintText, 'Toque aqui');
+      // A dica nao pode parecer um valor ja digitado.
+      expect(campo.decoration!.hintStyle!.fontWeight, FontWeight.normal);
+      expect(campo.style!.fontWeight, FontWeight.bold);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve anotar a glicemia de um momento e mostrar o valor com a faixa', (tester) async {
+      await montar(tester);
+
+      await tocar(tester, find.text('AO ACORDAR'));
       await tester.enterText(find.byType(TextField), '112');
-      await tocar(tester, find.text('Salvar'));
+      await tocar(tester, find.text('SALVAR'));
 
       // Voltou para o checklist.
-      expect(find.text('Salvar'), findsNothing);
-      expect(find.text('112 mg/dL'), findsOneWidget);
-      expect(find.text('Na faixa'), findsOneWidget);
-      expect(find.text('Registrado às 15:00'), findsOneWidget);
-      expect(find.text('1 de 4 medições'), findsOneWidget);
-      expect(find.text('Ao acordar: registro salvo.'), findsOneWidget);
+      expect(find.text('SALVAR'), findsNothing);
+      expect(find.text(formatarGlicemia(112)), findsOneWidget);
+      expect(find.text('NA FAIXA'), findsOneWidget);
+      expect(find.text('ANOTADO ÀS 15:00'), findsOneWidget);
+      expect(find.text('CORRIGIR'), findsOneWidget);
+      expect(find.text('HOJE: 1 DE 4 MEDIÇÕES'), findsOneWidget);
+      expect(find.text('AO ACORDAR: ANOTADO COM SUCESSO.'), findsOneWidget);
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve mostrar o erro e continuar na tela se a glicemia for inválida', (tester) async {
+    testWidgets('Deve mostrar o erro em caixa alta e continuar na tela se a glicemia for inválida', (tester) async {
       await montar(tester);
 
-      await tocar(tester, find.text('Antes do jantar'));
+      await tocar(tester, find.text('ANTES DO JANTAR'));
       await tester.enterText(find.byType(TextField), '5');
-      await tocar(tester, find.text('Salvar'));
+      await tocar(tester, find.text('SALVAR'));
 
-      expect(find.textContaining('entre 20 e 600'), findsOneWidget);
-      expect(find.text('Salvar'), findsOneWidget);
+      expect(find.text('DIGITE UM VALOR ENTRE 20 E 600 MG/DL.'), findsOneWidget);
+      // O erro toma o lugar do exemplo.
+      expect(find.text('EXEMPLO: 110'), findsNothing);
+      expect(find.text('SALVAR'), findsOneWidget);
       expect(
         (await fakeFirestore.collection('registros_diarios').get()).docs,
         isEmpty,
@@ -166,36 +185,40 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Deve registrar glicemia com dose de insulina para quem usa insulina', (tester) async {
+    testWidgets('Deve anotar glicemia com dose de insulina, com as perguntas numeradas', (tester) async {
       await montar(tester, usaInsulina: true);
-      expect(find.text('Insulina lenta (22h)'), findsOneWidget);
+      expect(find.text('INSULINA LENTA (22\u00A0HORAS)'), findsOneWidget);
 
-      await tocar(tester, find.text('Antes do almoço'));
+      await tocar(tester, find.text('ANTES DO ALMOÇO'));
+      expect(find.text('2. VOCÊ APLICOU INSULINA AGORA?'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '190');
-      await tocar(tester, find.text('Sim'));
-      expect(find.text('Qual insulina?'), findsOneWidget);
+      await tocar(tester, find.text('SIM'));
+      expect(find.text('3. QUAL INSULINA?'), findsOneWidget);
+      await rolarAte(tester, find.text('4. QUANTAS UNIDADES?'));
+      expect(find.text('4. QUANTAS UNIDADES?'), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, '6');
-      await tocar(tester, find.text('Salvar'));
+      await tocar(tester, find.text('SALVAR'));
 
-      expect(find.text('190 mg/dL'), findsOneWidget);
-      expect(find.text('Alta'), findsOneWidget);
-      expect(find.text('Insulina rápida: 6 unidades'), findsOneWidget);
+      expect(find.text(formatarGlicemia(190)), findsOneWidget);
+      expect(find.text('ALTA'), findsOneWidget);
+      expect(find.text(descreverInsulina('Rápida', 6).toUpperCase()), findsOneWidget);
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve registrar a insulina lenta só com a dose', (tester) async {
+    testWidgets('Deve anotar a insulina lenta só com a dose', (tester) async {
       await montar(tester, usaInsulina: true);
 
-      await tocar(tester, find.text('Insulina lenta (22h)'));
-      expect(find.text('Glicemia (mg/dL)'), findsNothing);
-      expect(find.text('Qual insulina?'), findsNothing);
+      await tocar(tester, find.text('INSULINA LENTA (22\u00A0HORAS)'));
+      expect(find.text('1. QUANTAS UNIDADES?'), findsOneWidget);
+      expect(find.textContaining('GLICEMIA?'), findsNothing);
+      expect(find.textContaining('QUAL INSULINA?'), findsNothing);
       await tester.enterText(find.byType(TextField), '14');
-      await tocar(tester, find.text('Salvar'));
+      await tocar(tester, find.text('SALVAR'));
 
-      expect(find.text('Insulina lenta: 14 unidades'), findsOneWidget);
+      expect(find.text(descreverInsulina('Lenta', 14).toUpperCase()), findsOneWidget);
       // A insulina lenta não conta como medição de glicemia.
-      expect(find.text('0 de 4 medições'), findsOneWidget);
+      expect(find.text('HOJE: 0 DE 4 MEDIÇÕES'), findsOneWidget);
 
       await desmontar(tester);
     });
@@ -206,39 +229,71 @@ void main() {
 
       expect(find.text('GLICEMIA BAIXA'), findsOneWidget);
       expect(find.textContaining('meça de novo em 15 minutos'), findsOneWidget);
-      expect(find.text('Baixa'), findsOneWidget);
+      expect(find.text('BAIXA'), findsOneWidget);
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve apagar um registro após confirmar, para corrigir o valor', (tester) async {
+    testWidgets('Deve corrigir: confirmar, apagar o valor errado e anotar de novo', (tester) async {
       await salvar('Ao acordar', DateTime(2026, 10, 25, 7, 0), glicose: 300);
       await montar(tester);
-      expect(find.text('Muito alta'), findsOneWidget);
+      expect(find.text('MUITO ALTA'), findsOneWidget);
 
-      await tocar(tester, find.text('Ao acordar'));
-      expect(find.text('Apagar este registro?'), findsOneWidget);
+      await tocar(tester, find.text('CORRIGIR'));
+      expect(find.text('CORRIGIR AO ACORDAR?'), findsOneWidget);
 
-      await tocar(tester, find.text('Apagar registro'));
+      await tocar(tester, find.text('APAGAR E ANOTAR DE NOVO'));
+      // Abriu a anotacao do mesmo momento.
+      expect(find.text('1. QUAL FOI A SUA GLICEMIA?'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '130');
+      await tocar(tester, find.text('SALVAR'));
 
-      expect(find.text('300 mg/dL'), findsNothing);
-      expect(find.text('Toque para registrar'), findsNWidgets(4));
-      expect(find.text('Registro apagado.'), findsOneWidget);
+      expect(find.text(formatarGlicemia(300)), findsNothing);
+      expect(find.text(formatarGlicemia(130)), findsOneWidget);
+      final registros =
+          await fakeFirestore.collection('registros_diarios').get();
+      expect(registros.docs.single.data()['nivelGlicose'], 130);
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve registrar uma medição avulsa em "Outra medição"', (tester) async {
+    testWidgets('Deve deixar o momento pendente se voltar sem anotar depois de corrigir', (tester) async {
+      await salvar('Ao acordar', DateTime(2026, 10, 25, 7, 0), glicose: 300);
       await montar(tester);
 
-      await tocar(tester, find.text('Outra medição'));
-      await tester.enterText(find.byType(TextField), '95');
-      await tocar(tester, find.text('Salvar'));
+      await tocar(tester, find.text('CORRIGIR'));
+      await tocar(tester, find.text('APAGAR E ANOTAR DE NOVO'));
+      await tocar(tester, find.text('Voltar'));
 
-      // O título do botão e o da linha registrada.
-      expect(find.text('Outra medição'), findsNWidgets(2));
-      expect(find.text('95 mg/dL'), findsOneWidget);
-      expect(find.text('0 de 4 medições'), findsOneWidget);
+      expect(find.text(formatarGlicemia(300)), findsNothing);
+      expect(find.text('TOQUE AQUI PARA ANOTAR'), findsNWidgets(4));
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Não deve apagar nada se cancelar a correção', (tester) async {
+      await salvar('Ao acordar', DateTime(2026, 10, 25, 7, 0), glicose: 300);
+      await montar(tester);
+
+      await tocar(tester, find.text('CORRIGIR'));
+      await tocar(tester, find.text('CANCELAR'));
+
+      expect(find.text(formatarGlicemia(300)), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve anotar uma medição avulsa em "ANOTAR OUTRA MEDIÇÃO"', (tester) async {
+      await montar(tester);
+
+      await tocar(tester, find.text('ANOTAR OUTRA MEDIÇÃO'));
+      expect(find.text('OUTRA MEDIÇÃO'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '95');
+      await tocar(tester, find.text('SALVAR'));
+
+      expect(find.text('OUTRA MEDIÇÃO'), findsOneWidget);
+      expect(find.text(formatarGlicemia(95)), findsOneWidget);
+      expect(find.text('HOJE: 0 DE 4 MEDIÇÕES'), findsOneWidget);
 
       await desmontar(tester);
     });
@@ -254,14 +309,14 @@ void main() {
       );
       expect(
         find.bySemanticsLabel(
-          'Ao acordar: feito. Glicemia 110 miligramas por decilitro, na '
-          'faixa. Insulina rápida, 4 unidades. Registrado às 07:05. Toque '
-          'para apagar este registro.',
+          'Ao acordar: anotado às 07:05. Glicemia 110 miligramas por '
+          'decilitro, na faixa. Insulina rápida, 4 unidades.',
         ),
         findsOneWidget,
       );
+      expect(find.bySemanticsLabel('Corrigir AO ACORDAR'), findsOneWidget);
       expect(
-        find.bySemanticsLabel('Antes do almoço: pendente. Toque para registrar.'),
+        find.bySemanticsLabel('Antes do almoço: ainda não anotado. Toque para anotar.'),
         findsOneWidget,
       );
 
@@ -277,11 +332,12 @@ void main() {
       await montar(tester, usaInsulina: true, escalaTexto: 2);
 
       expect(tester.takeException(), isNull);
-      await rolarAte(tester, find.text('Muito baixa'));
+      await rolarAte(tester, find.text('MUITO BAIXA'));
       expect(tester.takeException(), isNull);
 
-      await tocar(tester, find.text('Antes do jantar'));
-      await tocar(tester, find.text('Sim'));
+      await tocar(tester, find.text('ANTES DO JANTAR'));
+      await tocar(tester, find.text('SIM'));
+      await rolarAte(tester, find.text('SALVAR'));
       expect(tester.takeException(), isNull);
 
       await desmontar(tester);

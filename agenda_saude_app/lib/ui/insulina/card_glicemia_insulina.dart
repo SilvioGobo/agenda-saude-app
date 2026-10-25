@@ -12,14 +12,17 @@ import 'glicemia_insulina_viewmodel.dart';
 import 'registrar_glicemia_view.dart';
 
 // Cartao "Glicemia e Insulina" do checklist de rotina (RF008, Figura 14 do
-// TCC), exibido so para quem marcou diabetes na triagem. Cada momento do dia
-// e uma linha grande: pendente ("Toque para registrar") abre a tela de
-// registro; feito mostra o valor com a classificacao em texto e cor, e o
-// toque oferece apagar o registro para corrigir um valor digitado errado.
+// TCC), exibido so para quem marcou diabetes na triagem. Pensado para idosos
+// (NF004): titulos, estados e botoes em caixa alta, e cada momento diz com
+// todas as letras o que esta acontecendo - "AINDA NÃO ANOTADO / TOQUE AQUI
+// PARA ANOTAR" ou "ANOTADO ÀS 07:10" com o valor grande e a faixa ("NA
+// FAIXA", "BAIXA"...) em texto, icone e cor. Para corrigir um valor errado
+// ha um botao "CORRIGIR" proprio, que apaga o registro (depois de confirmar)
+// e abre a anotacao de novo.
 class CardGlicemiaInsulina extends StatelessWidget {
   const CardGlicemiaInsulina({super.key});
 
-  Future<void> _registrar(BuildContext context, MomentoGlicemia momento) async {
+  Future<void> _anotar(BuildContext context, MomentoGlicemia momento) async {
     final viewModel = context.read<GlicemiaInsulinaViewModel>();
     final salvou = await Navigator.of(context).push(
       RegistrarGlicemiaView.rota(
@@ -30,37 +33,45 @@ class CardGlicemiaInsulina extends StatelessWidget {
       ),
     );
     if (salvou != true || !context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${momento.nome}: registro salvo.')),
-    );
+    _avisar(context, '${momento.rotulo}: ANOTADO COM SUCESSO.');
   }
 
-  Future<void> _confirmarApagar(
+  Future<void> _corrigir(
     BuildContext context,
     RegistroDiabete registro,
   ) async {
     final viewModel = context.read<GlicemiaInsulinaViewModel>();
+    final momento = MomentoGlicemia.porNome(registro.momento);
     final confirmou = await mostrarDialogoConfirmacao(
       context,
-      titulo: 'Apagar este registro?',
-      mensagem: '${registro.momento}: ${_resumoEmTexto(registro)} '
-          '${descreverHora(registro.dataHora)}.\n\nApague só se anotou '
-          'errado. Depois você pode registrar de novo.',
-      rotuloConfirmar: 'Apagar registro',
-      iconeConfirmar: Icons.delete_rounded,
+      titulo: 'CORRIGIR ${momento.rotulo}?',
+      mensagem: 'O que foi anotado (${_resumoEmTexto(registro)}) será '
+          'apagado. Depois, a tela de anotação abre para você digitar o '
+          'valor certo.',
+      rotuloConfirmar: 'APAGAR E ANOTAR DE NOVO',
+      iconeConfirmar: Icons.edit_rounded,
+      rotuloCancelar: 'CANCELAR',
     );
-    if (!confirmou) return;
+    if (!confirmou || !context.mounted) return;
     final apagou = await viewModel.apagarRegistro(registro);
     if (!apagou || !context.mounted) return;
+    await _anotar(context, momento);
+  }
+
+  void _avisar(BuildContext context, String texto) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registro apagado.')),
+      SnackBar(
+        content: Text(
+          texto,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<GlicemiaInsulinaViewModel>();
-    final colorScheme = Theme.of(context).colorScheme;
     final ultima = viewModel.ultimaGlicemia;
 
     return Card(
@@ -72,18 +83,9 @@ class CardGlicemiaInsulina extends StatelessWidget {
             _Cabecalho(viewModel: viewModel),
             const SizedBox(height: 20),
             if (viewModel.erroDeLeitura)
-              Semantics(
-                liveRegion: true,
-                child: const Text(
-                  'Não foi possível carregar sua glicemia de hoje. Volte e '
-                  'abra esta tela de novo.',
-                  style: TextStyle(
-                    fontSize: 18,
-                    height: 1.35,
-                    fontWeight: FontWeight.w600,
-                    color: AppCores.perigo,
-                  ),
-                ),
+              const _TextoErro(
+                'NÃO FOI POSSÍVEL CARREGAR SUA GLICEMIA DE HOJE. VOLTE E '
+                'ABRA ESTA TELA DE NOVO.',
               )
             else if (viewModel.carregando)
               const Padding(
@@ -94,60 +96,60 @@ class CardGlicemiaInsulina extends StatelessWidget {
               if (viewModel.hipoglicemiaNaUltimaMedicao && ultima != null) ...[
                 CaixaAlerta(
                   titulo: 'GLICEMIA BAIXA',
-                  mensagem: 'Sua última medição deu '
-                      '${formatarGlicemia(ultima.nivelGlicose!)}. Siga a '
-                      'orientação do seu médico para hipoglicemia e meça de '
+                  mensagem: 'Sua última medição foi '
+                      '${formatarGlicemia(ultima.nivelGlicose!)}. Faça o que '
+                      'o seu médico orientou para glicemia baixa e meça de '
                       'novo em 15 minutos.',
                   icone: Icons.arrow_downward_rounded,
                 ),
                 const SizedBox(height: 16),
               ],
               for (final item in viewModel.itensDoDia) ...[
-                _LinhaMomento(
-                  nome: item.momento.nome,
-                  registro: item.registro,
-                  aoTocar: item.registro == null
-                      ? () => _registrar(context, item.momento)
-                      : () => _confirmarApagar(context, item.registro!),
-                ),
+                if (item.registro == null)
+                  _MomentoPendente(
+                    momento: item.momento,
+                    aoTocar: () => _anotar(context, item.momento),
+                  )
+                else
+                  _MomentoAnotado(
+                    rotulo: item.momento.rotulo,
+                    registro: item.registro!,
+                    aoCorrigir: () => _corrigir(context, item.registro!),
+                  ),
                 const SizedBox(height: 12),
               ],
               for (final registro in viewModel.outrasMedicoes) ...[
-                _LinhaMomento(
-                  nome: registro.momento,
+                _MomentoAnotado(
+                  rotulo: MomentoGlicemia.outraMedicao.rotulo,
                   registro: registro,
-                  aoTocar: () => _confirmarApagar(context, registro),
+                  aoCorrigir: () => _corrigir(context, registro),
                 ),
                 const SizedBox(height: 12),
               ],
+              const SizedBox(height: 4),
               OutlinedButton.icon(
                 onPressed: () =>
-                    _registrar(context, MomentoGlicemia.outraMedicao),
+                    _anotar(context, MomentoGlicemia.outraMedicao),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(64),
                   textStyle: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
                   ),
                   iconSize: 28,
                 ),
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Outra medição'),
+                label: const Text('ANOTAR OUTRA MEDIÇÃO'),
               ),
             ],
             if (viewModel.mensagemErro != null) ...[
               const SizedBox(height: 12),
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  viewModel.mensagemErro!,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.error,
-                  ),
-                ),
-              ),
+              _TextoErro(viewModel.mensagemErro!.toUpperCase()),
             ],
           ],
         ),
@@ -156,7 +158,7 @@ class CardGlicemiaInsulina extends StatelessWidget {
   }
 }
 
-// "112 mg/dL e insulina rápida: 6 unidades" - usado no dialogo de apagar.
+// "112 mg/dL e insulina rápida: 6 unidades" - usado no dialogo de corrigir.
 String _resumoEmTexto(RegistroDiabete registro) {
   final partes = [
     if (registro.temGlicemia) formatarGlicemia(registro.nivelGlicose!),
@@ -179,13 +181,13 @@ class _Cabecalho extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final pronto = !viewModel.carregando && !viewModel.erroDeLeitura;
-    final progresso =
-        '${viewModel.medicoesFeitas} de ${viewModel.totalMedicoes} medições';
+    final feitas = viewModel.medicoesFeitas;
+    final total = viewModel.totalMedicoes;
 
     return Semantics(
       container: true,
       label: pronto
-          ? 'Glicemia e Insulina: $progresso feitas hoje.'
+          ? 'Glicemia e Insulina: $feitas de $total medições feitas hoje.'
           : 'Glicemia e Insulina',
       child: ExcludeSemantics(
         child: Row(
@@ -209,20 +211,23 @@ class _Cabecalho extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Glicemia e Insulina',
+                    'GLICEMIA E INSULINA',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                       color: colorScheme.onSurface,
                     ),
                   ),
                   if (pronto)
                     Text(
-                      progresso,
+                      'HOJE: $feitas DE $total MEDIÇÕES',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: feitas == total
+                            ? AppCores.sucesso
+                            : colorScheme.onSurfaceVariant,
                       ),
                     ),
                 ],
@@ -235,118 +240,75 @@ class _Cabecalho extends StatelessWidget {
   }
 }
 
-// Uma linha do checklist (minimo de 72dp de altura). Pendente: circulo vazio
-// e "Toque para registrar". Feito: check verde, glicemia com a classificacao
-// ("Na faixa", "Baixa"...), dose de insulina e horario.
-class _LinhaMomento extends StatelessWidget {
-  final String nome;
-  final RegistroDiabete? registro;
+// Momento ainda sem anotacao: o cartao inteiro e um botao (minimo 88dp) com
+// circulo vazio, o nome do momento e o convite "TOQUE AQUI PARA ANOTAR".
+class _MomentoPendente extends StatelessWidget {
+  final MomentoGlicemia momento;
   final VoidCallback aoTocar;
 
-  const _LinhaMomento({
-    required this.nome,
-    required this.registro,
-    required this.aoTocar,
-  });
-
-  String get _rotuloParaLeitor {
-    final r = registro;
-    if (r == null) return '$nome: pendente. Toque para registrar.';
-    final partes = <String>['$nome: feito'];
-    if (r.temGlicemia) {
-      final classificacao = FaixasGlicemia.classificar(r.nivelGlicose!);
-      partes.add('Glicemia ${falarGlicemia(r.nivelGlicose!)}, '
-          '${descreverClassificacao(classificacao).toLowerCase()}');
-    }
-    if (r.temInsulina) {
-      partes.add(descreverInsulina(r.tipoInsulina, r.doseInsulina!)
-          .replaceFirst(':', ','));
-    }
-    partes.add('Registrado ${descreverHora(r.dataHora)}');
-    return '${partes.join('. ')}. Toque para apagar este registro.';
-  }
+  const _MomentoPendente({required this.momento, required this.aoTocar});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final r = registro;
-    final feito = r != null;
-    final textoSecundario = TextStyle(
-      fontSize: 18,
-      color: colorScheme.onSurfaceVariant,
-    );
 
     return Semantics(
       button: true,
-      label: _rotuloParaLeitor,
+      label: '${momento.nome}: ainda não anotado. Toque para anotar.',
       onTap: aoTocar,
       excludeSemantics: true,
       child: Material(
         color: colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: feito ? AppCores.sucesso : colorScheme.outlineVariant,
-            width: feito ? 2 : 1,
-          ),
+          side: BorderSide(color: colorScheme.primary, width: 2),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: aoTocar,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 72),
+            constraints: const BoxConstraints(minHeight: 88),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Icon(
-                    feito
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    size: 32,
-                    color: feito ? AppCores.sucesso : colorScheme.primary,
+                    Icons.radio_button_unchecked_rounded,
+                    size: 36,
+                    color: colorScheme.primary,
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _NomeMomento(momento.rotulo),
+                        const SizedBox(height: 4),
                         Text(
-                          nome,
+                          'AINDA NÃO ANOTADO',
                           style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        if (r == null)
-                          Text('Toque para registrar', style: textoSecundario)
-                        else ...[
-                          if (r.temGlicemia)
-                            _GlicemiaClassificada(mgDl: r.nivelGlicose!),
-                          if (r.temInsulina)
-                            Text(
-                              descreverInsulina(
-                                r.tipoInsulina,
-                                r.doseInsulina!,
-                              ),
-                              style: textoSecundario,
-                            ),
-                          Text(
-                            'Registrado ${descreverHora(r.dataHora)}',
-                            style: textoSecundario,
+                        const SizedBox(height: 2),
+                        Text(
+                          'TOQUE AQUI PARA ANOTAR',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
-                  if (!feito)
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 32,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 36,
+                    color: colorScheme.primary,
+                  ),
                 ],
               ),
             ),
@@ -357,48 +319,200 @@ class _LinhaMomento extends StatelessWidget {
   }
 }
 
-// "112 mg/dL · Na faixa": valor em negrito e a classificacao com icone, na
-// cor da faixa (nunca so a cor).
-class _GlicemiaClassificada extends StatelessWidget {
-  final double mgDl;
+// Momento ja anotado: check verde e "ANOTADO ÀS 07:10", o valor da glicemia
+// grande com a faixa logo abaixo, a dose de insulina e o botao "CORRIGIR".
+class _MomentoAnotado extends StatelessWidget {
+  final String rotulo;
+  final RegistroDiabete registro;
+  final VoidCallback aoCorrigir;
 
-  const _GlicemiaClassificada({required this.mgDl});
+  const _MomentoAnotado({
+    required this.rotulo,
+    required this.registro,
+    required this.aoCorrigir,
+  });
+
+  String get _rotuloParaLeitor {
+    final r = registro;
+    final partes = <String>['${r.momento}: anotado ${descreverHora(r.dataHora)}'];
+    if (r.temGlicemia) {
+      final classificacao = FaixasGlicemia.classificar(r.nivelGlicose!);
+      partes.add('Glicemia ${falarGlicemia(r.nivelGlicose!)}, '
+          '${descreverClassificacao(classificacao).toLowerCase()}');
+    }
+    if (r.temInsulina) {
+      partes.add(descreverInsulina(r.tipoInsulina, r.doseInsulina!)
+          .replaceFirst(':', ','));
+    }
+    return semMarcasDeQuebra('${partes.join('. ')}.');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final classificacao = FaixasGlicemia.classificar(mgDl);
-    final cor = corDaClassificacao(classificacao);
+    final colorScheme = Theme.of(context).colorScheme;
+    final r = registro;
 
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppCores.sucesso, width: 2),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            container: true,
+            label: _rotuloParaLeitor,
+            child: ExcludeSemantics(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 36,
+                    color: AppCores.sucesso,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _NomeMomento(rotulo),
+                        const SizedBox(height: 4),
+                        Text(
+                          'ANOTADO ${descreverHora(r.dataHora).toUpperCase()}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppCores.sucesso,
+                          ),
+                        ),
+                        if (r.temGlicemia) ...[
+                          const SizedBox(height: 8),
+                          _ValorGlicemia(mgDl: r.nivelGlicose!),
+                        ],
+                        if (r.temInsulina) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            descreverInsulina(r.tipoInsulina, r.doseInsulina!)
+                                .toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Semantics(
+            button: true,
+            label: 'Corrigir $rotulo',
+            onTap: aoCorrigir,
+            excludeSemantics: true,
+            child: OutlinedButton.icon(
+              onPressed: aoCorrigir,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                textStyle: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+                iconSize: 24,
+              ),
+              icon: const Icon(Icons.edit_rounded),
+              label: const Text('CORRIGIR'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NomeMomento extends StatelessWidget {
+  final String texto;
+
+  const _NomeMomento(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      texto,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+    );
+  }
+}
+
+// Valor grande ("112 mg/dL") e, embaixo, o selo da faixa ("NA FAIXA",
+// "BAIXA"...).
+class _ValorGlicemia extends StatelessWidget {
+  final double mgDl;
+
+  const _ValorGlicemia({required this.mgDl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           formatarGlicemia(mgDl),
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 28,
             fontWeight: FontWeight.bold,
             color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(iconeDaClassificacao(classificacao), size: 20, color: cor),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                descreverClassificacao(classificacao),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: cor,
-                ),
+        const SizedBox(height: 4),
+        SeloFaixaGlicemia(FaixasGlicemia.classificar(mgDl)),
+      ],
+    );
+  }
+}
+
+// Erro em caixa alta com icone, anunciado pelo leitor de tela.
+class _TextoErro extends StatelessWidget {
+  final String texto;
+
+  const _TextoErro(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_rounded, color: AppCores.perigo, size: 24),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: const TextStyle(
+                fontSize: 18,
+                height: 1.35,
+                fontWeight: FontWeight.bold,
+                color: AppCores.perigo,
               ),
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
