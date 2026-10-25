@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
+import '../../domain/models/paciente.dart';
+import '../metas/metas_view.dart';
 import '../paciente/paciente_view.dart';
 import '../shared/progresso_etapa.dart';
 import '../shared/rotulo_pergunta.dart';
@@ -37,6 +39,23 @@ class _TriagemOutrasInformacoesViewState
     final paciente = viewModel.pacienteAtualizado;
     if (paciente == null) return;
 
+    // Com metas calculadas, o paciente confere (e ajusta, se quiser) antes de
+    // ir ao painel. Sem elas, vai direto.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => paciente.metas == null
+            ? PacienteView.comProviders(paciente)
+            : MetasView.comProviders(
+                paciente,
+                aoContinuar: (pacienteComMetas) =>
+                    _irParaOPainel(context, pacienteComMetas),
+              ),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _irParaOPainel(BuildContext context, Paciente paciente) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => PacienteView.comProviders(paciente),

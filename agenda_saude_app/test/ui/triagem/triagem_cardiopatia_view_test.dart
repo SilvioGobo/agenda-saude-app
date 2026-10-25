@@ -56,5 +56,26 @@ void main() {
 
     expect(find.text('Qual? (opcional)'), findsOneWidget);
     expect(find.text('Usa marcapasso?'), findsOneWidget);
+    expect(
+      find.text('Seu médico limitou a quantidade de líquido por dia?'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Deve pedir os litros só quando houver restrição de líquido', (
+    tester,
+  ) async {
+    await _montarTela(tester);
+
+    await tester.tap(find.text('Sim'));
+    await tester.pump();
+    expect(find.textContaining('Quantos litros por dia?'), findsNothing);
+
+    // Os botoes Sim/Nao sao tres pares: cardiopatia, marcapasso e liquido.
+    await tester.ensureVisible(find.text('Sim').last);
+    await tester.tap(find.text('Sim').last);
+    await tester.pump();
+
+    expect(find.textContaining('Quantos litros por dia?'), findsOneWidget);
   });
 }

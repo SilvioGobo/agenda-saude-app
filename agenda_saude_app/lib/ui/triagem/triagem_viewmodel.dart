@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/paciente_repository.dart';
+import '../../domain/metas/calculadora_metas.dart';
 import '../../domain/models/paciente.dart';
 
 class TriagemViewModel extends ChangeNotifier {
+  static const double limiteLiquidoMinimoLitros = 0.5;
+  static const double limiteLiquidoMaximoLitros = 5;
+
   final PacienteRepository _pacienteRepository;
   final Paciente _pacienteOriginal;
 
@@ -23,6 +27,10 @@ class TriagemViewModel extends ChangeNotifier {
   bool? possuiCardiopatia;
   String tipoCardiopatia = '';
   bool? usaMarcapasso;
+  // Restricao de liquido definida pelo medico. Limita a meta de hidratacao,
+  // entao so e perguntada a quem tem cardiopatia (ex.: insuficiencia cardiaca).
+  bool? possuiRestricaoLiquido;
+  double? limiteLiquidoLitros;
 
   // Dados fisicos/demograficos (obrigatorios)
   DateTime? dataNascimento;
@@ -76,6 +84,8 @@ class TriagemViewModel extends ChangeNotifier {
     if (!valor) {
       tipoCardiopatia = '';
       usaMarcapasso = null;
+      possuiRestricaoLiquido = null;
+      limiteLiquidoLitros = null;
     }
     mensagemErro = null;
     notifyListeners();
@@ -89,6 +99,17 @@ class TriagemViewModel extends ChangeNotifier {
     usaMarcapasso = valor;
     mensagemErro = null;
     notifyListeners();
+  }
+
+  void responderRestricaoLiquido(bool valor) {
+    possuiRestricaoLiquido = valor;
+    if (!valor) limiteLiquidoLitros = null;
+    mensagemErro = null;
+    notifyListeners();
+  }
+
+  void definirLimiteLiquido(String litros) {
+    limiteLiquidoLitros = double.tryParse(litros.replaceAll(',', '.'));
   }
 
   void definirDataNascimento(DateTime valor) {
@@ -172,8 +193,18 @@ class TriagemViewModel extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-    if (possuiCardiopatia == true && usaMarcapasso == null) {
+    if (possuiCardiopatia == true &&
+        (usaMarcapasso == null || possuiRestricaoLiquido == null)) {
       mensagemErro = 'Complete as perguntas sobre cardiopatia.';
+      notifyListeners();
+      return false;
+    }
+    if (possuiRestricaoLiquido == true &&
+        (limiteLiquidoLitros == null ||
+            limiteLiquidoLitros! < limiteLiquidoMinimoLitros ||
+            limiteLiquidoLitros! > limiteLiquidoMaximoLitros)) {
+      mensagemErro = 'Informe quantos litros por dia seu médico permitiu '
+          '(entre 0,5 e 5).';
       notifyListeners();
       return false;
     }
@@ -192,7 +223,7 @@ class TriagemViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final pacienteAtualizado = Paciente(
+      final pacienteSemMetas = Paciente(
         id: _pacienteOriginal.id,
         nome: _pacienteOriginal.nome,
         email: _pacienteOriginal.email,
@@ -222,7 +253,17 @@ class TriagemViewModel extends ChangeNotifier {
         medicamentosEmUso: medicamentosEmUso.trim().isNotEmpty
             ? medicamentosEmUso.trim()
             : null,
+        limiteLiquidoMl: possuiRestricaoLiquido == true
+            ? (limiteLiquidoLitros! * 1000).round()
+            : null,
       );
+
+      // As metas saem junto com a triagem. Sem elas (ex.: data de nascimento
+      // de menor de idade) o paciente segue com os valores padrao.
+      final metas = CalculadoraMetas.calcular(pacienteSemMetas);
+      final pacienteAtualizado = metas == null
+          ? pacienteSemMetas
+          : pacienteSemMetas.copyWith(metas: metas);
 
       await _pacienteRepository.salvarPaciente(pacienteAtualizado);
 
