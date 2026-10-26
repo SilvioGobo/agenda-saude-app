@@ -16,17 +16,18 @@ enum StatusCardiaco { semLeitura, estavel, alto, baixo }
 // destaque de BPM em tempo real e o status derivado da zona de seguranca
 // cardiaca (UC04.4).
 class PacienteViewModel extends ChangeNotifier {
-  final Paciente paciente;
+  Paciente _paciente;
   final DadosMedicosRepository _dadosRepository;
   final AuthRepository _authRepository;
 
   StreamSubscription<BatimentoCardiaco?>? _assinaturaBatimento;
 
   PacienteViewModel({
-    required this.paciente,
+    required Paciente paciente,
     DadosMedicosRepository? dadosRepository,
     AuthRepository? authRepository,
-  })  : _dadosRepository = dadosRepository ?? DadosMedicosRepository(),
+  })  : _paciente = paciente,
+        _dadosRepository = dadosRepository ?? DadosMedicosRepository(),
         _authRepository = authRepository ?? AuthRepository() {
     _assinaturaBatimento =
         _dadosRepository.streamUltimoBatimento(paciente.id).listen(
@@ -39,6 +40,15 @@ class PacienteViewModel extends ChangeNotifier {
       onError: (Object erro) =>
           debugPrint('Stream de batimentos falhou: $erro'),
     );
+  }
+
+  Paciente get paciente => _paciente;
+
+  // O paciente muda depois do login quando ele atualiza as metas; as telas
+  // abertas a partir do painel (ex.: Minha Rotina) leem o valor novo daqui.
+  void atualizarPaciente(Paciente atualizado) {
+    _paciente = atualizado;
+    notifyListeners();
   }
 
   BatimentoCardiaco? _ultimoBatimento;

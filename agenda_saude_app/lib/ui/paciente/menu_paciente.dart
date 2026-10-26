@@ -14,6 +14,7 @@ import 'paciente_viewmodel.dart';
 // os atalhos principais. Itens com 72dp de altura, icone 32 e texto 20, com
 // uma linha de explicacao embaixo (NF004).
 class MenuPaciente extends StatelessWidget {
+  final VoidCallback aoAbrirMetas;
   final VoidCallback aoAbrirCodigo;
   final VoidCallback aoAbrirSmartwatch;
   final VoidCallback aoAbrirLocalizacao;
@@ -21,6 +22,7 @@ class MenuPaciente extends StatelessWidget {
 
   const MenuPaciente({
     super.key,
+    required this.aoAbrirMetas,
     required this.aoAbrirCodigo,
     required this.aoAbrirSmartwatch,
     required this.aoAbrirLocalizacao,
@@ -158,6 +160,12 @@ class MenuPaciente extends StatelessWidget {
             ),
             const Divider(height: 1),
             const SizedBox(height: 8),
+            _ItemMenu(
+              icone: Icons.flag_rounded,
+              rotulo: 'Minhas metas',
+              descricao: 'Água, passos, calorias e mais',
+              aoTocar: () => _tocar(context, aoAbrirMetas),
+            ),
             _ItemMenu(
               icone: Icons.key_rounded,
               rotulo: 'Meu código de vínculo',

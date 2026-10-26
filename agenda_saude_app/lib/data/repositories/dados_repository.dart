@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/registro_agua.dart';
+import '../../domain/models/registro_refeicao.dart';
 import '../../domain/models/registro_sono.dart';
 import '../../domain/models/registro_exercicio.dart';
 import '../../domain/models/registro_diabete.dart';
@@ -38,6 +39,28 @@ class DadosMedicosRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => RegistroAgua.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Refeicoes que o paciente marcou como feitas no dia de [dia], em tempo real
+  // (RF03.4). Usa o mesmo indice de `registros_diarios` da hidratacao.
+  Stream<List<RegistroRefeicao>> streamRefeicoesDoDia(
+    String pacienteId,
+    DateTime dia,
+  ) {
+    final inicio = DateTime(dia.year, dia.month, dia.day);
+    final fim = DateTime(dia.year, dia.month, dia.day + 1);
+
+    return _firestore
+        .collection('registros_diarios')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .where('tipo', isEqualTo: 'refeicao')
+        .where('dataHora', isGreaterThanOrEqualTo: inicio)
+        .where('dataHora', isLessThan: fim)
+        .orderBy('dataHora', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroRefeicao.fromJson(doc.data(), doc.id))
             .toList());
   }
 

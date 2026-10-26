@@ -111,6 +111,8 @@ void main() {
       viewModel.responderCardiopatia(true);
       viewModel.definirTipoCardiopatia('Hipertensão');
       viewModel.responderUsaMarcapasso(true);
+      viewModel.responderRestricaoLiquido(true);
+      viewModel.definirLimiteLiquido('1,5');
 
       preencherDadosBasicos();
       viewModel.definirAlergias('Dipirona');
@@ -140,6 +142,9 @@ void main() {
       expect(pacienteSalvo.alergias, 'Dipirona');
       expect(pacienteSalvo.medicamentosEmUso, 'Losartana');
       expect(pacienteSalvo.triagemConcluida, true);
+      expect(pacienteSalvo.limiteLiquidoMl, 1500);
+      // A meta de agua calculada (2100 ml) e cortada pela restricao do medico.
+      expect(pacienteSalvo.metas!.hidratacaoMl, 1500);
     });
 
     test('validarEAvancarSobreVoce deve falhar sem os dados básicos', () {
@@ -198,6 +203,98 @@ void main() {
       expect(pacienteSalvo.alergias, isNull);
       expect(pacienteSalvo.medicamentosEmUso, isNull);
       expect(pacienteSalvo.triagemConcluida, true);
+      expect(pacienteSalvo.limiteLiquidoMl, isNull);
+    });
+
+    test('Deve calcular e salvar as metas ao concluir a triagem', () async {
+      viewModel.responderDiabetes(false);
+      viewModel.responderCardiopatia(false);
+      preencherDadosBasicos();
+
+      final sucesso = await viewModel.concluirTriagem();
+
+      expect(sucesso, true);
+      final metas = viewModel.pacienteAtualizado!.metas;
+      expect(metas, isNotNull);
+      expect(metas!.calorias, greaterThanOrEqualTo(1200));
+      expect(metas.hidratacaoMl, greaterThanOrEqualTo(1500));
+      expect(metas.ajustadaManualmente, false);
+
+      final pacienteSalvo =
+          await pacienteRepository.getPaciente('paciente_001');
+      expect(pacienteSalvo!.metas, isNotNull);
+      expect(pacienteSalvo.metas!.calorias, metas.calorias);
+      expect(pacienteSalvo.metas!.passos, metas.passos);
+    });
+
+    test('Deve concluir a triagem sem metas quando os dados não permitem calcular', () async {
+      viewModel.responderDiabetes(false);
+      viewModel.responderCardiopatia(false);
+      preencherDadosBasicos();
+      viewModel.definirDataNascimento(DateTime.now().subtract(
+        const Duration(days: 365 * 10),
+      ));
+
+      final sucesso = await viewModel.concluirTriagem();
+
+      expect(sucesso, true);
+      expect(viewModel.pacienteAtualizado!.metas, isNull);
+      final pacienteSalvo =
+          await pacienteRepository.getPaciente('paciente_001');
+      expect(pacienteSalvo!.metas, isNull);
+      expect(pacienteSalvo.triagemConcluida, true);
+    });
+
+    test('validarEAvancarCardiopatia deve exigir a resposta sobre restrição de líquido', () {
+      viewModel.responderCardiopatia(true);
+      viewModel.responderUsaMarcapasso(false);
+
+      expect(viewModel.validarEAvancarCardiopatia(), false);
+      expect(viewModel.mensagemErro, isNotNull);
+
+      viewModel.responderRestricaoLiquido(false);
+
+      expect(viewModel.validarEAvancarCardiopatia(), true);
+    });
+
+    test('validarEAvancarCardiopatia deve exigir um limite de litros plausível', () {
+      viewModel.responderCardiopatia(true);
+      viewModel.responderUsaMarcapasso(false);
+      viewModel.responderRestricaoLiquido(true);
+
+      expect(viewModel.validarEAvancarCardiopatia(), false);
+
+      viewModel.definirLimiteLiquido('0,2');
+      expect(viewModel.validarEAvancarCardiopatia(), false);
+
+      viewModel.definirLimiteLiquido('6');
+      expect(viewModel.validarEAvancarCardiopatia(), false);
+
+      viewModel.definirLimiteLiquido('abc');
+      expect(viewModel.validarEAvancarCardiopatia(), false);
+
+      viewModel.definirLimiteLiquido('1,5');
+      expect(viewModel.validarEAvancarCardiopatia(), true);
+      expect(viewModel.mensagemErro, isNull);
+    });
+
+    test('Deve limpar a restrição de líquido ao mudar a resposta de cardiopatia para não', () {
+      viewModel.responderCardiopatia(true);
+      viewModel.responderRestricaoLiquido(true);
+      viewModel.definirLimiteLiquido('2');
+      viewModel.responderCardiopatia(false);
+
+      expect(viewModel.possuiRestricaoLiquido, isNull);
+      expect(viewModel.limiteLiquidoLitros, isNull);
+    });
+
+    test('Deve esquecer o limite de litros ao mudar a restrição de líquido para não', () {
+      viewModel.responderCardiopatia(true);
+      viewModel.responderRestricaoLiquido(true);
+      viewModel.definirLimiteLiquido('2');
+      viewModel.responderRestricaoLiquido(false);
+
+      expect(viewModel.limiteLiquidoLitros, isNull);
     });
   });
 }

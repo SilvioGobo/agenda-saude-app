@@ -77,4 +77,55 @@ void main() {
       expect(find.textContaining('Preencha data de nascimento'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'Ao concluir a triagem, deve mostrar as metas calculadas antes do painel',
+    (tester) async {
+      final pacienteRecemCadastrado = Paciente(
+        id: 'paciente_001',
+        nome: 'Maria Souza',
+        email: 'maria@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: false,
+        codigoVinculo: 'ABC123',
+      );
+      final fakeFirestore = FakeFirebaseFirestore();
+      final viewModel = TriagemViewModel(
+        paciente: pacienteRecemCadastrado,
+        pacienteRepository: PacienteRepository(firestore: fakeFirestore),
+      )
+        ..responderDiabetes(false)
+        ..responderCardiopatia(false)
+        ..definirDataNascimento(DateTime(1960, 5, 10))
+        ..selecionarSexoBiologico('Feminino')
+        ..definirAltura('165')
+        ..definirPeso('70')
+        ..selecionarNivelAtividadeFisica('Leve');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider.value(
+            value: viewModel,
+            child: const TriagemOutrasInformacoesView(),
+          ),
+        ),
+      );
+
+      await tester.ensureVisible(find.text('Concluir'));
+      await tester.tap(find.text('Concluir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Suas metas'), findsOneWidget);
+      expect(find.text('Aceitar e continuar'), findsOneWidget);
+      expect(find.text('Ajustar metas'), findsOneWidget);
+
+      final salvo = await fakeFirestore
+          .collection('usuarios')
+          .doc('paciente_001')
+          .get();
+      expect(salvo.data()!['metas'], isNotNull);
+      expect(salvo.data()!['triagemConcluida'], true);
+    },
+  );
 }

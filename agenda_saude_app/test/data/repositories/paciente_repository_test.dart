@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
+import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
+import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 void main() {
   group('PacienteRepository Testes', () {
@@ -107,6 +110,108 @@ void main() {
       final resultado = await repository.buscarPorCodigoVinculo('QWE789');
       expect(resultado, isNotNull);
       expect(resultado!.pacienteId, 'paciente_001');
+    });
+
+    const metas = MetasPersonalizadas(
+      imc: 24.7,
+      classificacaoImc: ClassificacaoImc.adequado,
+      hidratacaoMl: 2000,
+      sonoMinHoras: 7,
+      sonoMaxHoras: 9,
+      passos: 8000,
+      exercicioMinutosSemana: 150,
+      calorias: 1800,
+      carboidratosG: 225,
+      proteinasG: 90,
+      gordurasG: 60,
+      fibrasG: 25,
+      gorduraSaturadaMaxG: 20,
+      acucarLivreMaxG: 45,
+      sodioMaxMg: 2000,
+    );
+
+    test('Deve gravar as metas sem mexer no resto do documento', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.atualizarMetas('paciente_001', metas);
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.metas, isNotNull);
+      expect(resultado.metas!.calorias, 1800);
+      expect(resultado.metas!.hidratacaoMl, 2000);
+      expect(resultado.nome, 'João da Silva');
+      expect(resultado.codigoVinculo, 'ABC12');
+    });
+
+    test('Deve atualizar também o peso e a atividade ao recalcular as metas', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.atualizarMetas(
+        'paciente_001',
+        metas,
+        pesoKg: 72.5,
+        nivelAtividadeFisica: 'Moderado',
+      );
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.pesoKg, 72.5);
+      expect(resultado.nivelAtividadeFisica, 'Moderado');
+      expect(resultado.metas, isNotNull);
+    });
+
+    test('Deve substituir as metas antigas por inteiro', () async {
+      await repository.salvarPaciente(criarPaciente());
+      await repository.atualizarMetas('paciente_001', metas);
+
+      await repository.atualizarMetas(
+          'paciente_001', metas.comAjustes(passos: 4000));
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.metas!.passos, 4000);
+      expect(resultado.metas!.ajustadaManualmente, true);
+    });
+
+    test('Deve gravar o plano de refeições sem mexer no resto do documento', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.salvarRefeicoes('paciente_001', const [
+        RefeicaoPlanejada(
+          id: 'r1',
+          nome: 'Café',
+          itens: [
+            ItemRefeicao(
+              alimentoId: 53,
+              nome: 'Pão, trigo, francês',
+              quantidadeG: 50,
+            ),
+          ],
+        ),
+        RefeicaoPlanejada(id: 'r2', nome: 'Almoço'),
+      ]);
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.refeicoes!.map((r) => r.nome), ['Café', 'Almoço']);
+      final item = resultado.refeicoes!.first.itens.single;
+      expect(item.alimentoId, 53);
+      expect(item.nome, 'Pão, trigo, francês');
+      expect(item.quantidadeG, 50);
+      expect(resultado.nome, 'João da Silva');
+      expect(resultado.codigoVinculo, 'ABC12');
+    });
+
+    test('Deve substituir o plano de refeições antigo por inteiro', () async {
+      await repository.salvarPaciente(criarPaciente());
+      await repository.salvarRefeicoes('paciente_001', const [
+        RefeicaoPlanejada(id: 'r1', nome: 'Café'),
+        RefeicaoPlanejada(id: 'r2', nome: 'Almoço'),
+      ]);
+
+      await repository.salvarRefeicoes('paciente_001', const [
+        RefeicaoPlanejada(id: 'r3', nome: 'Jantar'),
+      ]);
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.refeicoes!.map((r) => r.id), ['r3']);
     });
   });
 }

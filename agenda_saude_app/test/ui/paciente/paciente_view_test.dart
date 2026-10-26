@@ -99,6 +99,14 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    // O menu lateral tem 5 itens (metas, codigo, smartwatch, localizacao e
+    // sair) e rola. Numa tela mais alta o "Sair da conta" ja fica construido.
+    void menuAlto(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
     // Desmonta o painel para os ViewModels cancelarem o polling (timer).
     Future<void> desmontar(WidgetTester tester) async {
       await tester.pumpWidget(const SizedBox());
@@ -216,6 +224,7 @@ void main() {
     });
 
     testWidgets('Deve abrir o menu e a tela do código de vínculo', (tester) async {
+      menuAlto(tester);
       await montar(tester);
 
       await tester.tap(find.text('Menu'));
@@ -284,6 +293,7 @@ void main() {
 
     testWidgets('Deve pedir confirmação antes de sair e não sair ao cancelar',
         (tester) async {
+      menuAlto(tester);
       await montar(tester);
 
       await tester.tap(find.text('Menu'));
@@ -299,6 +309,28 @@ void main() {
       expect(find.text('Sair da conta?'), findsNothing);
       expect(find.text('Olá, José'), findsOneWidget);
       expect(authRepository.saidas, 0);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve abrir Minhas metas pelo menu e voltar ao painel', (tester) async {
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Água, passos, calorias e mais'), findsOneWidget);
+
+      await tester.tap(find.text('Minhas metas'));
+      await tester.pumpAndSettle();
+
+      // Este paciente nao tem dados fisicos, entao ainda nao ha metas.
+      expect(find.text('Minhas metas'), findsOneWidget);
+      expect(find.text('Atualizar meu peso'), findsOneWidget);
+
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Olá, José'), findsOneWidget);
 
       await desmontar(tester);
     });
