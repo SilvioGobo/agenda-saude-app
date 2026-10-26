@@ -169,9 +169,20 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    "Refeições" (RF03.4) lista as refeições do plano para marcar "feito" e tem o botão
    "Personalizar refeições" (nome e alimentos com quantidade em g, escolhidos por
    busca no catálogo TACO; mostra calorias e macros da refeição e do dia contra as
-   metas); faltam sono, exercício, medicação e insulina/glicemia como novos cartões na
-   mesma tela, e sugerir/gerar os alimentos das refeições automaticamente a partir das
-   metas. A consulta do dia exige o índice composto de `registros_diarios` em
+   metas). Glicemia e
+   insulina (RF008) também feitas (`ui/insulina/`): cartão resumido na Rotina só para
+   `possuiDiabetes` (medições do dia + última glicemia fora da faixa) que abre a tela
+   `GlicemiaInsulinaView` com o checklist dos momentos da E6 (`MomentoGlicemia`), em
+   caixa alta para idosos + insulina lenta 22h para quem
+   `usaInsulina`, "Outra medição" avulsa, faixas em `FaixasGlicemia` (alvo 70–180) e
+   última glicemia/dose no card do acompanhante. `RegistroDiabete` tem `nivelGlicose`
+   e `doseInsulina` opcionais (registro só de glicemia ou só de insulina). Padrão da
+   Rotina para as próximas atividades: um cartão compacto por atividade; o que é de um
+   toque (copo d'água, tomar remédio) resolve no próprio cartão, o que tem várias
+   etapas abre tela própria. Faltam sono, exercício, medicação, os lembretes de
+   glicemia/insulina (RF 07.3) e sugerir/gerar os alimentos das refeições
+   automaticamente a partir das metas.
+   A consulta do dia exige o índice composto de `registros_diarios` em
    `firestore.indexes.json` (publicar com `firebase deploy --only firestore:indexes`)*
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas
    push em tempo real via FCM (RF005, RF006). ← *vínculo por código, lista de

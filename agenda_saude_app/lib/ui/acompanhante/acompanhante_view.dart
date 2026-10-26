@@ -19,11 +19,13 @@ import '../auth/botao_sair.dart';
 import '../localizacao/localizacao_paciente_view.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
+import 'diabetes_acompanhante_viewmodel.dart';
 import 'vincular_paciente_view.dart';
 
 // Painel do acompanhante (RF05, Figura 15 do TCC): lista em cards dos
-// pacientes vinculados, atalho para vincular um novo paciente (RF05.4) e os
-// alertas desses pacientes recebidos em tempo real (RF06).
+// pacientes vinculados, atalho para vincular um novo paciente (RF05.4), os
+// alertas desses pacientes recebidos em tempo real (RF06) e, para os
+// diabeticos, a ultima glicemia e dose de insulina (RF008).
 class AcompanhanteView extends StatefulWidget {
   const AcompanhanteView({super.key});
 
@@ -52,6 +54,16 @@ class AcompanhanteView extends StatefulWidget {
           )..iniciar(),
           update: (_, acompanhanteViewModel, alertasViewModel) =>
               alertasViewModel!
+                ..acompanharPacientes(acompanhanteViewModel.pacientesVinculados),
+        ),
+        // Ultima glicemia e dose de insulina dos diabeticos (RF008), pela
+        // mesma lista de pacientes.
+        ChangeNotifierProxyProvider<AcompanhanteViewModel,
+            DiabetesAcompanhanteViewModel>(
+          create: (_) =>
+              DiabetesAcompanhanteViewModel(dadosRepository: dadosRepository),
+          update: (_, acompanhanteViewModel, diabetesViewModel) =>
+              diabetesViewModel!
                 ..acompanharPacientes(acompanhanteViewModel.pacientesVinculados),
         ),
       ],
@@ -162,6 +174,7 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<AcompanhanteViewModel>();
     final alertasViewModel = context.watch<AlertasViewModel>();
+    final diabetesViewModel = context.watch<DiabetesAcompanhanteViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
     final pacientes = viewModel.pacientesVinculados;
     final naoLidos = alertasViewModel.naoLidos;
@@ -262,6 +275,7 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                       paciente: paciente,
                       alertasNaoLidos:
                           alertasViewModel.naoLidosDoPaciente(paciente.id),
+                      resumoDiabete: diabetesViewModel.resumoDe(paciente.id),
                       onDesvincular: viewModel.carregando
                           ? null
                           : () => _confirmarDesvinculo(paciente),

@@ -8,7 +8,9 @@ import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 import 'package:agenda_saude_app/domain/models/acompanhante.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
+import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/ui/acompanhante/acompanhante_view.dart';
+import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 
 import '../../core/services/fake_notification_service.dart';
 
@@ -120,6 +122,58 @@ void main() {
     expect(find.text('Triagem pendente'), findsOneWidget);
     // Cada card tem o atalho para a localizacao do paciente.
     expect(find.text('Ver localização'), findsNWidgets(2));
+  });
+
+  testWidgets('Card do paciente diabético mostra a última glicemia e a última dose de insulina', (
+    tester,
+  ) async {
+    await PacienteRepository(firestore: fakeFirestore).salvarPaciente(Paciente(
+      id: 'paciente_01',
+      nome: 'José Silva',
+      email: 'jose@email.com',
+      perfil: 'Paciente',
+      possuiDiabetes: true,
+      tipoDiabetes: 'Tipo 1',
+      usaInsulina: true,
+      possuiCardiopatia: false,
+      codigoVinculo: 'ABC123',
+      triagemConcluida: true,
+    ));
+    await acompanhanteRepository.vincularPaciente('cuidador_01', 'paciente_01');
+    final ontem = DateTime.now().subtract(const Duration(days: 1));
+    await dadosRepository.salvarRegistro(RegistroDiabete(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: DateTime(ontem.year, ontem.month, ontem.day, 22, 0),
+      momento: 'Insulina lenta (22h)',
+      doseInsulina: 14,
+      tipoInsulina: 'Lenta',
+    ));
+    await dadosRepository.salvarRegistro(RegistroDiabete(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: DateTime.now().subtract(const Duration(minutes: 5)),
+      nivelGlicose: 62,
+      momento: 'Ao acordar',
+    ));
+
+    await montarPainel(tester);
+
+    expect(find.text('GLICEMIA: ${formatarGlicemia(62)}'), findsOneWidget);
+    expect(find.text('BAIXA'), findsOneWidget);
+    expect(find.text('AO ACORDAR · HÁ 5 MINUTOS'), findsOneWidget);
+    expect(find.text(descreverInsulina('Lenta', 14).toUpperCase()), findsOneWidget);
+    expect(find.text('INSULINA LENTA (22\u00A0HORAS) · ONTEM ÀS 22:00'), findsOneWidget);
+  });
+
+  testWidgets('Card do paciente sem diabetes não mostra glicemia', (
+    tester,
+  ) async {
+    await vincularJose();
+    await montarPainel(tester);
+
+    expect(find.text('José Silva'), findsOneWidget);
+    expect(find.textContaining('GLICEMIA'), findsNothing);
   });
 
   testWidgets('Desvincular pelo menu do card pede confirmação e remove o paciente', (

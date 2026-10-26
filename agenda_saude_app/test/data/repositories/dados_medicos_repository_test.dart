@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
+import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
@@ -287,6 +288,74 @@ void main() {
             await repository.streamAguaDoDia('paciente_99', hoje).first;
         expect(depois.length, 1);
         expect(depois.first.id, antes.last.id);
+      });
+    });
+
+    group('Glicemia e insulina', () {
+      final hoje = DateTime(2026, 10, 25, 15, 0);
+
+      Future<void> salvarDiabete(
+        String pacienteId,
+        DateTime dataHora, {
+        double? glicose = 110,
+        double? dose,
+        String momento = 'Ao acordar',
+      }) {
+        return repository.salvarRegistro(RegistroDiabete(
+          id: '',
+          pacienteId: pacienteId,
+          dataHora: dataHora,
+          nivelGlicose: glicose,
+          momento: momento,
+          doseInsulina: dose,
+          tipoInsulina: dose == null ? null : 'Rápida',
+        ));
+      }
+
+      test('Deve gravar o registro de diabetes com o tipo "diabete"', () async {
+        await salvarDiabete('paciente_99', DateTime(2026, 10, 25, 7, 0), dose: 6);
+
+        final snapshot =
+            await fakeFirestore.collection('registros_diarios').get();
+        expect(snapshot.docs.single.data()['tipo'], 'diabete');
+        expect(snapshot.docs.single.data()['doseInsulina'], 6);
+      });
+
+      test('Deve listar só os registros de diabetes do paciente no dia pedido', () async {
+        await salvarDiabete('paciente_99', DateTime(2026, 10, 25, 7, 0), glicose: 100);
+        await salvarDiabete('paciente_99', DateTime(2026, 10, 25, 11, 30), glicose: 150);
+        // Outro dia, outro paciente e outro tipo de registro.
+        await salvarDiabete('paciente_99', DateTime(2026, 10, 24, 22, 0));
+        await salvarDiabete('paciente_99', DateTime(2026, 10, 26, 0, 0));
+        await salvarDiabete('outro_paciente', DateTime(2026, 10, 25, 8, 0));
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 10, 25, 9, 0),
+          quantidadeML: 250,
+        ));
+
+        final registros =
+            await repository.streamDiabeteDoDia('paciente_99', hoje).first;
+
+        expect(registros.map((r) => r.nivelGlicose), [150, 100]);
+      });
+
+      test('Deve transmitir os últimos registros de diabetes, do mais novo para o mais antigo e com limite', () async {
+        for (var hora = 6; hora < 12; hora++) {
+          await salvarDiabete(
+            'paciente_99',
+            DateTime(2026, 10, 24, hora, 0),
+            glicose: hora * 10,
+          );
+        }
+        await salvarDiabete('outro_paciente', DateTime(2026, 10, 25, 8, 0));
+
+        final registros = await repository
+            .streamUltimosRegistrosDiabete('paciente_99', limite: 3)
+            .first;
+
+        expect(registros.map((r) => r.nivelGlicose), [110, 100, 90]);
       });
     });
 

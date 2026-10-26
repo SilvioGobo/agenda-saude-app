@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/faixas_glicemia.dart';
+import '../../core/constants/momentos_glicemia.dart';
 import '../../domain/models/paciente.dart';
+import '../../domain/models/registro_diabete.dart';
+import '../alertas/card_alerta.dart';
+import '../insulina/formatacao_diabete.dart';
+import 'diabetes_acompanhante_viewmodel.dart';
 
 // Cartao de um paciente vinculado no painel do acompanhante (Figura 15 do
 // TCC). Mostra a identificacao, as comorbidades da triagem, quantos alertas
-// do paciente ainda nao foram lidos (RF06) e o atalho para ver onde ele esta;
-// BPM, status consolidado e ultimo evento da rotina entram nas proximas
-// etapas do modulo.
+// do paciente ainda nao foram lidos (RF06), a ultima glicemia e a ultima dose
+// de insulina dos diabeticos (RF008) e o atalho para ver onde ele esta; BPM e
+// status consolidado entram nas proximas etapas do modulo.
 class CardPaciente extends StatelessWidget {
   final Paciente paciente;
   final int alertasNaoLidos;
+  // Null enquanto carrega ou se o paciente nao e diabetico.
+  final ResumoDiabete? resumoDiabete;
   final VoidCallback? onDesvincular;
   final VoidCallback? onVerLocalizacao;
 
@@ -17,6 +25,7 @@ class CardPaciente extends StatelessWidget {
     super.key,
     required this.paciente,
     this.alertasNaoLidos = 0,
+    this.resumoDiabete,
     this.onDesvincular,
     this.onVerLocalizacao,
   });
@@ -137,6 +146,16 @@ class CardPaciente extends StatelessWidget {
                   ),
               ],
             ),
+            if (paciente.possuiDiabetes && resumoDiabete != null) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _ResumoDiabete(
+                  resumo: resumoDiabete!,
+                  usaInsulina: paciente.usaInsulina == true,
+                ),
+              ),
+            ],
             if (onVerLocalizacao != null) ...[
               const SizedBox(height: 16),
               // O card tem margem direita menor por causa do botao "Mais
@@ -153,6 +172,110 @@ class CardPaciente extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Ultima glicemia (com a faixa em selo de texto, icone e cor) e ultima dose
+// de insulina, cada uma com o momento e o horario do registro. Em caixa
+// alta, no mesmo padrao do cartao de glicemia do paciente (NF004).
+class _ResumoDiabete extends StatelessWidget {
+  final ResumoDiabete resumo;
+  final bool usaInsulina;
+
+  const _ResumoDiabete({required this.resumo, required this.usaInsulina});
+
+  @override
+  Widget build(BuildContext context) {
+    final glicemia = resumo.ultimaGlicemia;
+    final insulina = resumo.ultimaInsulina;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _LinhaResumo(
+          icone: Icons.bloodtype_rounded,
+          titulo: glicemia == null
+              ? 'GLICEMIA: NADA ANOTADO AINDA'
+              : 'GLICEMIA: ${formatarGlicemia(glicemia.nivelGlicose!)}',
+          classificacao: glicemia == null
+              ? null
+              : FaixasGlicemia.classificar(glicemia.nivelGlicose!),
+          registro: glicemia,
+        ),
+        if (usaInsulina || insulina != null) ...[
+          const SizedBox(height: 12),
+          _LinhaResumo(
+            icone: Icons.vaccines_rounded,
+            titulo: insulina == null
+                ? 'INSULINA: NADA ANOTADO AINDA'
+                : descreverInsulina(
+                    insulina.tipoInsulina,
+                    insulina.doseInsulina!,
+                  ).toUpperCase(),
+            registro: insulina,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _LinhaResumo extends StatelessWidget {
+  final IconData icone;
+  final String titulo;
+  final ClassificacaoGlicemia? classificacao;
+  final RegistroDiabete? registro;
+
+  const _LinhaResumo({
+    required this.icone,
+    required this.titulo,
+    this.classificacao,
+    this.registro,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final classificacao = this.classificacao;
+    final registro = this.registro;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icone, size: 28, color: colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                titulo,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (classificacao != null) ...[
+                const SizedBox(height: 4),
+                SeloFaixaGlicemia(classificacao),
+              ],
+              if (registro != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${MomentoGlicemia.porNome(registro.momento).rotulo} · '
+                  '${descreverHorario(registro.dataHora).toUpperCase()}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
