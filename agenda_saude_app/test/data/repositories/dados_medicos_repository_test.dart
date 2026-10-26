@@ -3,6 +3,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
+import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 
@@ -355,6 +356,62 @@ void main() {
             .first;
 
         expect(registros.map((r) => r.nivelGlicose), [110, 100, 90]);
+      });
+    });
+
+    group('Refeições do dia (RF03.4)', () {
+      final hoje = DateTime(2026, 10, 25, 15, 0);
+
+      Future<void> marcar(String pacienteId, String refeicaoId, DateTime quando) {
+        return repository.salvarRegistro(RegistroRefeicao(
+          id: '',
+          pacienteId: pacienteId,
+          dataHora: quando,
+          refeicaoId: refeicaoId,
+          nome: refeicaoId,
+        ));
+      }
+
+      test('Deve devolver só as refeições marcadas hoje, da mais recente para a mais antiga', () async {
+        await marcar('paciente_99', 'cafe', DateTime(2026, 10, 25, 7, 0));
+        await marcar('paciente_99', 'almoco', DateTime(2026, 10, 25, 12, 0));
+        await marcar('paciente_99', 'jantar', DateTime(2026, 10, 24, 20, 0));
+        await marcar('outro_paciente', 'cafe', DateTime(2026, 10, 25, 7, 30));
+
+        final registros =
+            await repository.streamRefeicoesDoDia('paciente_99', hoje).first;
+
+        expect(registros.map((r) => r.refeicaoId), ['almoco', 'cafe']);
+      });
+
+      test('Deve ignorar registros que não são de refeição', () async {
+        await marcar('paciente_99', 'cafe', DateTime(2026, 10, 25, 7, 0));
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 10, 25, 8, 0),
+          quantidadeML: 250,
+        ));
+
+        final registros =
+            await repository.streamRefeicoesDoDia('paciente_99', hoje).first;
+
+        expect(registros.length, 1);
+        expect(registros.single.nome, 'cafe');
+      });
+
+      test('Deve emitir a lista atualizada quando uma refeição é marcada', () async {
+        final emissoes = <int>[];
+        final assinatura = repository
+            .streamRefeicoesDoDia('paciente_99', hoje)
+            .listen((registros) => emissoes.add(registros.length));
+
+        await Future<void>.delayed(Duration.zero);
+        await marcar('paciente_99', 'cafe', DateTime(2026, 10, 25, 7, 0));
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes, [0, 1]);
       });
     });
   });

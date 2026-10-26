@@ -20,10 +20,12 @@ class TriagemCardiopatiaView extends StatefulWidget {
 
 class _TriagemCardiopatiaViewState extends State<TriagemCardiopatiaView> {
   final _tipoCardiopatiaController = TextEditingController();
+  final _limiteLiquidoController = TextEditingController();
 
   @override
   void dispose() {
     _tipoCardiopatiaController.dispose();
+    _limiteLiquidoController.dispose();
     super.dispose();
   }
 
@@ -87,6 +89,33 @@ class _TriagemCardiopatiaViewState extends State<TriagemCardiopatiaView> {
                       aoResponder: viewModel.responderUsaMarcapasso,
                       pequeno: true,
                     ),
+                    const SizedBox(height: 20),
+                    const RotuloPergunta(
+                      'Seu médico limitou a quantidade de líquido por dia?',
+                      pequeno: true,
+                    ),
+                    SeletorSimNao(
+                      valor: viewModel.possuiRestricaoLiquido,
+                      aoResponder: viewModel.responderRestricaoLiquido,
+                      pequeno: true,
+                    ),
+                    if (viewModel.possuiRestricaoLiquido == true) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _limiteLiquidoController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Quantos litros por dia? (ex.: 1,5)',
+                        ),
+                        onChanged: viewModel.definirLimiteLiquido,
+                      ),
+                    ],
                   ],
                 ),
               ],

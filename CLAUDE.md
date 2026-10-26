@@ -62,6 +62,9 @@ lib/
     constants/      # zonas de segurança de BPM, metas de hidratação, momentos de glicemia
     services/       # tts_service, health_service, notification_service (wrappers de plugin)
   domain/models/    # já completo (ver abaixo)
+  domain/metas/     # CalculadoraMetas + MetasPersonalizadas: metas a partir da triagem
+  domain/refeicoes/ # RefeicoesPadrao: plano de refeições de quem não personalizou
+  domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
   data/repositories/
     auth_repository.dart          # a criar: wrapper do FirebaseAuth (RF001)
     paciente_repository.dart      # existente
@@ -77,6 +80,7 @@ lib/
     historico/      # gráficos e relatórios consolidados (RF005)
     alertas/        # tela de emergência (overlay vermelho) + lista de notificações (RF006)
     configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007)
+    metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
     shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, etc.)
 test/               # espelha lib/ (test/domain/models, test/data/repositories, test/ui)
 integration_test/   # fluxos completos no emulador
@@ -91,6 +95,28 @@ Convenções já estabelecidas nos repositories — manter:
   Paciente tem `possuiDiabetes`, `possuiCardiopatia`, `codigoVinculo`,
   `acompanhantesVinculadosIds: List<String>`;
   Acompanhante tem `pacientesVinculadosIds: List<String>`.
+  O Paciente também guarda `metas` (map, `MetasPersonalizadas`) e `limiteLiquidoMl`
+  (restrição de líquido do médico, perguntada só a cardiopatas). As `metas` saem da
+  `CalculadoraMetas` (`domain/metas/`): fórmulas consagradas (Mifflin-St Jeor, OMS,
+  Lipschitz para idosos ≥ 60 anos) e **sem IA**, para o resultado ser auditável e
+  testável. São calculadas ao concluir a triagem e recalculadas em "Minhas metas →
+  Atualizar meu peso"; `metas.ajustadaManualmente` marca quando o paciente mexeu em
+  água/passos/exercício (as metas de alimentação não são editáveis no app). O cálculo
+  devolve `null` se faltar dado (contas antigas): as telas caem nos padrões.
+  O plano de refeições (RF03.4) fica em `refeicoes` (lista de `RefeicaoPlanejada`:
+  `id`, `nome`, `itens`; cada item é `ItemRefeicao`: `alimentoId`, `nome`,
+  `quantidadeG`). `null` = nunca personalizou → `Paciente.planoDeRefeicoes` cai em
+  `RefeicoesPadrao` (4 refeições; 6 para diabéticos, sem alimentos); lista vazia = o
+  paciente tirou todas. O `id` liga a refeição aos registros do dia, então não muda ao
+  renomear. Os nutrientes de uma refeição (e do dia) saem do catálogo de alimentos:
+  `quantidadeG / 100 × valores por 100 g`, somados (`Nutrientes`).
+- **Catálogo de alimentos**: `assets/alimentos/taco.json`, 593 alimentos da TACO 4ª
+  edição (NEPA/UNICAMP, 2011; reprodução permitida citando a fonte — a tela de busca
+  cita) com kcal, proteína, gordura, carboidrato, fibra e sódio por 100 g. Embutido no
+  app (busca offline, nada do paciente sai do aparelho) e lido por
+  `AlimentosRepository`. `alimentoId` = número do alimento na TACO. Como foi extraído e
+  o que ficou de fora (4 alimentos "em reavaliação", como leite integral) está em
+  `assets/alimentos/LEIAME.md`. Nunca editar valores à mão: regerar da fonte.
 - `codigos_vinculo/{codigo}` — doc id = o código de 6 caracteres; campos `pacienteId`,
   `nomePaciente`. É o índice que o Acompanhante consulta (só `get`, sem `list`) para
   achar o paciente antes do vínculo existir. `PacienteRepository.salvarPaciente` grava
@@ -100,7 +126,9 @@ Convenções já estabelecidas nos repositories — manter:
   tocar em `acompanhantesVinculadosIds` do paciente (e só para entrar/sair ele mesmo);
   um `arrayUnion` sem mudança é negado, por isso o ViewModel checa "já vinculado" antes.
 - `registros_diarios` — todas as subclasses de `RegistroBase` (água, sono, exercício,
-  diabete), discriminadas pelo campo `tipo` gravado no `toJson()` de cada uma.
+  diabete, refeição), discriminadas pelo campo `tipo` gravado no `toJson()` de cada uma.
+  `RegistroRefeicao` (`tipo: 'refeicao'`, `refeicaoId`, `nome`) = "esta refeição foi
+  feita hoje": marcar cria o doc, desmarcar apaga. O paciente não descreve o que comeu.
 - `batimentos_cardiacos` — leituras de BPM com `pacienteId` + `timestamp`.
 - `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
   `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM:
@@ -135,8 +163,13 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"
-   (`ui/rotina/`) com hidratação (RF03.1) já feita: meta de 8 copos de 250 ml em
-   `MetaHidratacao`, `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`. Glicemia e
+   (`ui/rotina/`) com hidratação (RF03.1) já feita: meta do paciente em
+   `Paciente.metas.hidratacaoMl` (padrão de 8 copos de 250 ml em `MetaHidratacao`
+   para quem não tem metas), `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`; o cartão
+   "Refeições" (RF03.4) lista as refeições do plano para marcar "feito" e tem o botão
+   "Personalizar refeições" (nome e alimentos com quantidade em g, escolhidos por
+   busca no catálogo TACO; mostra calorias e macros da refeição e do dia contra as
+   metas). Glicemia e
    insulina (RF008) também feitas (`ui/insulina/`): cartão resumido na Rotina só para
    `possuiDiabetes` (medições do dia + última glicemia fora da faixa) que abre a tela
    `GlicemiaInsulinaView` com o checklist dos momentos da E6 (`MomentoGlicemia`), em
@@ -146,8 +179,9 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    e `doseInsulina` opcionais (registro só de glicemia ou só de insulina). Padrão da
    Rotina para as próximas atividades: um cartão compacto por atividade; o que é de um
    toque (copo d'água, tomar remédio) resolve no próprio cartão, o que tem várias
-   etapas abre tela própria. Faltam sono, exercício, alimentação, medicação e os
-   lembretes de glicemia/insulina (RF 07.3).
+   etapas abre tela própria. Faltam sono, exercício, medicação, os lembretes de
+   glicemia/insulina (RF 07.3) e sugerir/gerar os alimentos das refeições
+   automaticamente a partir das metas.
    A consulta do dia exige o índice composto de `registros_diarios` em
    `firestore.indexes.json` (publicar com `firebase deploy --only firestore:indexes`)*
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas

@@ -4,12 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/ui/insulina/card_glicemia_insulina.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 import 'package:agenda_saude_app/ui/insulina/glicemia_insulina_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/hidratacao_viewmodel.dart';
+import 'package:agenda_saude_app/ui/rotina/refeicoes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/rotina_view.dart';
 
 void main() {
@@ -23,8 +25,16 @@ void main() {
       dadosRepository = DadosMedicosRepository(firestore: fakeFirestore);
     });
 
-    // Monta a Minha Rotina com o cartao resumido de glicemia.
-    Future<void> montar(WidgetTester tester, {double escalaTexto = 1}) async {
+    // Monta a Minha Rotina (hidratacao, refeicoes e o cartao resumido de
+    // glicemia). A tela de teste e alta para a lista montar todos os cartoes
+    // de uma vez; o teste de fonte 200% usa um celular pequeno de verdade.
+    Future<void> montar(
+      WidgetTester tester, {
+      double escalaTexto = 1,
+      Size tela = const Size(800, 2400),
+    }) async {
+      await tester.binding.setSurfaceSize(tela);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final paciente = Paciente(
         id: 'paciente_01',
         nome: 'José Silva',
@@ -49,6 +59,15 @@ void main() {
                 create: (_) => HidratacaoViewModel(
                   paciente: paciente,
                   dadosRepository: dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => RefeicoesViewModel(
+                  paciente: paciente,
+                  dadosRepository: dadosRepository,
+                  pacienteRepository:
+                      PacienteRepository(firestore: fakeFirestore),
                   agora: () => hoje,
                 ),
               ),
@@ -204,9 +223,7 @@ void main() {
 
     testWidgets('Não deve estourar o layout com a fonte do celular em 200%', (tester) async {
       await salvar('Ao acordar', DateTime(2026, 10, 25, 7, 0), 40);
-      await tester.binding.setSurfaceSize(const Size(360, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await montar(tester, escalaTexto: 2);
+      await montar(tester, escalaTexto: 2, tela: const Size(360, 640));
 
       // A lista so monta o que esta perto da tela: rola ate o botao.
       await tester.scrollUntilVisible(

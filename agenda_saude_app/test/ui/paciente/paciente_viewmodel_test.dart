@@ -173,5 +173,19 @@ void main() {
 
       expect(authRepository.saidas, 1);
     });
+
+    test('Deve trocar o paciente e avisar quem escuta ao atualizar', () {
+      final viewModel = PacienteViewModel(
+        paciente: paciente,
+        dadosRepository: dadosRepository,
+      );
+      var avisos = 0;
+      viewModel.addListener(() => avisos++);
+
+      viewModel.atualizarPaciente(paciente.copyWith(pesoKg: 72));
+
+      expect(viewModel.paciente.pesoKg, 72);
+      expect(avisos, 1);
+    });
   });
 }
