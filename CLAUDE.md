@@ -65,11 +65,13 @@ lib/
   domain/metas/     # CalculadoraMetas + MetasPersonalizadas: metas a partir da triagem
   domain/refeicoes/ # RefeicoesPadrao: plano de refeições de quem não personalizou
   domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
+  domain/relatorios/ # ResumoDoDia, ResumoDoMes e CalculadoraRelatorios: as contas dos relatórios
   data/repositories/
     auth_repository.dart          # a criar: wrapper do FirebaseAuth (RF001)
     paciente_repository.dart      # existente
     acompanhante_repository.dart  # existente (vincular/desvincular paciente)
     dados_repository.dart         # existente: DadosMedicosRepository (registros, BPM, alertas)
+    relatorios_repository.dart    # existente: RelatoriosRepository (só lê, por período)
   ui/
     auth/           # login, cadastro, seleção de perfil (arquivos criados, vazios)
     triagem/        # questionário adaptativo de comorbidades (RF002)
@@ -77,7 +79,7 @@ lib/
     rotina/         # checklist diário: água, sono, exercício, alimentação (RF003)
     insulina/       # glicemia + insulina — só visível se possuiDiabetes (RF008)
     acompanhante/   # painel com cards dos pacientes vinculados (RF005)
-    historico/      # gráficos e relatórios consolidados (RF005)
+    relatorios/     # relatório do dia anterior e relatório mensal, para paciente e acompanhante (RF05)
     alertas/        # tela de emergência (overlay vermelho) + lista de notificações (RF006)
     configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007)
     metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
@@ -130,6 +132,25 @@ Convenções já estabelecidas nos repositories — manter:
   `RegistroRefeicao` (`tipo: 'refeicao'`, `refeicaoId`, `nome`) = "esta refeição foi
   feita hoje": marcar cria o doc, desmarcar apaga. O paciente não descreve o que comeu.
 - `batimentos_cardiacos` — leituras de BPM com `pacienteId` + `timestamp`.
+- **Relatórios (RF05)** não têm coleção própria: `RelatoriosRepository` só lê as
+  coleções acima por período (`[início, fim)` no horário do aparelho) e
+  `CalculadoraRelatorios` (`domain/relatorios/`) faz as contas, sem Firebase. As
+  consultas têm o mesmo formato das do dia a dia (um tipo de `registros_diarios`
+  por vez, mais `alertas` e `batimentos_cardiacos`), então **reaproveitam os índices
+  que já existem — nenhum índice novo**. Quem lê é o paciente ou o acompanhante
+  vinculado, pelas mesmas security rules (nada a mudar nelas). Regras de negócio:
+  - "Dia completo" = meta de água batida + todas as refeições do plano marcadas +
+    (diabéticos) todos os itens do checklist de glicemia; "parcial" = tem registro
+    mas falta algo; "sem registro" = nada da rotina anotado (BPM e alertas vêm do
+    smartwatch, não contam como rotina).
+  - O relatório do mês só conta os dias **já encerrados** (no mês atual, até ontem) e
+    abre no mês anterior no dia 1. Ele **não lê as leituras de BPM** (podem ser
+    dezenas de milhares por mês): só conta os alertas. O BPM detalhado (menor,
+    maior, média, leituras fora da zona) é do relatório do dia, que lê as leituras
+    de um dia só.
+  - As refeições e os nutrientes usam o plano **de hoje** (`Paciente.planoDeRefeicoes`):
+    o plano não tem histórico, então mudar o plano muda a leitura dos dias antigos.
+    A estimativa de nutrientes só aparece no relatório do dia.
 - `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
   `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM:
   `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
@@ -181,14 +202,22 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    toque (copo d'água, tomar remédio) resolve no próprio cartão, o que tem várias
    etapas abre tela própria. Faltam sono, exercício, medicação, os lembretes de
    glicemia/insulina (RF 07.3) e sugerir/gerar os alimentos das refeições
-   automaticamente a partir das metas.
+   automaticamente a partir das metas. Cada atividade nova também precisa entrar nos
+   relatórios: um tipo a mais em `RelatoriosRepository.registrosDoPeriodo`, um campo
+   em `ResumoDoDia` (e no cálculo de "dia completo") e um cartão em
+   `relatorio_dia_conteudo.dart`.
    A consulta do dia exige o índice composto de `registros_diarios` em
    `firestore.indexes.json` (publicar com `firebase deploy --only firestore:indexes`)*
 4. **Módulo de Monitoramento** — painel do acompanhante, vínculo por código, alertas
    push em tempo real via FCM (RF005, RF006). ← *vínculo por código, lista de
    pacientes em cards e central de alertas em tempo real com notificação local
-   (`ui/acompanhante/`, `ui/alertas/`) já feitos; faltam BPM/status por card, tela de
-   emergência (overlay) e push FCM com o app fechado (exige Cloud Functions)*
+   (`ui/acompanhante/`, `ui/alertas/`) já feitos. Relatórios (`ui/relatorios/`) também
+   feitos: "Ontem" (resumo da rotina do dia anterior) e "Mês" (calendário da rotina
+   que abre o relatório de cada dia, com gráficos de água e glicemia), a mesma tela
+   para os dois perfis — o paciente abre pelo botão "Meus Relatórios" do painel e o
+   acompanhante pelo botão "Ver relatórios" do card do paciente (só muda o título);
+   faltam BPM/status por card, tela de emergência (overlay) e push FCM com o app
+   fechado (exige Cloud Functions)*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007)
 

@@ -100,6 +100,10 @@ Textos longos de orientação usam altura de linha `1.35`.
 
 - **Painel como centro**: cada tela principal (painel do paciente/acompanhante) tem
   botões grandes que abrem telas; de cada tela se volta com "Voltar".
+- **Relatórios**: o paciente abre pelo botão grande "Meus Relatórios" do painel e o
+  acompanhante pelo botão "Ver relatórios" do card do paciente. É a mesma tela
+  ("Ontem" e "Mês") para os dois; os textos dos relatórios não dizem "você" nem citam o
+  nome, para servirem aos dois — só o título da tela muda.
 - **Menu lateral** para o que se usa pouco (minhas metas, código de vínculo, smartwatch, sair). Abre
   só pelo botão **"Menu" com ícone + texto** (`BotaoBarraSuperior.menu`); o gesto de
   arrastar da borda fica desligado, porque se confunde com o "voltar" do Android.
@@ -121,6 +125,30 @@ Textos longos de orientação usam altura de linha `1.35`.
 - [ ] Números e códigos com `Semantics(label: ...)` legível em voz alta
       (ex.: "72 por minuto", código soletrado)
 - [ ] Alertas com `Semantics(liveRegion: true)` para o leitor de tela anunciar
+
+## Relatórios (`lib/ui/relatorios/`)
+
+Gráfico e calendário próprios, sem biblioteca. Mesmas regras de cor e acessibilidade
+do resto do app:
+
+| Situação do dia (calendário)  | Fundo / ícone                                          |
+| ----------------------------- | ------------------------------------------------------ |
+| Rotina completa               | `sucessoContainer` + `check_circle` verde              |
+| Rotina parcial                | `avisoContainer` + `incomplete_circle` laranja         |
+| Sem registro                  | cinza + `remove_circle_outline`                        |
+| Hoje / dia que não chegou     | sem fundo, sem ícone (hoje tem borda)                  |
+| Alerta de saúde no dia        | `warning` vermelho ao lado do ícone da situação        |
+
+- **Gráfico de barras** (`GraficoDiario`): uma barra por dia, sempre com legenda das
+  cores e das linhas de referência (meta de água, limites 70 e 180 mg/dL) e uma frase
+  para o leitor de tela. Verde = meta batida / na faixa; cinza = abaixo da meta;
+  laranja = glicemia alta; vermelho = glicemia baixa ou muito alta.
+- Calendário: o toque vale a célula inteira (cerca de 42 × 56dp num celular de 360dp e
+  49 × 56dp num de 411dp — um pouco abaixo dos 48dp de largura nos celulares mais
+  estreitos, porque são 7 colunas); cada célula tem texto falado ("Dia 4: rotina
+  parcial, com alerta de saúde").
+- Com a fonte do celular muito grande, números lado a lado e botões "Mês anterior /
+  Próximo mês" passam a ficar um embaixo do outro.
 
 ## Widgets compartilhados (`lib/ui/shared/`)
 

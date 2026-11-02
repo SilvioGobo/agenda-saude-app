@@ -7,6 +7,7 @@ import '../../core/services/notification_service.dart';
 import '../../core/theme/app_cores.dart';
 import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/dados_repository.dart';
+import '../../data/repositories/relatorios_repository.dart';
 import '../../domain/models/acompanhante.dart';
 import '../../domain/models/paciente.dart';
 import '../alertas/alertas_view.dart';
@@ -17,6 +18,7 @@ import '../alertas/card_permissao_notificacoes.dart';
 import '../alertas/detalhes_alerta.dart';
 import '../auth/botao_sair.dart';
 import '../localizacao/localizacao_paciente_view.dart';
+import '../relatorios/relatorios_view.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
 import 'diabetes_acompanhante_viewmodel.dart';
@@ -24,10 +26,14 @@ import 'vincular_paciente_view.dart';
 
 // Painel do acompanhante (RF05, Figura 15 do TCC): lista em cards dos
 // pacientes vinculados, atalho para vincular um novo paciente (RF05.4), os
-// alertas desses pacientes recebidos em tempo real (RF06) e, para os
-// diabeticos, a ultima glicemia e dose de insulina (RF008).
+// alertas desses pacientes recebidos em tempo real (RF06), para os
+// diabeticos a ultima glicemia e dose de insulina (RF008) e, em cada card, o
+// atalho para os relatorios do paciente (dia anterior e mes).
 class AcompanhanteView extends StatefulWidget {
-  const AcompanhanteView({super.key});
+  // Permite aos testes abrir os relatorios com um repository falso.
+  final RelatoriosRepository? relatoriosRepository;
+
+  const AcompanhanteView({super.key, this.relatoriosRepository});
 
   // Os parametros opcionais permitem aos testes montar o painel com
   // repositories e notificacoes falsos.
@@ -35,6 +41,7 @@ class AcompanhanteView extends StatefulWidget {
     Acompanhante acompanhante, {
     AcompanhanteRepository? acompanhanteRepository,
     DadosMedicosRepository? dadosRepository,
+    RelatoriosRepository? relatoriosRepository,
     NotificationService? notificationService,
   }) {
     return MultiProvider(
@@ -67,7 +74,7 @@ class AcompanhanteView extends StatefulWidget {
                 ..acompanharPacientes(acompanhanteViewModel.pacientesVinculados),
         ),
       ],
-      child: const AcompanhanteView(),
+      child: AcompanhanteView(relatoriosRepository: relatoriosRepository),
     );
   }
 
@@ -127,6 +134,18 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Paciente vinculado com sucesso.')),
+    );
+  }
+
+  void _verRelatorios(Paciente paciente) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RelatoriosView.comProviders(
+          paciente,
+          paraAcompanhante: true,
+          relatoriosRepository: widget.relatoriosRepository,
+        ),
+      ),
     );
   }
 
@@ -279,6 +298,7 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                       onDesvincular: viewModel.carregando
                           ? null
                           : () => _confirmarDesvinculo(paciente),
+                      onVerRelatorios: () => _verRelatorios(paciente),
                       onVerLocalizacao: () => _verLocalizacao(paciente),
                     ),
                   ),

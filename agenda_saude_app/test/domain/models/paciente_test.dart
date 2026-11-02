@@ -306,5 +306,40 @@ void main() {
       expect(novo.planoDeRefeicoes.single.nome, 'Café');
       expect(paciente.refeicoes, isNull);
     });
+
+    test('Deve usar a meta de água calculada e, sem ela, o padrão de 8 copos', () {
+      Paciente criar({MetasPersonalizadas? metas}) => Paciente(
+            id: 'id-123',
+            nome: 'João Silva',
+            email: 'joao@email.com',
+            perfil: 'Paciente',
+            possuiDiabetes: false,
+            possuiCardiopatia: false,
+            codigoVinculo: '12345',
+            metas: metas,
+          );
+      MetasPersonalizadas metasComAgua(int ml) => MetasPersonalizadas(
+            imc: 24.7,
+            classificacaoImc: ClassificacaoImc.adequado,
+            hidratacaoMl: ml,
+            sonoMinHoras: 7,
+            sonoMaxHoras: 9,
+            passos: 6000,
+            exercicioMinutosSemana: 150,
+            calorias: 1800,
+            carboidratosG: 225,
+            proteinasG: 90,
+            gordurasG: 60,
+            fibrasG: 25,
+            gorduraSaturadaMaxG: 14,
+            acucarLivreMaxG: 45,
+            sodioMaxMg: 2000,
+          );
+
+      expect(criar().metaHidratacaoMl, 2000);
+      expect(criar(metas: metasComAgua(1500)).metaHidratacaoMl, 1500);
+      // Menos que um copo nao e uma meta: cai no padrao.
+      expect(criar(metas: metasComAgua(100)).metaHidratacaoMl, 2000);
+    });
   });
 }

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
+import '../../data/repositories/relatorios_repository.dart';
 import '../../domain/models/paciente.dart';
 import '../auth/botao_sair.dart';
 import '../localizacao/compartilhamento_localizacao_viewmodel.dart';
 import '../localizacao/minha_localizacao_view.dart';
 import '../metas/metas_view.dart';
+import '../relatorios/relatorios_view.dart';
 import '../rotina/rotina_view.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
@@ -25,15 +27,22 @@ import 'paciente_viewmodel.dart';
 
 // Painel principal do paciente (RF05, Figura 13 do TCC): saudacao, destaque
 // de BPM em tempo real com o status da zona de seguranca e atalhos grandes
-// para a rotina diaria e para o acompanhante. O que o paciente usa pouco
-// (codigo de vinculo, conexao do smartwatch, sair) fica no menu lateral.
+// para a rotina diaria, para os relatorios (dia anterior e mes) e para o
+// acompanhante. O que o paciente usa pouco (codigo de vinculo, conexao do
+// smartwatch, sair) fica no menu lateral.
 class PacienteView extends StatelessWidget {
-  const PacienteView({super.key});
+  // Permite aos testes abrir os relatorios com um repository falso.
+  final RelatoriosRepository? relatoriosRepository;
+
+  const PacienteView({super.key, this.relatoriosRepository});
 
   // Monta o painel com os ViewModels de que ele depende: o do painel em si, o
   // da sincronizacao com o smartwatch (que ja comeca a ler ao abrir) e o do
   // compartilhamento da localizacao (que retoma o envio se estiver ligado).
-  static Widget comProviders(Paciente paciente) {
+  static Widget comProviders(
+    Paciente paciente, {
+    RelatoriosRepository? relatoriosRepository,
+  }) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(
@@ -47,7 +56,7 @@ class PacienteView extends StatelessWidget {
               CompartilhamentoLocalizacaoViewModel(paciente: paciente)..iniciar(),
         ),
       ],
-      child: const PacienteView(),
+      child: PacienteView(relatoriosRepository: relatoriosRepository),
     );
   }
 
@@ -62,6 +71,16 @@ class PacienteView extends StatelessWidget {
       RotinaView.comProviders(
         viewModel.paciente,
         aoAtualizarPaciente: viewModel.atualizarPaciente,
+      ),
+    );
+  }
+
+  void _abrirMeusRelatorios(BuildContext context) {
+    _abrir(
+      context,
+      RelatoriosView.comProviders(
+        context.read<PacienteViewModel>().paciente,
+        relatoriosRepository: relatoriosRepository,
       ),
     );
   }
@@ -217,6 +236,13 @@ class PacienteView extends StatelessWidget {
               rotulo: 'Minha Rotina',
               icone: Icons.checklist_rounded,
               aoTocar: () => _abrirMinhaRotina(context),
+            ),
+            const SizedBox(height: 16),
+            BotaoGrande(
+              rotulo: 'Meus Relatórios',
+              icone: Icons.bar_chart_rounded,
+              principal: false,
+              aoTocar: () => _abrirMeusRelatorios(context),
             ),
             const SizedBox(height: 16),
             BotaoGrande(

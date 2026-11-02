@@ -11,14 +11,16 @@ import 'diabetes_acompanhante_viewmodel.dart';
 // Cartao de um paciente vinculado no painel do acompanhante (Figura 15 do
 // TCC). Mostra a identificacao, as comorbidades da triagem, quantos alertas
 // do paciente ainda nao foram lidos (RF06), a ultima glicemia e a ultima dose
-// de insulina dos diabeticos (RF008) e o atalho para ver onde ele esta; BPM e
-// status consolidado entram nas proximas etapas do modulo.
+// de insulina dos diabeticos (RF008) e os atalhos para os relatorios (dia
+// anterior e mes) e para ver onde ele esta; BPM e status consolidado entram
+// nas proximas etapas do modulo.
 class CardPaciente extends StatelessWidget {
   final Paciente paciente;
   final int alertasNaoLidos;
   // Null enquanto carrega ou se o paciente nao e diabetico.
   final ResumoDiabete? resumoDiabete;
   final VoidCallback? onDesvincular;
+  final VoidCallback? onVerRelatorios;
   final VoidCallback? onVerLocalizacao;
 
   const CardPaciente({
@@ -27,6 +29,7 @@ class CardPaciente extends StatelessWidget {
     this.alertasNaoLidos = 0,
     this.resumoDiabete,
     this.onDesvincular,
+    this.onVerRelatorios,
     this.onVerLocalizacao,
   });
 
@@ -153,6 +156,17 @@ class CardPaciente extends StatelessWidget {
                 child: _ResumoDiabete(
                   resumo: resumoDiabete!,
                   usaInsulina: paciente.usaInsulina == true,
+                ),
+              ),
+            ],
+            if (onVerRelatorios != null) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton.icon(
+                  onPressed: onVerRelatorios,
+                  icon: const Icon(Icons.bar_chart_rounded),
+                  label: const Text('Ver relatórios'),
                 ),
               ),
             ],

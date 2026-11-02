@@ -1,3 +1,4 @@
+import '../../core/constants/meta_hidratacao.dart';
 import '../metas/metas_personalizadas.dart';
 import '../refeicoes/refeicoes_padrao.dart';
 import 'refeicao_planejada.dart';
@@ -71,6 +72,16 @@ class Paciente extends Usuario {
   // personalizou, o plano padrao para o perfil dele.
   List<RefeicaoPlanejada> get planoDeRefeicoes =>
       refeicoes ?? RefeicoesPadrao.para(possuiDiabetes: possuiDiabetes);
+
+  // Meta diaria de agua em ml: a calculada na triagem ou, em contas sem metas
+  // (ou com um valor menor que um copo), o padrao de 8 copos. A rotina e os
+  // relatorios usam este mesmo valor.
+  int get metaHidratacaoMl {
+    final calculada = metas?.hidratacaoMl;
+    return calculada != null && calculada >= MetaHidratacao.mlPorCopo
+        ? calculada
+        : MetaHidratacao.mlDiaria;
+  }
 
   // Do Firebase para o Dart
   factory Paciente.fromJson(Map<String, dynamic> json, String documentId) {

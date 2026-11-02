@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/data/repositories/acompanhante_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
+import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
 import 'package:agenda_saude_app/domain/models/acompanhante.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
+import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/ui/acompanhante/acompanhante_view.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
@@ -67,6 +69,7 @@ void main() {
           acompanhante,
           acompanhanteRepository: acompanhanteRepository,
           dadosRepository: dadosRepository,
+          relatoriosRepository: RelatoriosRepository(firestore: fakeFirestore),
           notificationService: notificationService,
         ),
       ),
@@ -120,8 +123,40 @@ void main() {
     expect(find.text('Diabetes'), findsOneWidget);
     expect(find.text('Maria Souza'), findsOneWidget);
     expect(find.text('Triagem pendente'), findsOneWidget);
-    // Cada card tem o atalho para a localizacao do paciente.
+    // Cada card tem os atalhos para os relatorios e para a localizacao.
+    expect(find.text('Ver relatórios'), findsNWidgets(2));
     expect(find.text('Ver localização'), findsNWidgets(2));
+  });
+
+  testWidgets('Botão "Ver relatórios" abre os relatórios do paciente, com o nome dele, e volta ao painel', (
+    tester,
+  ) async {
+    await vincularJose();
+    final ontem = DateTime.now().subtract(const Duration(days: 1));
+    await dadosRepository.salvarRegistro(RegistroAgua(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: DateTime(ontem.year, ontem.month, ontem.day, 9),
+      quantidadeML: 250,
+    ));
+    await montarPainel(tester);
+
+    await tester.ensureVisible(find.text('Ver relatórios'));
+    await tester.tap(find.text('Ver relatórios'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Relatórios de José'), findsOneWidget);
+    expect(find.text('Meus relatórios'), findsNothing);
+    expect(find.text('Ontem'), findsOneWidget);
+    expect(find.text('Mês'), findsOneWidget);
+    // Os dados de ontem do paciente.
+    expect(find.text('250 ml de 2.000 ml'), findsOneWidget);
+
+    await tester.tap(find.text('Voltar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monitoramento'), findsOneWidget);
+    expect(find.text('José Silva'), findsOneWidget);
   });
 
   testWidgets('Card do paciente diabético mostra a última glicemia e a última dose de insulina', (

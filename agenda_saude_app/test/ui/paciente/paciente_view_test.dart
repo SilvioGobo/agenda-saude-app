@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import 'package:agenda_saude_app/data/repositories/auth_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/data/repositories/localizacao_repository.dart';
+import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
+import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/ui/localizacao/compartilhamento_localizacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_view.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_viewmodel.dart';
@@ -92,7 +94,10 @@ void main() {
                 )..iniciar(),
               ),
             ],
-            child: const PacienteView(),
+            child: PacienteView(
+              relatoriosRepository:
+                  RelatoriosRepository(firestore: fakeFirestore),
+            ),
           ),
         ),
       );
@@ -128,9 +133,37 @@ void main() {
       expect(find.text('Olá, José'), findsOneWidget);
       expect(find.text('Menu'), findsOneWidget);
       expect(find.text('Minha Rotina'), findsOneWidget);
+      expect(find.text('Meus Relatórios'), findsOneWidget);
       expect(find.text('Falar com Acompanhante'), findsOneWidget);
       expect(find.text('ABC123'), findsNothing);
       expect(find.text('Smartwatch conectado'), findsNothing);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve abrir os relatórios pelo botão do painel, com os dados de ontem, e voltar',
+        (tester) async {
+      final ontem = DateTime.now().subtract(const Duration(days: 1));
+      await dadosRepository.salvarRegistro(RegistroAgua(
+        id: '',
+        pacienteId: paciente.id,
+        dataHora: DateTime(ontem.year, ontem.month, ontem.day, 9),
+        quantidadeML: 250,
+      ));
+      await montar(tester);
+
+      await tester.tap(find.text('Meus Relatórios'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Meus relatórios'), findsOneWidget);
+      expect(find.text('Ontem'), findsOneWidget);
+      expect(find.text('Mês'), findsOneWidget);
+      expect(find.text('250 ml de 2.000 ml'), findsOneWidget);
+
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Olá, José'), findsOneWidget);
 
       await desmontar(tester);
     });
