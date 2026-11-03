@@ -4,11 +4,11 @@ class RegistroAgua extends RegistroBase {
   final int quantidadeML;
 
   RegistroAgua({
-    required String id,
-    required String pacienteId,
-    required DateTime dataHora,
+    required super.id,
+    required super.pacienteId,
+    required super.dataHora,
     required this.quantidadeML,
-  }) : super(id: id, pacienteId: pacienteId, dataHora: dataHora);
+  });
 
   factory RegistroAgua.fromJson(Map<String, dynamic> json, String documentId) {
     return RegistroAgua(

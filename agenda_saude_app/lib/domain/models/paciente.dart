@@ -42,10 +42,10 @@ class Paciente extends Usuario {
   final List<RefeicaoPlanejada>? refeicoes;
 
   Paciente({
-    required String id,
-    required String nome,
-    required String email,
-    required String perfil,
+    required super.id,
+    required super.nome,
+    required super.email,
+    required super.perfil,
     required this.possuiDiabetes,
     this.tipoDiabetes,
     this.usaInsulina,
@@ -66,7 +66,7 @@ class Paciente extends Usuario {
     this.limiteLiquidoMl,
     this.metas,
     this.refeicoes,
-  }) : super(id: id, nome: nome, email: email, perfil: perfil);
+  });
 
   // Refeicoes que aparecem na rotina: as do paciente ou, enquanto ele nao
   // personalizou, o plano padrao para o perfil dele.

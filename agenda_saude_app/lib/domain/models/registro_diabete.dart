@@ -14,14 +14,14 @@ class RegistroDiabete extends RegistroBase {
   final String? tipoInsulina;
 
   RegistroDiabete({
-    required String id,
-    required String pacienteId,
-    required DateTime dataHora,
+    required super.id,
+    required super.pacienteId,
+    required super.dataHora,
     this.nivelGlicose,
     required this.momento,
     this.doseInsulina,
     this.tipoInsulina,
-  }) : super(id: id, pacienteId: pacienteId, dataHora: dataHora);
+  });
 
   bool get temGlicemia => nivelGlicose != null;
 

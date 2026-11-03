@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_cores.dart';
 import 'alertas_viewmodel.dart';
 
 // Sino da barra superior do painel do acompanhante, com a contagem de
@@ -20,7 +21,7 @@ class BotaoNotificacoes extends StatelessWidget {
       onPressed: onPressed,
       icon: Badge(
         isLabelVisible: naoLidos > 0,
-        backgroundColor: Colors.red.shade700,
+        backgroundColor: AppCores.perigo,
         label: Text(
           naoLidos > 99 ? '99+' : '$naoLidos',
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),

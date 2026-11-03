@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/faixas_glicemia.dart';
 import '../../core/constants/momentos_glicemia.dart';
+import '../../core/theme/app_cores.dart';
 import '../../domain/models/paciente.dart';
 import '../../domain/models/registro_diabete.dart';
 import '../alertas/card_alerta.dart';
@@ -108,7 +109,7 @@ class CardPaciente extends StatelessWidget {
                             Icon(
                               Icons.warning_rounded,
                               size: 20,
-                              color: Colors.red.shade700,
+                              color: AppCores.perigo,
                             ),
                             const SizedBox(width: 6),
                             Flexible(
@@ -119,7 +120,7 @@ class CardPaciente extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.red.shade700,
+                                  color: AppCores.perigo,
                                 ),
                               ),
                             ),
