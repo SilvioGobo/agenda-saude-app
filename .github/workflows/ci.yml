@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancela a execucao anterior do mesmo PR quando chega um commit novo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Mesma versao do agenda_saude_app/.fvmrc. Ao mudar uma, mude a outra.
+  FLUTTER_VERSION: 3.32.8
+
+jobs:
+  analyze-test:
+    name: Analyze e testes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agenda_saude_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # TODO: tirar o --no-fatal-warnings quando os imports de sono e exercicio
+      # em data/repositories/dados_repository.dart passarem a ser usados (A4/A5).
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings
+
+      - name: Testes
+        run: flutter test
+
+  # Evidencia do NF001 (iOS) sem precisar de um Mac. Nao bloqueia o PR: o
+  # resultado aparece na aba de checks, mas uma falha aqui nao deixa o PR
+  # vermelho.
+  build-ios:
+    name: Build iOS (sem assinatura)
+    runs-on: macos-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: agenda_saude_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build iOS
+        run: flutter build ios --no-codesign
