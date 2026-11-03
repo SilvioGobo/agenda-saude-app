@@ -4,12 +4,12 @@ class Acompanhante extends Usuario {
   final List<String> pacientesVinculadosIds;
 
   Acompanhante({
-    required String id,
-    required String nome,
-    required String email,
-    required String perfil,
+    required super.id,
+    required super.nome,
+    required super.email,
+    required super.perfil,
     required this.pacientesVinculadosIds,
-  }) : super(id: id, nome: nome, email: email, perfil: perfil);
+  });
 
   factory Acompanhante.fromJson(Map<String, dynamic> json, String documentId) {
     return Acompanhante(

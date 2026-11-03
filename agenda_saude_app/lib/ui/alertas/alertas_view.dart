@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_cores.dart';
 import 'alertas_viewmodel.dart';
 import 'card_alerta.dart';
 import 'detalhes_alerta.dart';
@@ -59,7 +60,7 @@ class AlertasView extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
                   viewModel.mensagemErro!,
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                  style: const TextStyle(color: AppCores.perigo, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
               ),

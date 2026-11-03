@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_cores.dart';
 import '../../domain/models/alerta.dart';
 
 // Cor, icone e rotulo de cada nivel de alerta. "ATENÇÃO" usa o mesmo icone e
 // o mesmo vermelho do selo de status do painel do paciente (Figura 13), para
-// os dois perfis reconhecerem o mesmo aviso; os tons mais escuros garantem o
-// contraste do texto pequeno (NF004).
+// os dois perfis reconhecerem o mesmo aviso. O vermelho e `AppCores.perigo`,
+// com contraste de 6,2:1 para o texto pequeno (NF004); a emergencia se
+// diferencia pelo rotulo, pelo icone e pelo circulo cheio.
 ({String rotulo, IconData icone, Color cor}) estiloDoAlerta(Alerta alerta) {
   if (alerta.ehEmergencia) {
     return (
       rotulo: 'EMERGÊNCIA',
       icone: Icons.emergency_rounded,
-      cor: Colors.red.shade900,
+      cor: AppCores.perigo,
     );
   }
   return (
     rotulo: 'ATENÇÃO',
     icone: Icons.warning_rounded,
-    cor: Colors.red.shade700,
+    cor: AppCores.perigo,
   );
 }
 
@@ -81,7 +83,7 @@ class CardAlerta extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Emergencia ganha o circulo cheio para se destacar da atencao,
-              // que usa o mesmo vermelho em tom mais claro.
+              // que usa o mesmo vermelho so com o fundo tingido.
               CircleAvatar(
                 radius: 26,
                 backgroundColor: alerta.ehEmergencia

@@ -67,13 +67,13 @@ lib/
   domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
   domain/relatorios/ # ResumoDoDia, ResumoDoMes e CalculadoraRelatorios: as contas dos relatórios
   data/repositories/
-    auth_repository.dart          # a criar: wrapper do FirebaseAuth (RF001)
+    auth_repository.dart          # existente: wrapper do FirebaseAuth (RF001)
     paciente_repository.dart      # existente
     acompanhante_repository.dart  # existente (vincular/desvincular paciente)
     dados_repository.dart         # existente: DadosMedicosRepository (registros, BPM, alertas)
     relatorios_repository.dart    # existente: RelatoriosRepository (só lê, por período)
   ui/
-    auth/           # login, cadastro, seleção de perfil (arquivos criados, vazios)
+    auth/           # abertura, login e cadastro, seleção de perfil (RF001)
     triagem/        # questionário adaptativo de comorbidades (RF002)
     paciente/       # painel principal: BPM em destaque, status, atalhos
     rotina/         # checklist diário: água, sono, exercício, alimentação (RF003)
@@ -178,8 +178,8 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 ## Cronograma de desenvolvimento (seção 3.2 do TCC — seguir nesta ordem)
 
 1. **Módulo de Identidade** — cadastro, login, recuperação de senha, seleção de perfil
-   (RF001) e triagem de comorbidades (RF002). ← *próximo passo: AuthRepository,
-   AuthViewModel e telas de auth/triagem*
+   (RF001) e triagem de comorbidades (RF002). ← *cadastro, login e triagem já feitos
+   (`AuthRepository`, `ui/auth/`, `ui/triagem/`); falta a recuperação de senha*
 2. **Módulo de Sincronização IoT** — integração com smartwatch via pacote `health`,
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação

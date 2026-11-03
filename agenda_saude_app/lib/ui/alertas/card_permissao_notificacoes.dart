@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_cores.dart';
 // Aviso do painel do acompanhante quando as notificacoes do app estao
 // bloqueadas no aparelho: sem elas os alertas so aparecem com o app aberto.
 class CardPermissaoNotificacoes extends StatelessWidget {
@@ -10,7 +11,7 @@ class CardPermissaoNotificacoes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final cor = Colors.orange.shade800;
+    final cor = AppCores.aviso;
 
     return Card(
       child: Padding(
