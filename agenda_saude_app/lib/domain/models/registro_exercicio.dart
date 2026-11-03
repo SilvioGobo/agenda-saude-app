@@ -6,13 +6,13 @@ class RegistroExercicio extends RegistroBase {
   final String intensidade;
 
   RegistroExercicio({
-    required String id,
-    required String pacienteId,
-    required DateTime dataHora,
+    required super.id,
+    required super.pacienteId,
+    required super.dataHora,
     required this.tipoExercicio,
     required this.duracaoMinutos,
     required this.intensidade,
-  }) : super(id: id, pacienteId: pacienteId, dataHora: dataHora);
+  });
 
   factory RegistroExercicio.fromJson(Map<String, dynamic> json, String documentId) {
     return RegistroExercicio(

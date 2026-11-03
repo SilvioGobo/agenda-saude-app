@@ -6,13 +6,13 @@ class RegistroSono extends RegistroBase {
   final int qualidade;
 
   RegistroSono({
-    required String id,
-    required String pacienteId,
-    required DateTime dataHora, // Representa o início do sono
+    required super.id,
+    required super.pacienteId,
+    required super.dataHora, // Representa o início do sono
     required this.dataFim,
     required this.horasTotais,
     required this.qualidade,
-  }) : super(id: id, pacienteId: pacienteId, dataHora: dataHora);
+  });
 
   factory RegistroSono.fromJson(Map<String, dynamic> json, String documentId) {
     return RegistroSono(
