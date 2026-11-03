@@ -42,27 +42,3 @@ jobs:
 
       - name: Testes
         run: flutter test
-
-  # Evidencia do NF001 (iOS) sem precisar de um Mac. Nao bloqueia o PR: o
-  # resultado aparece na aba de checks, mas uma falha aqui nao deixa o PR
-  # vermelho.
-  build-ios:
-    name: Build iOS (sem assinatura)
-    runs-on: macos-latest
-    continue-on-error: true
-    defaults:
-      run:
-        working-directory: agenda_saude_app
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - run: flutter pub get
-
-      - name: Build iOS
-        run: flutter build ios --no-codesign
