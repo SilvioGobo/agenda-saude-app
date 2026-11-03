@@ -47,6 +47,7 @@ app.*.map.json
 # FVM Version Cache
 # Ignoramos apenas o SDK pesado, mantemos o config.json
 .fvm/flutter_sdk
+.fvm/versions
 
 # VS Code settings
 # Não ignoramos a .vscode porque ela contém o path do SDK para o FVM funcionar nos dois PCs
