@@ -22,18 +22,26 @@ import '../relatorios/relatorios_view.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
 import 'diabetes_acompanhante_viewmodel.dart';
+import 'status_paciente_viewmodel.dart';
 import 'vincular_paciente_view.dart';
 
 // Painel do acompanhante (RF05, Figura 15 do TCC): lista em cards dos
 // pacientes vinculados, atalho para vincular um novo paciente (RF05.4), os
-// alertas desses pacientes recebidos em tempo real (RF06), para os
-// diabeticos a ultima glicemia e dose de insulina (RF008) e, em cada card, o
-// atalho para os relatorios do paciente (dia anterior e mes).
+// alertas desses pacientes recebidos em tempo real (RF06), em cada card o BPM
+// e o status de saude em tempo real (RF05.1) com a ultima atividade da
+// rotina, para os diabeticos a ultima glicemia e dose de insulina (RF008) e
+// o atalho para os relatorios do paciente (dia anterior e mes).
 class AcompanhanteView extends StatefulWidget {
-  // Permite aos testes abrir os relatorios com um repository falso.
+  // Permitem aos testes abrir os relatorios e montar o status de cada card
+  // com repositories falsos.
   final RelatoriosRepository? relatoriosRepository;
+  final DadosMedicosRepository? dadosRepository;
 
-  const AcompanhanteView({super.key, this.relatoriosRepository});
+  const AcompanhanteView({
+    super.key,
+    this.relatoriosRepository,
+    this.dadosRepository,
+  });
 
   // Os parametros opcionais permitem aos testes montar o painel com
   // repositories e notificacoes falsos.
@@ -74,7 +82,10 @@ class AcompanhanteView extends StatefulWidget {
                 ..acompanharPacientes(acompanhanteViewModel.pacientesVinculados),
         ),
       ],
-      child: AcompanhanteView(relatoriosRepository: relatoriosRepository),
+      child: AcompanhanteView(
+        relatoriosRepository: relatoriosRepository,
+        dadosRepository: dadosRepository,
+      ),
     );
   }
 
@@ -290,16 +301,31 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                 for (final paciente in pacientes)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: CardPaciente(
-                      paciente: paciente,
-                      alertasNaoLidos:
-                          alertasViewModel.naoLidosDoPaciente(paciente.id),
-                      resumoDiabete: diabetesViewModel.resumoDe(paciente.id),
-                      onDesvincular: viewModel.carregando
-                          ? null
-                          : () => _confirmarDesvinculo(paciente),
-                      onVerRelatorios: () => _verRelatorios(paciente),
-                      onVerLocalizacao: () => _verLocalizacao(paciente),
+                    // Um ViewModel por card: as escutas de BPM e da rotina
+                    // do paciente abrem e fecham junto com o card.
+                    child: ChangeNotifierProvider(
+                      key: ValueKey(paciente.id),
+                      create: (_) => StatusPacienteViewModel(
+                        paciente: paciente,
+                        dadosRepository: widget.dadosRepository,
+                      )..iniciar(),
+                      child: Consumer<StatusPacienteViewModel>(
+                        builder: (_, status, __) => CardPaciente(
+                          paciente: paciente,
+                          alertasNaoLidos:
+                              alertasViewModel.naoLidosDoPaciente(paciente.id),
+                          resumoDiabete: diabetesViewModel.resumoDe(paciente.id),
+                          statusSaude: status.carregando ? null : status.status,
+                          ultimoBatimento: status.ultimoBatimento,
+                          ultimaAtividade: status.ultimaAtividade,
+                          agora: status.agora,
+                          onDesvincular: viewModel.carregando
+                              ? null
+                              : () => _confirmarDesvinculo(paciente),
+                          onVerRelatorios: () => _verRelatorios(paciente),
+                          onVerLocalizacao: () => _verLocalizacao(paciente),
+                        ),
+                      ),
                     ),
                   ),
               const SizedBox(height: 28),

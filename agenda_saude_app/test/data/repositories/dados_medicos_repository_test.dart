@@ -2,8 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
+import 'package:agenda_saude_app/domain/models/registro_base.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
+import 'package:agenda_saude_app/domain/models/registro_exercicio.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 
@@ -412,6 +415,113 @@ void main() {
         await assinatura.cancel();
 
         expect(emissoes, [0, 1]);
+      });
+    });
+
+    group('Última atividade da rotina (Figura 15)', () {
+      test('Deve emitir null quando o paciente ainda não registrou nada', () async {
+        final atividade =
+            await repository.streamUltimaAtividade('paciente_99').first;
+
+        expect(atividade, isNull);
+      });
+
+      test('Deve devolver o registro mais recente do paciente, de qualquer tipo', () async {
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 6, 8, 0),
+          quantidadeML: 250,
+        ));
+        await repository.salvarRegistro(RegistroDiabete(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 6, 11, 30),
+          nivelGlicose: 112,
+          momento: 'Antes do almoço',
+        ));
+        await repository.salvarRegistro(RegistroRefeicao(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 6, 10, 0),
+          refeicaoId: 'lanche',
+          nome: 'Lanche da manhã',
+        ));
+        // Mais recente, mas de outro paciente.
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'outro_paciente',
+          dataHora: DateTime(2026, 11, 6, 12, 0),
+          quantidadeML: 500,
+        ));
+
+        final atividade =
+            await repository.streamUltimaAtividade('paciente_99').first;
+
+        expect(atividade, isA<RegistroDiabete>());
+        expect((atividade as RegistroDiabete).nivelGlicose, 112);
+        expect(atividade.dataHora, DateTime(2026, 11, 6, 11, 30));
+      });
+
+      test('Deve montar sono e exercício pelo campo "tipo"', () async {
+        await repository.salvarRegistro(RegistroSono(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 5, 22, 0),
+          dataFim: DateTime(2026, 11, 6, 6, 0),
+          horasTotais: 8,
+          qualidade: 4,
+        ));
+        expect(
+          await repository.streamUltimaAtividade('paciente_99').first,
+          isA<RegistroSono>(),
+        );
+
+        await repository.salvarRegistro(RegistroExercicio(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 6, 7, 0),
+          tipoExercicio: 'Caminhada',
+          duracaoMinutos: 30,
+          intensidade: 'Leve',
+        ));
+        expect(
+          await repository.streamUltimaAtividade('paciente_99').first,
+          isA<RegistroExercicio>(),
+        );
+      });
+
+      test('Deve emitir null para um tipo de registro que o app não conhece', () async {
+        await fakeFirestore.collection('registros_diarios').add({
+          'tipo': 'tipo_futuro',
+          'pacienteId': 'paciente_99',
+          'dataHora': DateTime(2026, 11, 6, 9, 0),
+        });
+
+        final atividade =
+            await repository.streamUltimaAtividade('paciente_99').first;
+
+        expect(atividade, isNull);
+      });
+
+      test('Deve emitir a atividade nova assim que o paciente registra', () async {
+        final emissoes = <RegistroBase?>[];
+        final assinatura = repository
+            .streamUltimaAtividade('paciente_99')
+            .listen(emissoes.add);
+
+        await Future<void>.delayed(Duration.zero);
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 6, 9, 0),
+          quantidadeML: 250,
+        ));
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes.first, isNull);
+        expect(emissoes.last, isA<RegistroAgua>());
       });
     });
   });

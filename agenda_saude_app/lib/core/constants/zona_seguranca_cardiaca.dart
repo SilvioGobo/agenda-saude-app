@@ -22,6 +22,12 @@ class ZonaSegurancaCardiaca {
   // uma notificacao por oscilacao.
   static const Duration intervaloMinimoEntreAvisos = Duration(minutes: 15);
 
+  // Ate quanto tempo depois de medida uma leitura ainda diz como o paciente
+  // esta agora. Passado esse tempo, o card do acompanhante (Figura 15) mostra
+  // "SEM DADOS", com o horario da ultima leitura, em vez de um "ESTÁVEL" que
+  // pode nao valer mais (app do paciente fechado, relogio fora do pulso...).
+  static const Duration validadeDaLeitura = Duration(hours: 1);
+
   static int bpmMinimo({required bool possuiCardiopatia}) =>
       possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao;
 

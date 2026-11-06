@@ -8,6 +8,7 @@ import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
 import 'package:agenda_saude_app/domain/models/acompanhante.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
+import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
@@ -116,6 +117,11 @@ void main() {
     await acompanhanteRepository.vincularPaciente('cuidador_01', 'paciente_01');
     await acompanhanteRepository.vincularPaciente('cuidador_01', 'paciente_02');
 
+    // Tela alta o bastante para os dois cards (com BPM e status) ja ficarem
+    // montados sem rolar.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await montarPainel(tester);
 
     expect(find.text('Você acompanha 2 pacientes.'), findsOneWidget);
@@ -198,7 +204,163 @@ void main() {
     expect(find.text('BAIXA'), findsOneWidget);
     expect(find.text('AO ACORDAR · HÁ 5 MINUTOS'), findsOneWidget);
     expect(find.text(descreverInsulina('Lenta', 14).toUpperCase()), findsOneWidget);
+    // A glicemia e a ultima atividade, mas ja aparece no resumo: sem repetir.
+    expect(find.textContaining('MEDIU A GLICEMIA'), findsNothing);
+    expect(find.textContaining('ÚLTIMA ATIVIDADE'), findsNothing);
     expect(find.text('INSULINA LENTA (22\u00A0HORAS) · ONTEM ÀS 22:00'), findsOneWidget);
+  });
+
+  Future<void> salvarBatimento(int bpm, DateTime timestamp) {
+    return dadosRepository.salvarBatimento(BatimentoCardiaco(
+      id: '',
+      pacienteId: 'paciente_01',
+      bpm: bpm,
+      timestamp: timestamp,
+    ));
+  }
+
+  testWidgets('Card mostra o BPM mais recente, há quanto tempo foi medido e o status ESTÁVEL', (
+    tester,
+  ) async {
+    await vincularJose();
+    await salvarBatimento(72, DateTime.now().subtract(const Duration(minutes: 3)));
+    await montarPainel(tester);
+
+    expect(find.text('72'), findsOneWidget);
+    expect(find.text('BPM'), findsOneWidget);
+    expect(find.text('HÁ 3 MINUTOS'), findsOneWidget);
+    expect(find.text('ESTÁVEL'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Batimentos: 72 por minuto, medidos há 3 minutos.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Card muda para ATENÇÃO em tempo real quando o smartwatch mede fora da zona', (
+    tester,
+  ) async {
+    await vincularJose();
+    await salvarBatimento(72, DateTime.now().subtract(const Duration(minutes: 3)));
+    await montarPainel(tester);
+    expect(find.text('ESTÁVEL'), findsOneWidget);
+
+    // O app do paciente grava uma leitura nova: o card muda sem recarregar.
+    await salvarBatimento(128, DateTime.now());
+    await tester.pumpAndSettle();
+
+    expect(find.text('128'), findsOneWidget);
+    expect(find.text('AGORA MESMO'), findsOneWidget);
+    expect(find.text('ATENÇÃO'), findsOneWidget);
+    expect(find.text('ESTÁVEL'), findsNothing);
+    expect(
+      find.text('Acima da zona de segurança (60 a 100 batimentos por minuto).'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Card mostra SEM DADOS quando o smartwatch nunca enviou medição', (
+    tester,
+  ) async {
+    await vincularJose();
+    await montarPainel(tester);
+
+    expect(find.text('NENHUMA MEDIÇÃO DE BATIMENTOS'), findsOneWidget);
+    expect(find.text('SEM DADOS'), findsOneWidget);
+    expect(
+      find.textContaining('Peça a José para abrir o Agenda Saúde'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Card mostra SEM DADOS e o horário quando a última leitura é antiga', (
+    tester,
+  ) async {
+    await vincularJose();
+    final ontem = DateTime.now().subtract(const Duration(days: 1));
+    await salvarBatimento(72, DateTime(ontem.year, ontem.month, ontem.day, 9, 15));
+    await montarPainel(tester);
+
+    expect(find.text('72'), findsOneWidget);
+    expect(find.text('ONTEM ÀS 09:15'), findsOneWidget);
+    expect(find.text('SEM DADOS'), findsOneWidget);
+    expect(find.text('ESTÁVEL'), findsNothing);
+    expect(find.textContaining('há mais de uma hora'), findsOneWidget);
+  });
+
+  testWidgets('Card mostra a última atividade da rotina do paciente', (
+    tester,
+  ) async {
+    await vincularJose();
+    await dadosRepository.salvarRegistro(RegistroAgua(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: DateTime.now().subtract(const Duration(minutes: 10)),
+      quantidadeML: 250,
+    ));
+    await montarPainel(tester);
+
+    expect(find.text('BEBEU ÁGUA: 250 ML'), findsOneWidget);
+    expect(find.text('ÚLTIMA ATIVIDADE · HÁ 10 MINUTOS'), findsOneWidget);
+  });
+
+  testWidgets('Card com BPM, status e última atividade não estoura com a fonte em 200%', (
+    tester,
+  ) async {
+    // Celular pequeno (360x640) com a fonte no maximo: overflow reprova.
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await PacienteRepository(firestore: fakeFirestore).salvarPaciente(Paciente(
+      id: 'paciente_01',
+      nome: 'José da Silva Albuquerque',
+      email: 'jose@email.com',
+      perfil: 'Paciente',
+      possuiDiabetes: true,
+      usaInsulina: true,
+      possuiCardiopatia: true,
+      codigoVinculo: 'ABC123',
+      triagemConcluida: true,
+    ));
+    await acompanhanteRepository.vincularPaciente('cuidador_01', 'paciente_01');
+    await salvarBatimento(128, DateTime.now().subtract(const Duration(minutes: 2)));
+    await dadosRepository.salvarRegistro(RegistroDiabete(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: DateTime.now().subtract(const Duration(minutes: 1)),
+      nivelGlicose: 112,
+      momento: 'Antes do almoço',
+      doseInsulina: 6,
+      tipoInsulina: 'Rápida',
+    ));
+
+    final acompanhante =
+        (await acompanhanteRepository.getAcompanhante('cuidador_01'))!;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: AcompanhanteView.comProviders(
+          acompanhante,
+          acompanhanteRepository: acompanhanteRepository,
+          dadosRepository: dadosRepository,
+          relatoriosRepository: RelatoriosRepository(firestore: fakeFirestore),
+          notificationService: notificationService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('ATENÇÃO'), 200);
+    await tester.scrollUntilVisible(
+      find.text(descreverInsulina('Rápida', 6).toUpperCase()),
+      200,
+    );
+    await tester.scrollUntilVisible(find.text('Ver localização'), 200);
+    expect(find.text('Ver localização'), findsOneWidget);
   });
 
   testWidgets('Card do paciente sem diabetes não mostra glicemia', (
