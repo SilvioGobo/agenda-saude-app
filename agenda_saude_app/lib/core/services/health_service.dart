@@ -42,6 +42,16 @@ abstract class HealthService {
     required DateTime inicio,
     required DateTime fim,
   });
+
+  // Leitura com o app fechado (RF04.2, teste B2 do roteiro). O recurso
+  // depende da versao do Health Connect instalada no aparelho, e a permissao
+  // e pedida a parte da de ler o BPM.
+  Future<bool> leituraEmSegundoPlanoDisponivel();
+
+  Future<bool> temPermissaoSegundoPlano();
+
+  // Mostra o pedido do Health Connect; retorna se foi concedida.
+  Future<bool> solicitarPermissaoSegundoPlano();
 }
 
 // Implementacao real em cima do plugin `health`.
@@ -127,5 +137,23 @@ class HealthServiceImpl implements HealthService {
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
     return leituras;
+  }
+
+  @override
+  Future<bool> leituraEmSegundoPlanoDisponivel() async {
+    await _garantirConfigurado();
+    return _health.isHealthDataInBackgroundAvailable();
+  }
+
+  @override
+  Future<bool> temPermissaoSegundoPlano() async {
+    await _garantirConfigurado();
+    return _health.isHealthDataInBackgroundAuthorized();
+  }
+
+  @override
+  Future<bool> solicitarPermissaoSegundoPlano() async {
+    await _garantirConfigurado();
+    return _health.requestHealthDataInBackgroundAuthorization();
   }
 }

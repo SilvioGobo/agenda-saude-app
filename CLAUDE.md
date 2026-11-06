@@ -182,6 +182,13 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    (`AuthRepository`, `ui/auth/`, `ui/triagem/`); falta a recuperação de senha*
 2. **Módulo de Sincronização IoT** — integração com smartwatch via pacote `health`,
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
+   ← *leitura a cada 30 s com o app aberto (`SincronizacaoBpmViewModel`). Leitura com o
+   app fechado em teste (B2 do roteiro): `docs/b2-bpm-app-fechado.md` tem a pesquisa, o
+   protocolo no aparelho e a decisão. O teste usa uma tarefa periódica do `workmanager`
+   (15 min, `leitura_segundo_plano_service.dart`, ainda sem alertas) e a permissão
+   `READ_HEALTH_DATA_IN_BACKGROUND`; o cartão de teste em "Meu smartwatch" só aparece com
+   `fvm flutter run --dart-define=TESTE_B2=true`. Com o Flutter 3.32 o `workmanager`
+   precisa da `workmanager_platform_interface` fixa em 0.9.3 (ver `pubspec.yaml`)*
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"
    (`ui/rotina/`) com hidratação (RF03.1) já feita: meta do paciente em

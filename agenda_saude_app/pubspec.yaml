@@ -43,6 +43,11 @@ dependencies:
   geolocator: ^14.0.2
   geocoding: ^5.0.0
   url_launcher: ^6.3.2
+  workmanager: ^0.9.2
+  # O workmanager_apple 0.9.4, o ultimo que aceita o Flutter 3.32, nao compila
+  # com a workmanager_platform_interface 0.9.4 (parametro novo que ele nao
+  # implementa). Fica fixa na 0.9.3 enquanto o Flutter for o 3.32.
+  workmanager_platform_interface: 0.9.3
 
 dev_dependencies:
   flutter_test:

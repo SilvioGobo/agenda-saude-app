@@ -2,6 +2,10 @@
     <!-- Leitura de BPM do smartwatch via Health Connect (RF004). Somente
          leitura: o app nunca grava batimentos no Health Connect. -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
+    <!-- Teste B2 (RF04.2): ler o BPM com o app fechado. So vale onde o Health
+         Connect oferece o recurso de leitura em segundo plano, e o usuario
+         precisa conceder a permissao a parte. -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
     <!-- Localizacao do paciente para o acompanhante. So com o app aberto
          ("durante o uso do app"): sem ACCESS_BACKGROUND_LOCATION. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
