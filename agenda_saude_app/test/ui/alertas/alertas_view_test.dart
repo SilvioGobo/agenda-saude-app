@@ -9,6 +9,7 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/alertas/alertas_view.dart';
 import 'package:agenda_saude_app/ui/alertas/alertas_viewmodel.dart';
 import 'package:agenda_saude_app/ui/alertas/card_alerta.dart';
+import 'package:agenda_saude_app/ui/alertas/emergencia_view.dart';
 
 import '../../core/services/fake_notification_service.dart';
 
@@ -118,7 +119,7 @@ void main() {
     expect(find.text('Nenhuma notificação nova.'), findsOneWidget);
   });
 
-  testWidgets('Detalhes da emergência oferecem ver a localização do paciente', (
+  testWidgets('Tocar no alerta de emergência abre a tela de emergência e volta à lista', (
     tester,
   ) async {
     await gerarAlerta(
@@ -126,19 +127,24 @@ void main() {
       mensagem: 'Batimentos fora da zona de segurança há 6 minutos.',
       bpm: 132,
     );
-    await montarTela(tester);
+    final viewModel = await montarTela(tester);
 
     await tester.tap(find.byType(CardAlerta));
     await tester.pumpAndSettle();
 
-    expect(find.text('132 BPM', findRichText: true), findsOneWidget);
-    expect(
-      find.textContaining('informe o endereço que aparece em "Ver localização"'),
-      findsOneWidget,
-    );
-    await tester.ensureVisible(find.text('Ver localização'));
-    expect(find.text('Ver localização'), findsOneWidget);
-    expect(find.text('Entendi'), findsOneWidget);
+    expect(find.byType(EmergenciaView), findsOneWidget);
+    expect(find.text('ALERTA CRÍTICO'), findsOneWidget);
+    expect(find.text('132'), findsOneWidget);
+    // José nao tem telefone cadastrado: so o SAMU e a localizacao.
+    expect(find.text('LIGAR PARA JOSÉ'), findsNothing);
+    await tester.scrollUntilVisible(find.text('VER LOCALIZAÇÃO'), 200);
+    expect(find.text('LIGAR PARA O SAMU (192)'), findsOneWidget);
+    expect(find.text('VER LOCALIZAÇÃO'), findsOneWidget);
+    expect(viewModel.totalNaoLidos, 0);
+
+    await tester.tap(find.text('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhuma notificação nova.'), findsOneWidget);
   });
 
   testWidgets('Botão "Marcar todas como lidas" zera as não lidas', (

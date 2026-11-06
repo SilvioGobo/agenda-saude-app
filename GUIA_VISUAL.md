@@ -95,6 +95,17 @@ Textos longos de orientação usam altura de linha `1.35`.
 - `OutlinedButton`: ação secundária ou de cancelar.
 - `ElevatedButton`: padrão das telas de cadastro/login. Fica claro sobre fundo claro,
   então não use dentro de cards.
+- `BotaoLigar`: ligar para alguém (abre o discador com o número). Mesmo tamanho do
+  `BotaoGrande`; verde (`AppCores.sucesso`) para ligar para uma pessoa e branco com
+  texto vermelho para o SAMU (192) na tela de emergência.
+
+## Tela de emergência (Figura 16)
+
+A única tela com fundo todo vermelho (`AppCores.perigo`), para interromper o
+acompanhante: título "ALERTA CRÍTICO" e nome do paciente em branco, quadro branco com
+o motivo, o BPM crítico em 76 e o que fazer, e os botões grandes "LIGAR PARA [NOME]"
+(só se o paciente tem telefone), "LIGAR PARA O SAMU (192)" e "VER LOCALIZAÇÃO". O
+"Voltar" da barra fica branco.
 
 ## Navegação
 
@@ -155,6 +166,7 @@ do resto do app:
 | Widget                      | Para quê                                                  |
 | --------------------------- | --------------------------------------------------------- |
 | `BotaoGrande`               | atalho principal da tela (72dp)                           |
+| `BotaoLigar`                | botão de 72dp que abre o discador com o número (cor escolhida por quem usa) |
 | `BotaoBarraSuperior`        | "Menu" / "Voltar" com ícone + texto na barra superior     |
 | `TituloTela`                | título 28 no topo do conteúdo, com subtítulo opcional     |
 | `CardStatus`                | selo de status colorido ("ESTÁVEL")                       |
