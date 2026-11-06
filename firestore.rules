@@ -49,11 +49,23 @@ service cloud.firestore {
         );
     }
 
+    // O Paciente pode ler o doc dos seus acompanhantes (nome e telefone, para
+    // "Falar com Acompanhante" - Figura 13): o doc lido e de um Acompanhante
+    // que tem o UID do paciente logado em `pacientesVinculadosIds`, isto e,
+    // que aceitou acompanha-lo. Vale so para `get`: ninguem enumera
+    // acompanhantes.
+    function ehAcompanhanteDoUsuarioLogado() {
+      return logado()
+        && resource.data.get('perfil', '') == 'Acompanhante'
+        && request.auth.uid in resource.data.get('pacientesVinculadosIds', []);
+    }
+
     // usuarios/{uid} - Paciente e Acompanhante na mesma colecao (campo `perfil`).
     // O doc id e sempre o UID do Firebase Auth, entao o cadastro so consegue
     // criar o proprio documento.
     match /usuarios/{uid} {
       allow read: if podeVerDadosDe(uid);
+      allow get: if ehAcompanhanteDoUsuarioLogado();
       allow create: if ehDono(uid);
       allow update: if ehDono(uid) || soEntraOuSaiDaListaDeAcompanhantes(uid);
       allow delete: if false;

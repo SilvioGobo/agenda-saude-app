@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/models/acompanhante.dart';
 import '../../domain/models/paciente.dart';
 
@@ -66,5 +67,40 @@ class AcompanhanteRepository {
         .where((doc) => doc.exists && doc.data() != null)
         .map((doc) => Paciente.fromJson(doc.data()!, doc.id))
         .toList();
+  }
+
+  // Acompanhantes de um paciente, para ele ligar (Figura 13: "Falar com
+  // Acompanhante"). Rele o doc do paciente, porque um vinculo novo pode ter
+  // chegado depois do login, e carrega cada acompanhante um doc por vez: as
+  // security rules deixam o paciente ler so o doc de quem tem o UID dele em
+  // `pacientesVinculadosIds`. Um acompanhante que nao da para ler (doc
+  // apagado ou vinculo desfeito no meio do caminho) fica de fora; se nenhum
+  // der para ler, e erro (ex.: rules sem essa regra publicadas), e nao
+  // "paciente sem acompanhante".
+  Future<List<Acompanhante>> listarAcompanhantesDoPaciente(
+    String pacienteId,
+  ) async {
+    final docPaciente =
+        await _firestore.collection('usuarios').doc(pacienteId).get();
+    final ids = List<String>.from(
+      docPaciente.data()?['acompanhantesVinculadosIds'] ?? [],
+    );
+
+    Object? ultimoErro;
+    final acompanhantes = await Future.wait(ids.map((id) async {
+      try {
+        final doc = await _firestore.collection('usuarios').doc(id).get();
+        if (!doc.exists || doc.data() == null) return null;
+        return Acompanhante.fromJson(doc.data()!, doc.id);
+      } catch (erro) {
+        debugPrint('Nao foi possivel ler o acompanhante $id: $erro');
+        ultimoErro = erro;
+        return null;
+      }
+    }));
+
+    final lidos = acompanhantes.whereType<Acompanhante>().toList();
+    if (lidos.isEmpty && ultimoErro != null) throw ultimoErro!;
+    return lidos;
   }
 }

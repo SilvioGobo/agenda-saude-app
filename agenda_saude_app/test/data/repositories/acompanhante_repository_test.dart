@@ -167,5 +167,68 @@ void main() {
 
       expect(pacientes, isEmpty);
     });
+
+    group('Acompanhantes do paciente (Falar com Acompanhante)', () {
+      Future<void> salvarAcompanhanteDeTeste(String id, String nome, {String? telefone}) {
+        return repository.salvarAcompanhante(Acompanhante(
+          id: id,
+          nome: nome,
+          email: '$id@email.com',
+          perfil: 'Acompanhante',
+          telefone: telefone,
+          pacientesVinculadosIds: [],
+        ));
+      }
+
+      test('Deve listar os acompanhantes vinculados ao paciente, com o telefone', () async {
+        await salvarPacienteDeTeste('paciente_01', 'José Silva');
+        await salvarAcompanhanteDeTeste('cuidador_01', 'Carlos Souza', telefone: '67999990000');
+        await salvarAcompanhanteDeTeste('cuidador_02', 'Ana Lima');
+        await salvarAcompanhanteDeTeste('cuidador_03', 'Outra Pessoa');
+        await repository.vincularPaciente('cuidador_01', 'paciente_01');
+        await repository.vincularPaciente('cuidador_02', 'paciente_01');
+
+        final acompanhantes =
+            await repository.listarAcompanhantesDoPaciente('paciente_01');
+
+        expect(acompanhantes.map((a) => a.nome), ['Carlos Souza', 'Ana Lima']);
+        expect(acompanhantes.first.telefone, '67999990000');
+        expect(acompanhantes.last.temTelefone, isFalse);
+      });
+
+      test('Deve ler a lista atual do paciente no banco, não a da memória', () async {
+        await salvarPacienteDeTeste('paciente_01', 'José Silva');
+        await salvarAcompanhanteDeTeste('cuidador_01', 'Carlos Souza');
+        expect(await repository.listarAcompanhantesDoPaciente('paciente_01'), isEmpty);
+
+        // Vinculo feito depois (ex.: com o app do paciente aberto).
+        await repository.vincularPaciente('cuidador_01', 'paciente_01');
+
+        final acompanhantes =
+            await repository.listarAcompanhantesDoPaciente('paciente_01');
+        expect(acompanhantes.single.id, 'cuidador_01');
+      });
+
+      test('Deve ignorar acompanhantes que não existem mais', () async {
+        await salvarPacienteDeTeste('paciente_01', 'José Silva');
+        await salvarAcompanhanteDeTeste('cuidador_01', 'Carlos Souza');
+        await repository.vincularPaciente('cuidador_01', 'paciente_01');
+        await fakeFirestore.collection('usuarios').doc('paciente_01').update({
+          'acompanhantesVinculadosIds': ['cuidador_01', 'cuidador_apagado'],
+        });
+
+        final acompanhantes =
+            await repository.listarAcompanhantesDoPaciente('paciente_01');
+
+        expect(acompanhantes.map((a) => a.id), ['cuidador_01']);
+      });
+
+      test('Deve retornar lista vazia para paciente sem acompanhantes ou inexistente', () async {
+        await salvarPacienteDeTeste('paciente_01', 'José Silva');
+
+        expect(await repository.listarAcompanhantesDoPaciente('paciente_01'), isEmpty);
+        expect(await repository.listarAcompanhantesDoPaciente('nao_existe'), isEmpty);
+      });
+    });
   });
 }

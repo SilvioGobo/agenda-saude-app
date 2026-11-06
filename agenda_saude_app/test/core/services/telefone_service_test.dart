@@ -19,6 +19,14 @@ void main() {
       expect(numeroParaDiscar('sem telefone'), '');
     });
 
+    test('Deve formatar celular e fixo com DDD para mostrar na tela', () {
+      expect(formatarTelefone('67999990000'), '(67) 99999-0000');
+      expect(formatarTelefone('6734112233'), '(67) 3411-2233');
+      expect(formatarTelefone('(67) 99999-0000'), '(67) 99999-0000');
+      // Formato desconhecido fica como veio.
+      expect(formatarTelefone(' 192 '), '192');
+    });
+
     test('Não deve tentar discar um número vazio', () async {
       expect(await TelefoneServiceImpl().ligar('  '), isFalse);
     });

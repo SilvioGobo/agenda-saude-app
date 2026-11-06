@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agenda_saude_app/data/repositories/acompanhante_repository.dart';
 import 'package:agenda_saude_app/data/repositories/auth_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/data/repositories/localizacao_repository.dart';
+import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
+import 'package:agenda_saude_app/domain/models/acompanhante.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
@@ -17,6 +20,7 @@ import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.da
 
 import '../../core/services/fake_health_service.dart';
 import '../../core/services/fake_localizacao_service.dart';
+import '../../core/services/fake_telefone_service.dart';
 
 class _AuthRepositoryFalso extends AuthRepository {
   int saidas = 0;
@@ -32,6 +36,7 @@ void main() {
     late FakeFirebaseFirestore fakeFirestore;
     late DadosMedicosRepository dadosRepository;
     late _AuthRepositoryFalso authRepository;
+    late FakeTelefoneService telefoneService;
 
     final paciente = Paciente(
       id: 'paciente_01',
@@ -47,6 +52,7 @@ void main() {
       fakeFirestore = FakeFirebaseFirestore();
       dadosRepository = DadosMedicosRepository(firestore: fakeFirestore);
       authRepository = _AuthRepositoryFalso();
+      telefoneService = FakeTelefoneService();
     });
 
     // `smartwatchSuportado: false` simula celular sem Health Connect; com
@@ -97,6 +103,9 @@ void main() {
             child: PacienteView(
               relatoriosRepository:
                   RelatoriosRepository(firestore: fakeFirestore),
+              acompanhanteRepository:
+                  AcompanhanteRepository(firestore: fakeFirestore),
+              telefoneService: telefoneService,
             ),
           ),
         ),
@@ -137,6 +146,44 @@ void main() {
       expect(find.text('Falar com Acompanhante'), findsOneWidget);
       expect(find.text('ABC123'), findsNothing);
       expect(find.text('Smartwatch conectado'), findsNothing);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve ligar para o acompanhante em dois toques a partir do painel',
+        (tester) async {
+      await PacienteRepository(firestore: fakeFirestore).salvarPaciente(paciente);
+      final acompanhanteRepository =
+          AcompanhanteRepository(firestore: fakeFirestore);
+      await acompanhanteRepository.salvarAcompanhante(Acompanhante(
+        id: 'cuidador_01',
+        nome: 'Carlos Souza',
+        email: 'carlos@email.com',
+        perfil: 'Acompanhante',
+        telefone: '67999990000',
+        pacientesVinculadosIds: [],
+      ));
+      await acompanhanteRepository.vincularPaciente('cuidador_01', paciente.id);
+      await montar(tester);
+
+      // Toque 1: o atalho do painel.
+      await tester.scrollUntilVisible(find.text('Falar com Acompanhante'), 200);
+      await tester.ensureVisible(find.text('Falar com Acompanhante'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Falar com Acompanhante'));
+      await tester.pumpAndSettle();
+      expect(find.text('FALAR COM ACOMPANHANTE'), findsOneWidget);
+
+      // Toque 2: ligar.
+      await tester.tap(find.text('LIGAR PARA CARLOS'));
+      await tester.pumpAndSettle();
+      expect(telefoneService.numerosChamados, ['67999990000']);
+
+      // "Voltar" cai de novo no painel, onde estava (rolado ate o botao).
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+      expect(find.text('FALAR COM ACOMPANHANTE'), findsNothing);
+      expect(find.text('Falar com Acompanhante'), findsOneWidget);
 
       await desmontar(tester);
     });

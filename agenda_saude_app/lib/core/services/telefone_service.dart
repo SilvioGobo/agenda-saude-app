@@ -20,6 +20,21 @@ String numeroParaDiscar(String numero) {
   return limpo.startsWith('+') ? '+$digitos' : digitos;
 }
 
+// O telefone para mostrar na tela: "(67) 99999-0000" (celular com DDD) ou
+// "(67) 3411-2233" (fixo com DDD). Outros formatos ficam como vieram.
+String formatarTelefone(String numero) {
+  final digitos = numeroParaDiscar(numero);
+  if (digitos.length == 11) {
+    return '(${digitos.substring(0, 2)}) ${digitos.substring(2, 7)}-'
+        '${digitos.substring(7)}';
+  }
+  if (digitos.length == 10) {
+    return '(${digitos.substring(0, 2)}) ${digitos.substring(2, 6)}-'
+        '${digitos.substring(6)}';
+  }
+  return numero.trim();
+}
+
 // Implementacao real: link `tel:` pelo plugin `url_launcher`, que abre o app
 // de telefone do celular.
 class TelefoneServiceImpl implements TelefoneService {
