@@ -258,6 +258,21 @@ class DadosMedicosRepository {
     return snapshot.docs.map((doc) => Alerta.fromJson(doc.data(), doc.id)).toList();
   }
 
+  // Alertas do paciente gerados a partir de [desde], do mais novo para o mais
+  // antigo. A leitura do BPM (com o app aberto ou fechado) retoma por eles o
+  // episodio fora da zona, para nao repetir um alerta ja dado. Mesmo indice
+  // de `streamAlertas` (pacienteId + dataHora).
+  Future<List<Alerta>> getAlertasDesde(String pacienteId, DateTime desde) async {
+    final snapshot = await _firestore
+        .collection('alertas')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .where('dataHora', isGreaterThanOrEqualTo: desde)
+        .orderBy('dataHora', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => Alerta.fromJson(doc.data(), doc.id)).toList();
+  }
+
   // Alertas mais recentes do paciente em tempo real (RF06), do mais novo para
   // o mais antigo - usados pela central de notificacoes do acompanhante.
   // `doServidor` e falso enquanto a lista vem so do cache local do aparelho

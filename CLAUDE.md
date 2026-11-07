@@ -77,6 +77,7 @@ lib/
   domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
   domain/relatorios/ # ResumoDoDia, ResumoDoMes e CalculadoraRelatorios: as contas dos relatórios
   domain/medicacao/ # DosePlanejada e normalizarHorario: as doses do dia a partir dos remédios do paciente
+  domain/batimentos/ # MonitorZonaSeguranca: as regras dos alertas de BPM (app aberto e fechado)
   data/repositories/
     auth_repository.dart          # existente: wrapper do FirebaseAuth (RF001)
     paciente_repository.dart      # existente
@@ -203,9 +204,14 @@ Convenções já estabelecidas nos repositories — manter:
     (`Paciente.medicamentos`) vale igual: mudar os remédios muda a leitura dos dias
     antigos, e doses marcadas que já não estão na lista aparecem à parte.
 - `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
-  `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM:
+  `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM, com o app
+  aberto (a cada 30 s) e com ele fechado (a cada 15 min, B7), pelas mesmas regras
+  (`MonitorZonaSeguranca`, em `domain/batimentos/`):
   `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
   `emergencia` com BPM fora da zona por 5 min. Doc sem `tipo` é tratado como emergência.
+  Cada leitura retoma o episódio fora da zona pelas leituras e alertas das últimas 12 h
+  (`getAlertasDesde`, mesmo índice de `streamAlertas`), então reabrir o app ou alternar
+  entre as duas leituras não repete um alerta já dado.
   O acompanhante escuta em tempo real (`AlertasViewModel`) e mostra notificação local
   (`flutter_local_notifications`) com o app aberto ou em segundo plano. Com o app
   fechado, quem avisa é o **push (B6)**: a Cloud Function `notificarAlertaPaciente`
@@ -251,11 +257,18 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 2. **Módulo de Sincronização IoT** — integração com smartwatch via pacote `health`,
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
    ← *leitura a cada 30 s com o app aberto (`SincronizacaoBpmViewModel`). Leitura com o
-   app fechado em teste (B2 do roteiro): `docs/b2-bpm-app-fechado.md` tem a pesquisa, o
-   protocolo no aparelho e a decisão. O teste usa uma tarefa periódica do `workmanager`
-   (15 min, `leitura_segundo_plano_service.dart`, ainda sem alertas) e a permissão
-   `READ_HEALTH_DATA_IN_BACKGROUND`; o cartão de teste em "Meu smartwatch" só aparece com
-   `fvm flutter run --dart-define=TESTE_B2=true`. Com o Flutter 3.32 o `workmanager`
+   app fechado (RF04.2, B7) também feita, pela decisão do B2 (`docs/b2-bpm-app-fechado.md`:
+   "viável só em alguns aparelhos"; falta confirmar com o protocolo no aparelho real):
+   tarefa periódica do `workmanager` a cada 15 min (`sincronizarComAppFechado`, em
+   `leitura_segundo_plano_service.dart`) que grava as leituras novas e gera os alertas. A
+   permissão `READ_HEALTH_DATA_IN_BACKGROUND` do Health Connect é o liga/desliga: o cartão
+   "COM O APP FECHADO" de "Meu smartwatch" (`CardLeituraAppFechado`) pede a permissão;
+   concedida, o ViewModel agenda a tarefa (ao abrir e ao voltar ao app); tirada, ou sem o
+   recurso no aparelho, desagenda. Com o app na tela a tarefa pula a vez (o ViewModel se
+   anuncia pelo `IsolateNameServer`), para não gravar nem alertar em dobro, e ao voltar
+   para o app ele relê a janela do Firestore. Sair da conta desliga a tarefa. O cartão de
+   teste do B2 continua só com `fvm flutter run --dart-define=TESTE_B2=true` ("LER UMA VEZ
+   EM SEGUNDO PLANO" roda mesmo com o app aberto). Com o Flutter 3.32 o `workmanager`
    precisa da `workmanager_platform_interface` fixa em 0.9.3 (ver `pubspec.yaml`)*
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"

@@ -1,4 +1,5 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:agenda_saude_app/core/services/health_service.dart';
@@ -9,6 +10,7 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
 
 import '../../core/services/fake_health_service.dart';
+import '../../core/services/fake_leitura_segundo_plano_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +19,7 @@ void main() {
     late FakeFirebaseFirestore fakeFirestore;
     late DadosMedicosRepository dadosRepository;
     late FakeHealthService healthService;
+    late FakeLeituraSegundoPlanoService leituraComAppFechado;
     late Paciente paciente;
 
     // Relogio fixo para os testes nao dependerem da hora real.
@@ -26,6 +29,7 @@ void main() {
       fakeFirestore = FakeFirebaseFirestore();
       dadosRepository = DadosMedicosRepository(firestore: fakeFirestore);
       healthService = FakeHealthService();
+      leituraComAppFechado = FakeLeituraSegundoPlanoService();
       paciente = Paciente(
         id: 'paciente_01',
         nome: 'José Silva',
@@ -45,6 +49,7 @@ void main() {
         paciente: outroPaciente ?? paciente,
         healthService: healthService,
         dadosRepository: dadosRepository,
+        leituraComAppFechado: leituraComAppFechado,
         agora: relogio ?? () => agora,
         plataformaSuportada: true,
         intervalo: const Duration(hours: 1),
@@ -447,6 +452,234 @@ void main() {
       expect(viewModel.estado, EstadoSincronizacao.ativa);
       expect(viewModel.mensagemErro, isNotNull);
       expect(viewModel.sincronizando, isFalse);
+      viewModel.dispose();
+    });
+
+    test('Não deve repetir ao abrir o app a emergência gerada com o app fechado',
+        () async {
+      // A leitura com o app fechado (B7) ja gravou o episodio e a emergencia.
+      await dadosRepository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_01', bpm: 120,
+        timestamp: agora.subtract(const Duration(minutes: 20)),
+      ));
+      await dadosRepository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_01', bpm: 124,
+        timestamp: agora.subtract(const Duration(minutes: 12)),
+      ));
+      await dadosRepository.gerarAlerta(Alerta(
+        id: '',
+        pacienteId: 'paciente_01',
+        tipo: Alerta.tipoEmergencia,
+        mensagem: 'Batimentos fora da zona de segurança há 8 minutos.',
+        dataHora: agora.subtract(const Duration(minutes: 12)),
+      ));
+      healthService.leituras = [
+        LeituraBpm(bpm: 126, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(await totalAlertas(), 1);
+      viewModel.dispose();
+    });
+
+    test('Deve gerar a emergência de um episódio que começou com o app fechado',
+        () async {
+      await dadosRepository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_01', bpm: 118,
+        timestamp: agora.subtract(const Duration(minutes: 9)),
+      ));
+      healthService.leituras = [
+        LeituraBpm(bpm: 121, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      final emergencias = await alertasDoTipo(Alerta.tipoEmergencia);
+      expect(emergencias, hasLength(1));
+      expect(emergencias.single['mensagem'], contains('há 8 minutos'));
+      viewModel.dispose();
+    });
+  });
+
+  group('SincronizacaoBpmViewModel leitura com o app fechado (B7) Testes', () {
+    late FakeFirebaseFirestore fakeFirestore;
+    late DadosMedicosRepository dadosRepository;
+    late FakeHealthService healthService;
+    late FakeLeituraSegundoPlanoService leituraComAppFechado;
+    final agora = DateTime(2026, 9, 19, 14, 0);
+    final paciente = Paciente(
+      id: 'paciente_01',
+      nome: 'José Silva',
+      email: 'jose@email.com',
+      perfil: 'Paciente',
+      possuiDiabetes: false,
+      possuiCardiopatia: false,
+      codigoVinculo: 'ABC123',
+    );
+
+    setUp(() {
+      fakeFirestore = FakeFirebaseFirestore();
+      dadosRepository = DadosMedicosRepository(firestore: fakeFirestore);
+      healthService = FakeHealthService();
+      leituraComAppFechado = FakeLeituraSegundoPlanoService();
+    });
+
+    SincronizacaoBpmViewModel criarViewModel() => SincronizacaoBpmViewModel(
+          paciente: paciente,
+          healthService: healthService,
+          dadosRepository: dadosRepository,
+          leituraComAppFechado: leituraComAppFechado,
+          agora: () => agora,
+          plataformaSuportada: true,
+          intervalo: const Duration(hours: 1),
+        );
+
+    Future<void> esperarTarefas() async {
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('Deve ligar a leitura com o app fechado se o paciente já permitiu', () async {
+      healthService.permissaoSegundoPlano = true;
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(viewModel.leituraAppFechadoDisponivel, true);
+      expect(viewModel.leituraAppFechadoLigada, true);
+      expect(leituraComAppFechado.ligada, true);
+      viewModel.dispose();
+    });
+
+    test('Deve desligar a leitura com o app fechado sem a permissão', () async {
+      leituraComAppFechado.ligada = true;
+      healthService.permissaoSegundoPlano = false;
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(viewModel.leituraAppFechadoLigada, false);
+      expect(leituraComAppFechado.ligada, false);
+      viewModel.dispose();
+    });
+
+    test('Deve desligar no celular cujo Health Connect não tem o recurso', () async {
+      healthService
+        ..segundoPlanoDisponivel = false
+        ..permissaoSegundoPlano = true;
+      leituraComAppFechado.ligada = true;
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(viewModel.leituraAppFechadoDisponivel, false);
+      expect(viewModel.leituraAppFechadoLigada, false);
+      expect(leituraComAppFechado.ligada, false);
+      viewModel.dispose();
+    });
+
+    test('Deve pedir a permissão e ligar a leitura ao tocar em permitir', () async {
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+      expect(viewModel.leituraAppFechadoLigada, false);
+
+      await viewModel.permitirLeituraComAppFechado();
+
+      expect(healthService.solicitacoesSegundoPlano, 1);
+      expect(viewModel.leituraAppFechadoLigada, true);
+      expect(viewModel.mensagemLeituraAppFechado, isNull);
+      expect(leituraComAppFechado.ligada, true);
+      viewModel.dispose();
+    });
+
+    test('Deve explicar quando o paciente nega a permissão', () async {
+      healthService.concederSegundoPlanoAoSolicitar = false;
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+
+      await viewModel.permitirLeituraComAppFechado();
+
+      expect(viewModel.leituraAppFechadoLigada, false);
+      expect(viewModel.mensagemLeituraAppFechado, contains('Permissão não concedida'));
+      expect(leituraComAppFechado.ligada, false);
+      viewModel.dispose();
+    });
+
+    test('Não deve deixar a falha do agendamento parar a leitura de 30 s', () async {
+      healthService.permissaoSegundoPlano = true;
+      leituraComAppFechado.erro = Exception('WorkManager indisponível');
+      healthService.leituras = [
+        LeituraBpm(bpm: 72, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(viewModel.estado, EstadoSincronizacao.ativa);
+      expect(viewModel.mensagemErro, isNull);
+      expect(viewModel.leiturasImportadasNaUltima, 1);
+      viewModel.dispose();
+    });
+
+    test('Deve avisar a tarefa só enquanto o app está na tela', () async {
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+      expect(leituraComAppFechado.appAberto, true);
+
+      viewModel.didChangeAppLifecycleState(AppLifecycleState.paused);
+      expect(leituraComAppFechado.appAberto, false);
+
+      viewModel.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await esperarTarefas();
+      expect(leituraComAppFechado.appAberto, true);
+
+      viewModel.dispose();
+      expect(leituraComAppFechado.appAberto, false);
+    });
+
+    test('Deve reler o Firestore ao voltar para o app, sem regravar o que a tarefa gravou', () async {
+      healthService
+        ..permissaoSegundoPlano = true
+        ..leituras = [
+          LeituraBpm(bpm: 72, timestamp: agora.subtract(const Duration(minutes: 30))),
+        ];
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+
+      // Fora da tela, a tarefa de 15 min gravou uma leitura nova.
+      viewModel.didChangeAppLifecycleState(AppLifecycleState.paused);
+      final daTarefa = LeituraBpm(
+        bpm: 75,
+        timestamp: agora.subtract(const Duration(minutes: 10)),
+      );
+      await dadosRepository.salvarBatimento(BatimentoCardiaco(
+        id: '', pacienteId: 'paciente_01', bpm: daTarefa.bpm,
+        timestamp: daTarefa.timestamp,
+      ));
+      healthService.leituras.add(daTarefa);
+
+      viewModel.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await esperarTarefas();
+
+      final gravados =
+          await fakeFirestore.collection('batimentos_cardiacos').get();
+      expect(gravados.docs.map((d) => d.data()['bpm']), unorderedEquals([72, 75]));
+      viewModel.dispose();
+    });
+
+    test('Deve desligar a leitura com o app fechado ao sair da conta', () async {
+      healthService.permissaoSegundoPlano = true;
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+      expect(leituraComAppFechado.ligada, true);
+
+      await viewModel.desligarLeituraComAppFechado();
+
+      expect(leituraComAppFechado.ligada, false);
       viewModel.dispose();
     });
   });
