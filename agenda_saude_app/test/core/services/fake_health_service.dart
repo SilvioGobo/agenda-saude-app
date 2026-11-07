@@ -56,4 +56,23 @@ class FakeHealthService implements HealthService {
         .toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
+
+  // Leitura com o app fechado (teste B2).
+  bool segundoPlanoDisponivel = true;
+  bool permissaoSegundoPlano = false;
+  bool concederSegundoPlanoAoSolicitar = true;
+  int solicitacoesSegundoPlano = 0;
+
+  @override
+  Future<bool> leituraEmSegundoPlanoDisponivel() async => segundoPlanoDisponivel;
+
+  @override
+  Future<bool> temPermissaoSegundoPlano() async => permissaoSegundoPlano;
+
+  @override
+  Future<bool> solicitarPermissaoSegundoPlano() async {
+    solicitacoesSegundoPlano++;
+    permissaoSegundoPlano = concederSegundoPlanoAoSolicitar;
+    return permissaoSegundoPlano;
+  }
 }
