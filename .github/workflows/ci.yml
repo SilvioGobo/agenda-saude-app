@@ -35,10 +35,8 @@ jobs:
 
       - run: flutter pub get
 
-      # TODO: tirar o --no-fatal-warnings quando os imports de sono e exercicio
-      # em data/repositories/dados_repository.dart passarem a ser usados (A4/A5).
       - name: Analyze
-        run: flutter analyze --no-fatal-warnings
+        run: flutter analyze
 
       - name: Testes
         run: flutter test
