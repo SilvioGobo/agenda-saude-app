@@ -49,6 +49,49 @@ void main() {
       expect(resultado.email, 'silvio@email.com');
     });
 
+    group('Token do push (B6)', () {
+      setUp(() async {
+        await repository.salvarAcompanhante(Acompanhante(
+          id: 'cuidador_123',
+          nome: 'Silvio Gobo',
+          email: 'silvio@email.com',
+          perfil: 'Acompanhante',
+          pacientesVinculadosIds: [],
+        ));
+      });
+
+      Future<List<dynamic>?> tokensGravados() async {
+        final doc =
+            await fakeFirestore.collection('usuarios').doc('cuidador_123').get();
+        return doc.data()?['fcmTokens'] as List<dynamic>?;
+      }
+
+      test('Deve gravar o token do aparelho em fcmTokens sem repetir', () async {
+        await repository.adicionarTokenPush('cuidador_123', 'token_celular');
+        await repository.adicionarTokenPush('cuidador_123', 'token_celular');
+        await repository.adicionarTokenPush('cuidador_123', 'token_tablet');
+
+        expect(await tokensGravados(), ['token_celular', 'token_tablet']);
+      });
+
+      test('Deve tirar só o token do aparelho que saiu da conta', () async {
+        await repository.adicionarTokenPush('cuidador_123', 'token_celular');
+        await repository.adicionarTokenPush('cuidador_123', 'token_tablet');
+
+        await repository.removerTokenPush('cuidador_123', 'token_celular');
+
+        expect(await tokensGravados(), ['token_tablet']);
+      });
+
+      test('Deve manter os outros dados do acompanhante ao mexer no token', () async {
+        await repository.adicionarTokenPush('cuidador_123', 'token_celular');
+
+        final acompanhante = await repository.getAcompanhante('cuidador_123');
+        expect(acompanhante!.nome, 'Silvio Gobo');
+        expect(acompanhante.perfil, 'Acompanhante');
+      });
+    });
+
     test('Deve adicionar o ID do paciente na lista de vínculos do acompanhante', () async {
 
       await fakeFirestore.collection('usuarios').doc('cuidador_123').set({

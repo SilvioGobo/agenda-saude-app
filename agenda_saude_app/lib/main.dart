@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
+import 'core/services/push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/sem_brilho_ao_rolar.dart';
 import 'firebase_options.dart';
@@ -16,6 +18,11 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Push dos alertas com o app em segundo plano ou fechado (B6): o FCM chama
+  // esta funcao num isolate separado, que mostra a notificacao.
+  if (PushServiceImpl.plataformaSuportada) {
+    FirebaseMessaging.onBackgroundMessage(receberPushEmSegundoPlano);
+  }
 
   runApp(const AgendaSaudeApp());
 }

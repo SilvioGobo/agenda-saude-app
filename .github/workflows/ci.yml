@@ -42,3 +42,25 @@ jobs:
 
       - name: Testes
         run: flutter test
+
+  # Cloud Functions (functions/): o push dos alertas para o acompanhante (B6).
+  functions:
+    name: Testes das Cloud Functions
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesma versao do "engines" de functions/package.json.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - run: npm ci
+
+      - name: Testes
+        run: npm test

@@ -33,7 +33,7 @@ Connect recusa a leitura de um app em segundo plano sem permissão extra.
   com internet. Ela lê as últimas 12 h do Health Connect e grava em
   `batimentos_cardiacos` só as leituras novas (mesmo critério do app aberto). O
   resultado vai para o log: `BPM em segundo plano: N leituras novas` ou `... falhou`.
-  **Ainda não gera alertas**: isso é o B7, se o teste der certo.
+  Na Sprint 2 a tarefa passou a gerar os alertas também (B7, seção abaixo).
 - Cartão **TESTE B2** na tela "Meu smartwatch", que só aparece rodando com
   `--dart-define=TESTE_B2=true` (o paciente nunca vê): mostra se o recurso existe, se a
   permissão foi dada e se a leitura está ligada, com os botões para cada passo.
@@ -82,6 +82,37 @@ Health Connect permitir". Se no aparelho do teste nenhuma leitura chegar com o a
 fechado mesmo com recurso e permissão, a decisão vira **inviável**: o B7 sai do
 roteiro, o B10 continua obrigatório e o texto do TCC passa a dizer só "com o app
 aberto".
+
+## B7 — o que entrou (Sprint 2)
+
+Implementado pela decisão preliminar ("viável só em alguns aparelhos"). O protocolo
+acima ainda precisa rodar no aparelho real para confirmar.
+
+- **Alertas com o app fechado**: a tarefa de 15 min (`sincronizarComAppFechado`) grava as
+  leituras novas e gera os alertas de atenção e emergência com as mesmas regras do app
+  aberto, que saíram do `SincronizacaoBpmViewModel` para `MonitorZonaSeguranca`
+  (`lib/domain/batimentos/`). Cada execução começa do zero, então o monitor retoma o
+  episódio fora da zona pelas leituras e alertas das últimas 12 h: um episódio que
+  atravessa duas execuções gera uma emergência só, e a emergência sai no tempo certo
+  mesmo se o começo do episódio foi lido na execução anterior. O alerta vira push para o
+  acompanhante pelo B6.
+- **Liga/desliga pelo paciente**: cartão **COM O APP FECHADO** em Menu > Meu smartwatch.
+  Mostra LIGADA, DESLIGADA (com o botão PERMITIR LEITURA COM O APP FECHADO) ou NÃO FUNCIONA
+  NESTE CELULAR. A permissão do Health Connect manda: concedida, a tarefa fica agendada;
+  tirada nas configurações do Health Connect, ela sai na próxima vez que o app abrir.
+  Sair da conta também desliga.
+- **Sem dobrar com o app aberto**: enquanto o app está na tela (lendo a cada 30 s), a
+  tarefa pula a vez. Ao voltar para o app, ele relê as leituras e os alertas do Firestore,
+  para não regravar o que a tarefa gravou.
+- O cartão TESTE B2 continua (só com `--dart-define=TESTE_B2=true`). O passo 5 do
+  protocolo agora acontece sozinho ao conceder a permissão; "LER UMA VEZ EM SEGUNDO
+  PLANO" roda mesmo com o app aberto, e o log mostra `BPM em segundo plano: N leituras
+  novas, M alertas`.
+
+Para conferir o alerta no aparelho: conceda a permissão, feche o app do paciente, meça
+fora da zona por mais de 5 min (ou aguarde uma leitura fora da zona) e espere a próxima
+execução. Com a função do B6 publicada, o celular do acompanhante recebe o push mesmo
+com o app dele fechado.
 
 ## Fontes
 

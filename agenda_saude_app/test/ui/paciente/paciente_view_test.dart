@@ -19,6 +19,7 @@ import 'package:agenda_saude_app/ui/paciente/paciente_viewmodel.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
 
 import '../../core/services/fake_health_service.dart';
+import '../../core/services/fake_leitura_segundo_plano_service.dart';
 import '../../core/services/fake_localizacao_service.dart';
 import '../../core/services/fake_telefone_service.dart';
 
@@ -85,6 +86,7 @@ void main() {
                   paciente: paciente,
                   healthService: FakeHealthService(),
                   dadosRepository: dadosRepository,
+                  leituraComAppFechado: FakeLeituraSegundoPlanoService(),
                   plataformaSuportada: smartwatchSuportado,
                   intervalo: const Duration(hours: 1),
                 )..iniciar(),

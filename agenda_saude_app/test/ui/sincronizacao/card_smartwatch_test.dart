@@ -10,6 +10,7 @@ import 'package:agenda_saude_app/ui/sincronizacao/card_smartwatch.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
 
 import '../../core/services/fake_health_service.dart';
+import '../../core/services/fake_leitura_segundo_plano_service.dart';
 
 void main() {
   group('CardSmartwatch Testes', () {
@@ -32,6 +33,7 @@ void main() {
         paciente: paciente,
         healthService: healthService,
         dadosRepository: DadosMedicosRepository(firestore: FakeFirebaseFirestore()),
+        leituraComAppFechado: FakeLeituraSegundoPlanoService(),
         agora: () => DateTime(2026, 9, 19, 14, 5),
         plataformaSuportada: true,
         intervalo: const Duration(hours: 1),

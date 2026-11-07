@@ -127,7 +127,17 @@ class PacienteView extends StatelessWidget {
       iconeConfirmar: Icons.logout_rounded,
     );
     if (!context.mounted || !confirmou) return;
-    await sairDaConta(context, sair: context.read<PacienteViewModel>().sair);
+    final sincronizacao = context.read<SincronizacaoBpmViewModel>();
+    final painel = context.read<PacienteViewModel>();
+    await sairDaConta(
+      context,
+      sair: () async {
+        // Sem ninguem logado, a leitura com o app fechado (B7) nao tem para
+        // quem gravar: para neste aparelho.
+        await sincronizacao.desligarLeituraComAppFechado();
+        await painel.sair();
+      },
+    );
   }
 
   // O que aparece no lugar de destaque: o problema do smartwatch (que deixa

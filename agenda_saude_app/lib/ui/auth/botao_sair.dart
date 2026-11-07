@@ -43,8 +43,16 @@ class BotaoSair extends StatelessWidget {
   final AuthRepository? authRepository;
   // Permite aos testes montar a tela de login com repositories falsos.
   final LoginViewModel Function()? criarLoginViewModel;
+  // O que fazer ainda logado, depois da confirmacao (ex.: o acompanhante
+  // deixa de receber o push dos alertas neste aparelho).
+  final Future<void> Function()? antesDeSair;
 
-  const BotaoSair({super.key, this.authRepository, this.criarLoginViewModel});
+  const BotaoSair({
+    super.key,
+    this.authRepository,
+    this.criarLoginViewModel,
+    this.antesDeSair,
+  });
 
   Future<void> _sair(BuildContext context) async {
     final confirmou = await showDialog<bool>(
@@ -71,7 +79,10 @@ class BotaoSair extends StatelessWidget {
     if (!context.mounted || confirmou != true) return;
     await sairDaConta(
       context,
-      sair: (authRepository ?? AuthRepository()).sair,
+      sair: () async {
+        await antesDeSair?.call();
+        await (authRepository ?? AuthRepository()).sair();
+      },
       criarLoginViewModel: criarLoginViewModel,
     );
   }
