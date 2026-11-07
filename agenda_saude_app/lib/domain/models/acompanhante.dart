@@ -8,6 +8,7 @@ class Acompanhante extends Usuario {
     required super.nome,
     required super.email,
     required super.perfil,
+    super.telefone,
     required this.pacientesVinculadosIds,
   });
 
@@ -17,6 +18,7 @@ class Acompanhante extends Usuario {
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
       perfil: json['perfil'] ?? 'Acompanhante',
+      telefone: json['telefone'],
 
       pacientesVinculadosIds: List<String>.from(json['pacientesVinculadosIds'] ?? []),
     );
@@ -28,6 +30,7 @@ class Acompanhante extends Usuario {
       'nome': nome,
       'email': email,
       'perfil': perfil,
+      'telefone': telefone,
       'pacientesVinculadosIds': pacientesVinculadosIds,
     };
   }

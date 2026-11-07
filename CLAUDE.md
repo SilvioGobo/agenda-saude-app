@@ -96,7 +96,9 @@ Convenções já estabelecidas nos repositories — manter:
   coleção, discriminados pelo campo `perfil` (`'Paciente'` | `'Acompanhante'`).
   Paciente tem `possuiDiabetes`, `possuiCardiopatia`, `codigoVinculo`,
   `acompanhantesVinculadosIds: List<String>`;
-  Acompanhante tem `pacientesVinculadosIds: List<String>`.
+  Acompanhante tem `pacientesVinculadosIds: List<String>`. Os dois podem ter
+  `telefone` (opcional em `Usuario`, `temTelefone`): sem ele as telas escondem o botão
+  de ligar para a pessoa. O campo no cadastro é o A3 do roteiro.
   O Paciente também guarda `metas` (map, `MetasPersonalizadas`) e `limiteLiquidoMl`
   (restrição de líquido do médico, perguntada só a cardiopatas). As `metas` saem da
   `CalculadoraMetas` (`domain/metas/`): fórmulas consagradas (Mifflin-St Jeor, OMS,
@@ -127,6 +129,9 @@ Convenções já estabelecidas nos repositories — manter:
   faz `arrayUnion` nos dois lados num único batch. As rules só deixam o acompanhante
   tocar em `acompanhantesVinculadosIds` do paciente (e só para entrar/sair ele mesmo);
   um `arrayUnion` sem mudança é negado, por isso o ViewModel checa "já vinculado" antes.
+  O paciente pode dar `get` (sem `list`) no doc de um Acompanhante que tem o UID dele
+  em `pacientesVinculadosIds` (`ehAcompanhanteDoUsuarioLogado`): é de onde vêm o nome e
+  o telefone em "Falar com Acompanhante" (`listarAcompanhantesDoPaciente`).
 - `registros_diarios` — todas as subclasses de `RegistroBase` (água, sono, exercício,
   diabete, refeição), discriminadas pelo campo `tipo` gravado no `toJson()` de cada uma.
   `RegistroRefeicao` (`tipo: 'refeicao'`, `refeicaoId`, `nome`) = "esta refeição foi
@@ -222,8 +227,18 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    `ZonaSegurancaCardiaca`; leitura com mais de `validadeDaLeitura` = 1 h vira SEM DADOS)
    e a última atividade da rotina (`DadosMedicosRepository.streamUltimaAtividade`, que
    exige o índice `registros_diarios` pacienteId + dataHora; cada tipo novo de registro
-   precisa entrar em `_registroDoTipo` e em `descreverAtividade`). Faltam tela de
-   emergência (overlay) e push FCM com o app fechado (exige Cloud Functions)*
+   precisa entrar em `_registroDoTipo` e em `descreverAtividade`). Tela de emergência
+   (Figura 16) também feita: `abrirDetalhesDoAlerta` manda o alerta de emergência (pela
+   notificação ou pela lista) para `EmergenciaView`, tela cheia vermelha com o BPM
+   crítico e os botões "LIGAR PARA [NOME]" (só com telefone), "LIGAR PARA O SAMU (192)"
+   e "VER LOCALIZAÇÃO"; o de atenção segue na folha de detalhes. Ligar = abrir o
+   discador pelo link `tel:` (`TelefoneService`, fake nos testes; `BotaoLigar` em
+   `ui/shared/`). O botão "Falar com Acompanhante" do painel do paciente (Figura 13)
+   abre `FalarComAcompanhanteView` (`ui/paciente/`): cada acompanhante vinculado com
+   "LIGAR PARA [NOME]" (ou "SEM TELEFONE CADASTRADO") e o atalho "LIGAR PARA O SAMU
+   (192)" — dois toques do painel até o discador. Falta o push FCM com o app fechado
+   (exige Cloud Functions); tocar numa notificação com o app encerrado ainda não abre a
+   tela (entra junto com o push)*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007)
 

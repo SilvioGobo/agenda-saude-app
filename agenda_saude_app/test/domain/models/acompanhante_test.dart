@@ -20,6 +20,27 @@ void main() {
       expect(acompanhante.nome, 'Silvio Gobo');
       expect(acompanhante.pacientesVinculadosIds.length, 2);
       expect(acompanhante.pacientesVinculadosIds.first, 'paciente123');
+      // Conta sem o campo: sem telefone para ligar.
+      expect(acompanhante.telefone, isNull);
+      expect(acompanhante.temTelefone, isFalse);
+    });
+
+    test('Deve guardar e ler o telefone pelo JSON', () {
+      final acompanhante = Acompanhante(
+        id: 'acompanhante789',
+        nome: 'Silvio Gobo',
+        email: 'silvio@email.com',
+        perfil: 'Acompanhante',
+        telefone: '67988887777',
+        pacientesVinculadosIds: const [],
+      );
+
+      final json = acompanhante.toJson();
+      expect(json['telefone'], '67988887777');
+
+      final lido = Acompanhante.fromJson(json, 'acompanhante789');
+      expect(lido.telefone, '67988887777');
+      expect(lido.temTelefone, isTrue);
     });
   });
 }

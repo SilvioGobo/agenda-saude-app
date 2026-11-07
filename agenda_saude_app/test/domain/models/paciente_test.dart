@@ -341,5 +341,41 @@ void main() {
       // Menos que um copo nao e uma meta: cai no padrao.
       expect(criar(metas: metasComAgua(100)).metaHidratacaoMl, 2000);
     });
+
+    test('Deve guardar e ler o telefone pelo JSON e mantê-lo no copyWith', () {
+      final paciente = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        telefone: '(67) 99999-0000',
+        possuiDiabetes: false,
+        possuiCardiopatia: false,
+        codigoVinculo: '12345',
+      );
+
+      final json = paciente.toJson();
+      expect(json['telefone'], '(67) 99999-0000');
+
+      final lido = Paciente.fromJson(json, 'id-123');
+      expect(lido.telefone, '(67) 99999-0000');
+      expect(lido.temTelefone, isTrue);
+      expect(lido.copyWith(pesoKg: 70).telefone, '(67) 99999-0000');
+    });
+
+    test('Deve ler sem telefone uma conta antiga, sem esse campo', () {
+      final paciente = Paciente.fromJson({
+        'nome': 'João Silva',
+        'perfil': 'Paciente',
+        'codigoVinculo': '12345',
+      }, 'id-123');
+
+      expect(paciente.telefone, isNull);
+      expect(paciente.temTelefone, isFalse);
+      expect(
+        Paciente.fromJson({'telefone': '   '}, 'id-123').temTelefone,
+        isFalse,
+      );
+    });
   });
 }

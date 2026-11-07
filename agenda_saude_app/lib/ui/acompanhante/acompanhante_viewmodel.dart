@@ -64,6 +64,7 @@ class AcompanhanteViewModel extends ChangeNotifier {
         nome: acompanhante.nome,
         email: acompanhante.email,
         perfil: acompanhante.perfil,
+        telefone: acompanhante.telefone,
         pacientesVinculadosIds: acompanhante.pacientesVinculadosIds
             .where((id) => id != paciente.id)
             .toList(),

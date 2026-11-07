@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/services/telefone_service.dart';
 import '../../core/theme/app_cores.dart';
+import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/relatorios_repository.dart';
 import '../../domain/models/paciente.dart';
 import '../auth/botao_sair.dart';
@@ -15,26 +17,34 @@ import '../shared/botao_grande.dart';
 import '../shared/caixa_alerta.dart';
 import '../shared/card_status.dart';
 import '../shared/dialogo_confirmacao.dart';
-import '../shared/tela_provisoria.dart';
 import '../shared/titulo_tela.dart';
 import '../sincronizacao/card_smartwatch.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
 import '../sincronizacao/smartwatch_view.dart';
 import 'card_batimentos.dart';
 import 'codigo_vinculo_view.dart';
+import 'falar_com_acompanhante_view.dart';
 import 'menu_paciente.dart';
 import 'paciente_viewmodel.dart';
 
 // Painel principal do paciente (RF05, Figura 13 do TCC): saudacao, destaque
 // de BPM em tempo real com o status da zona de seguranca e atalhos grandes
-// para a rotina diaria, para os relatorios (dia anterior e mes) e para o
-// acompanhante. O que o paciente usa pouco (codigo de vinculo, conexao do
-// smartwatch, sair) fica no menu lateral.
+// para a rotina diaria, para os relatorios (dia anterior e mes) e para
+// ligar para o acompanhante ou o SAMU. O que o paciente usa pouco (codigo de
+// vinculo, conexao do smartwatch, sair) fica no menu lateral.
 class PacienteView extends StatelessWidget {
-  // Permite aos testes abrir os relatorios com um repository falso.
+  // Permitem aos testes abrir os relatorios e o "Falar com Acompanhante"
+  // com repositories e discador falsos.
   final RelatoriosRepository? relatoriosRepository;
+  final AcompanhanteRepository? acompanhanteRepository;
+  final TelefoneService? telefoneService;
 
-  const PacienteView({super.key, this.relatoriosRepository});
+  const PacienteView({
+    super.key,
+    this.relatoriosRepository,
+    this.acompanhanteRepository,
+    this.telefoneService,
+  });
 
   // Monta o painel com os ViewModels de que ele depende: o do painel em si, o
   // da sincronizacao com o smartwatch (que ja comeca a ler ao abrir) e o do
@@ -99,10 +109,10 @@ class PacienteView extends StatelessWidget {
   void _falarComAcompanhante(BuildContext context) {
     _abrir(
       context,
-      const TelaProvisoria(
-        titulo: 'Falar com Acompanhante',
-        mensagem: 'O contato direto com o acompanhante ainda está em '
-            'desenvolvimento.',
+      FalarComAcompanhanteView.comProviders(
+        context.read<PacienteViewModel>().paciente,
+        acompanhanteRepository: acompanhanteRepository,
+        telefoneService: telefoneService,
       ),
     );
   }

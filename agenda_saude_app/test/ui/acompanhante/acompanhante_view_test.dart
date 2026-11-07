@@ -447,6 +447,52 @@ void main() {
     expect(find.text('118 BPM', findRichText: true), findsOneWidget);
   });
 
+  testWidgets('Tocar na notificação de emergência abre a tela de emergência com o botão de ligar', (
+    tester,
+  ) async {
+    await PacienteRepository(firestore: fakeFirestore).salvarPaciente(Paciente(
+      id: 'paciente_01',
+      nome: 'José Silva',
+      email: 'jose@email.com',
+      perfil: 'Paciente',
+      telefone: '67999990000',
+      possuiDiabetes: false,
+      possuiCardiopatia: false,
+      codigoVinculo: 'ABC123',
+    ));
+    await acompanhanteRepository.vincularPaciente('cuidador_01', 'paciente_01');
+    await montarPainel(tester);
+    await dadosRepository.gerarAlerta(Alerta(
+      id: '',
+      pacienteId: 'paciente_01',
+      tipo: Alerta.tipoEmergencia,
+      mensagem: 'Batimentos fora da zona de segurança há 6 minutos '
+          '(última leitura: 128 BPM).',
+      bpm: 128,
+      dataHora: DateTime.now(),
+    ));
+    await tester.pumpAndSettle();
+    final notificacao = notificationService.mostradas.single;
+    expect(notificacao.titulo, 'Emergência: José Silva');
+    expect(notificacao.urgente, isTrue);
+
+    notificationService.simularToque(notificacao.payload!);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ALERTA CRÍTICO'), findsOneWidget);
+    expect(find.text('BATIMENTOS CARDÍACOS ELEVADOS'), findsOneWidget);
+    expect(find.text('128'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('LIGAR PARA O SAMU (192)'), 200);
+    expect(find.text('LIGAR PARA JOSÉ'), findsOneWidget);
+    expect(find.text('LIGAR PARA O SAMU (192)'), findsOneWidget);
+
+    // "Voltar" leva para a lista de notificacoes, com o alerta ja lido.
+    await tester.tap(find.text('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Notificações'), findsOneWidget);
+    expect(find.text('Nenhuma notificação nova.'), findsOneWidget);
+  });
+
   testWidgets('Painel pede para ativar as notificações quando estão bloqueadas', (
     tester,
   ) async {
