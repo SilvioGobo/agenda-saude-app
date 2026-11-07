@@ -99,6 +99,9 @@ class RelatorioMesViewModel extends ChangeNotifier {
         hoje: hoje,
         agua: registros.agua,
         refeicoes: registros.refeicoes,
+        medicacoes: registros.medicacoes,
+        sono: registros.sono,
+        exercicios: registros.exercicios,
         diabete: registros.diabete,
         alertas: registros.alertas,
       );

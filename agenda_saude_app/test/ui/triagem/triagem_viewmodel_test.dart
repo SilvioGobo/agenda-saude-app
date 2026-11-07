@@ -102,6 +102,39 @@ void main() {
       expect(viewModel.usaInsulina, isNull);
     });
 
+    test('Deve manter o telefone do cadastro ao concluir a triagem', () async {
+      // A triagem grava o paciente inteiro por cima do documento: o telefone
+      // digitado no cadastro nao pode se perder ai.
+      final comTelefone = TriagemViewModel(
+        paciente: Paciente(
+          id: 'paciente_001',
+          nome: 'Maria Souza',
+          email: 'maria@email.com',
+          perfil: 'Paciente',
+          telefone: '67999990000',
+          possuiDiabetes: false,
+          possuiCardiopatia: false,
+          codigoVinculo: 'ABC123',
+        ),
+        pacienteRepository: pacienteRepository,
+      );
+      comTelefone.responderDiabetes(false);
+      comTelefone.responderCardiopatia(false);
+      comTelefone.definirDataNascimento(DateTime(1960, 5, 10));
+      comTelefone.selecionarSexoBiologico('Feminino');
+      comTelefone.definirAltura('165');
+      comTelefone.definirPeso('70');
+      comTelefone.selecionarNivelAtividadeFisica('Leve');
+
+      final sucesso = await comTelefone.concluirTriagem();
+
+      expect(sucesso, true);
+      expect(comTelefone.pacienteAtualizado!.telefone, '67999990000');
+      final pacienteSalvo = await pacienteRepository.getPaciente('paciente_001');
+      expect(pacienteSalvo!.telefone, '67999990000');
+      expect(pacienteSalvo.temTelefone, true);
+    });
+
     test('Deve salvar a triagem completa com diabetes Tipo 2, insulina e cardiopatia com marcapasso', () async {
       viewModel.responderDiabetes(true);
       viewModel.selecionarTipoDiabetes('Tipo 2');

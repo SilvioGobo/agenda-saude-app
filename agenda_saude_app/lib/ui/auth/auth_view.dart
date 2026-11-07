@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
@@ -21,12 +22,14 @@ class AuthView extends StatefulWidget {
 class _AuthViewState extends State<AuthView> {
   final _nomeController = TextEditingController();
   final _emailController = TextEditingController();
+  final _telefoneController = TextEditingController();
   final _senhaController = TextEditingController();
 
   @override
   void dispose() {
     _nomeController.dispose();
     _emailController.dispose();
+    _telefoneController.dispose();
     _senhaController.dispose();
     super.dispose();
   }
@@ -36,6 +39,7 @@ class _AuthViewState extends State<AuthView> {
     final sucesso = await viewModel.cadastrar(
       nome: _nomeController.text,
       email: _emailController.text,
+      telefone: _telefoneController.text,
       senha: _senhaController.text,
     );
 
@@ -134,6 +138,24 @@ class _AuthViewState extends State<AuthView> {
                 decoration: const InputDecoration(labelText: 'E-mail'),
               ),
               const SizedBox(height: 16),
+              TextField(
+                controller: _telefoneController,
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9()+\- ]')),
+                  LengthLimitingTextInputFormatter(20),
+                ],
+                style: const TextStyle(fontSize: 18),
+                decoration: InputDecoration(
+                  labelText: 'Telefone (opcional)',
+                  hintText: '(67) 99999-0000',
+                  helperText: _ajudaTelefone(viewModel.perfilSelecionado),
+                  // O guia pede texto de pelo menos 16sp (o padrao do campo e 12).
+                  helperStyle: const TextStyle(fontSize: 16),
+                  helperMaxLines: 3,
+                ),
+              ),
+              const SizedBox(height: 16),
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _senhaController,
                 builder: (context, valor, _) {
@@ -196,6 +218,19 @@ class _AuthViewState extends State<AuthView> {
         ),
       ),
     );
+  }
+}
+
+// Por que pedir o telefone: o botao de ligar das Figuras 13 e 16 usa o numero
+// de quem ficou do outro lado.
+String _ajudaTelefone(String? perfil) {
+  switch (perfil) {
+    case 'Paciente':
+      return 'Com DDD. Seu acompanhante poderá ligar para você.';
+    case 'Acompanhante':
+      return 'Com DDD. O paciente poderá ligar para você.';
+    default:
+      return 'Com DDD. Usado para ligações em caso de emergência.';
   }
 }
 

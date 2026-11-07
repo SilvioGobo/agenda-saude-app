@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/metas/metas_personalizadas.dart';
 import '../../domain/models/codigo_vinculo.dart';
+import '../../domain/models/medicamento.dart';
 import '../../domain/models/paciente.dart';
 import '../../domain/models/refeicao_planejada.dart';
 
@@ -58,6 +59,18 @@ class PacienteRepository {
   ) async {
     await _firestore.collection('usuarios').doc(pacienteId).update({
       'refeicoes': refeicoes.map((refeicao) => refeicao.toJson()).toList(),
+    });
+  }
+
+  // Grava a lista de remedios do paciente (RF003) sem reescrever o resto do
+  // documento dele. A lista inteira substitui a antiga; vazia = sem remedios.
+  Future<void> salvarMedicamentos(
+    String pacienteId,
+    List<Medicamento> medicamentos,
+  ) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'medicamentos':
+          medicamentos.map((medicamento) => medicamento.toJson()).toList(),
     });
   }
 

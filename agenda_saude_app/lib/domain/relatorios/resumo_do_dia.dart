@@ -1,15 +1,23 @@
 import '../../core/constants/faixas_glicemia.dart';
 import '../../core/constants/meta_hidratacao.dart';
 import '../../core/constants/momentos_glicemia.dart';
+import '../medicacao/dose_planejada.dart';
 import '../models/alerta.dart';
+import '../models/medicamento.dart';
 import '../models/refeicao_planejada.dart';
 import '../models/registro_diabete.dart';
+import '../models/registro_exercicio.dart';
+import '../models/registro_medicacao.dart';
 import '../models/registro_refeicao.dart';
+import '../models/registro_sono.dart';
 
 // Como foi um dia da rotina do paciente (RF05). "Completo": todos os itens da
-// rotina dele foram cumpridos (meta de agua, todas as refeicoes e, para
-// diabeticos, o checklist de glicemia inteiro). "Parcial": ha registro, mas
-// falta algo. "Sem registro": nada foi anotado.
+// rotina dele foram cumpridos (meta de agua, todas as refeicoes, todas as doses
+// de remedio, o registro do sono e, para diabeticos, o checklist de glicemia
+// inteiro). O exercicio nao
+// entra nessa conta: a meta dele e da semana, nao do dia, e um dia de descanso
+// nao deixa a rotina incompleta - mas um dia so com exercicio ja tem registro.
+// "Parcial": ha registro, mas falta algo. "Sem registro": nada foi anotado.
 enum SituacaoDoDia { semRegistro, parcial, completo }
 
 // Agua do dia frente a meta do paciente.
@@ -97,6 +105,177 @@ class RefeicoesDoDia {
   double get progresso => total == 0 ? 0 : feitas / total;
 
   bool get registrou => feitas > 0 || foraDoPlano.isNotEmpty;
+}
+
+// Uma dose do dia (um remedio num horario) e, se o paciente a marcou, quando.
+class DoseDoDia {
+  final DosePlanejada dose;
+  final DateTime? tomadaEm;
+
+  const DoseDoDia({required this.dose, this.tomadaEm});
+
+  bool get tomada => tomadaEm != null;
+}
+
+// As doses de remedio do paciente no dia (RF003) e quais ele marcou como
+// tomadas. Usa a lista de remedios de HOJE: ela nao tem historico, entao mudar
+// os remedios muda a leitura dos dias antigos - como no plano de refeicoes.
+class MedicacaoDoDia {
+  final List<DoseDoDia> planejadas;
+  // Doses marcadas que nao estao mais na lista (o paciente mudou o remedio ou o
+  // horario depois): nao contam como "tomadas" da lista, mas continuam sendo
+  // registro do dia.
+  final List<RegistroMedicacao> foraDoPlano;
+
+  const MedicacaoDoDia({required this.planejadas, this.foraDoPlano = const []});
+
+  // Cada dose vale uma vez por dia: se foi marcada em dois aparelhos, vale a
+  // primeira marcacao.
+  factory MedicacaoDoDia.de({
+    required List<Medicamento> medicamentos,
+    required List<RegistroMedicacao> registros,
+  }) {
+    final primeiraMarcacao = <String, RegistroMedicacao>{};
+    for (final registro in registros) {
+      final atual = primeiraMarcacao[registro.chave];
+      if (atual == null || registro.dataHora.isBefore(atual.dataHora)) {
+        primeiraMarcacao[registro.chave] = registro;
+      }
+    }
+
+    final doses = DosePlanejada.doDia(medicamentos);
+    final chavesDoPlano = doses.map((dose) => dose.chave).toSet();
+    return MedicacaoDoDia(
+      planejadas: [
+        for (final dose in doses)
+          DoseDoDia(dose: dose, tomadaEm: primeiraMarcacao[dose.chave]?.dataHora),
+      ],
+      foraDoPlano: primeiraMarcacao.entries
+          .where((entrada) => !chavesDoPlano.contains(entrada.key))
+          .map((entrada) => entrada.value)
+          .toList()
+        ..sort((a, b) => a.dataHora.compareTo(b.dataHora)),
+    );
+  }
+
+  int get tomadas => planejadas.where((item) => item.tomada).length;
+
+  int get total => planejadas.length;
+
+  bool get todasTomadas => total > 0 && tomadas == total;
+
+  // De 0 a 1.
+  double get progresso => total == 0 ? 0 : tomadas / total;
+
+  bool get registrou => tomadas > 0 || foraDoPlano.isNotEmpty;
+}
+
+// A noite de sono do dia frente a meta do paciente (RF03.2). O paciente
+// registra ao acordar, entao a noite conta no dia em que ele acordou. Para o
+// "dia completo" basta ter registrado a noite: o paciente nao controla o quanto
+// dormiu, e anotar uma noite ruim nao deve deixar o dia incompleto.
+class SonoDoDia {
+  // A noite registrada no dia; null = o paciente nao registrou.
+  final RegistroSono? registro;
+  final int metaMinHoras;
+  final int metaMaxHoras;
+
+  const SonoDoDia({
+    this.registro,
+    required this.metaMinHoras,
+    required this.metaMaxHoras,
+  });
+
+  // Se ha mais de uma noite no dia (dois aparelhos), vale a mais recente, como
+  // no cartao da rotina.
+  factory SonoDoDia.de(
+    List<RegistroSono> registros, {
+    required int metaMinHoras,
+    required int metaMaxHoras,
+  }) {
+    RegistroSono? maisRecente;
+    for (final registro in registros) {
+      if (maisRecente == null || registro.dataHora.isAfter(maisRecente.dataHora)) {
+        maisRecente = registro;
+      }
+    }
+    return SonoDoDia(
+      registro: maisRecente,
+      metaMinHoras: metaMinHoras,
+      metaMaxHoras: metaMaxHoras,
+    );
+  }
+
+  bool get registrou => registro != null;
+
+  // Dormiu pelo menos o minimo da meta; passar do maximo nao tira a meta.
+  bool get metaAtingida {
+    final noite = registro;
+    return noite != null && noite.horasTotais >= metaMinHoras;
+  }
+}
+
+// Os exercicios do dia (RF03.3) e, quando se sabe, o progresso da meta de
+// minutos da semana ate o fim desse dia. A meta e semanal (150 min, OMS), entao
+// o exercicio so conta como registro do dia, nunca como item que falta.
+class ExercicioDoDia {
+  // Os exercicios do dia, do mais antigo para o mais recente.
+  final List<RegistroExercicio> registros;
+  // Minutos de exercicio da semana (domingo a sabado) ate o fim deste dia; null
+  // quando so se leu o dia (o resumo do mes), sem a semana inteira.
+  final int? minutosNaSemana;
+  final int metaSemanalMinutos;
+
+  const ExercicioDoDia({
+    this.registros = const [],
+    this.minutosNaSemana,
+    required this.metaSemanalMinutos,
+  });
+
+  // [daSemana]: os exercicios da semana ate o fim do dia, quando foram lidos.
+  factory ExercicioDoDia.de(
+    List<RegistroExercicio> doDia, {
+    List<RegistroExercicio>? daSemana,
+    required int metaSemanalMinutos,
+  }) {
+    return ExercicioDoDia(
+      registros: [...doDia]..sort((a, b) => a.dataHora.compareTo(b.dataHora)),
+      minutosNaSemana: daSemana?.fold<int>(
+        0,
+        (soma, registro) => soma + registro.duracaoMinutos,
+      ),
+      metaSemanalMinutos: metaSemanalMinutos,
+    );
+  }
+
+  bool get fez => registros.isNotEmpty;
+
+  int get minutos => registros.fold(
+        0,
+        (soma, registro) => soma + registro.duracaoMinutos,
+      );
+
+  bool get temProgressoDaSemana => minutosNaSemana != null;
+
+  // De 0 a 1; passar da meta nao estoura a barra.
+  double get progressoDaSemana {
+    final semana = minutosNaSemana;
+    if (semana == null || metaSemanalMinutos <= 0) return 0;
+    return (semana / metaSemanalMinutos).clamp(0.0, 1.0).toDouble();
+  }
+
+  bool get metaDaSemanaAtingida {
+    final semana = minutosNaSemana;
+    return semana != null && semana >= metaSemanalMinutos;
+  }
+
+  // Quanto faltava para a meta da semana ao fim do dia; zero se ja foi atingida
+  // (ou se a semana nao foi lida).
+  int get minutosQueFaltavam {
+    final semana = minutosNaSemana;
+    if (semana == null || semana >= metaSemanalMinutos) return 0;
+    return metaSemanalMinutos - semana;
+  }
 }
 
 // Um item fixo do checklist de glicemia e o registro feito nele (null se
@@ -273,6 +452,9 @@ class ResumoDoDia {
   final DateTime dia;
   final HidratacaoDoDia hidratacao;
   final RefeicoesDoDia refeicoes;
+  final MedicacaoDoDia medicacao;
+  final SonoDoDia sono;
+  final ExercicioDoDia exercicio;
   // Null para quem nao tem diabetes.
   final DiabetesDoDia? diabetes;
   final BatimentosDoDia batimentos;
@@ -283,6 +465,9 @@ class ResumoDoDia {
     required this.dia,
     required this.hidratacao,
     required this.refeicoes,
+    required this.medicacao,
+    required this.sono,
+    required this.exercicio,
     required this.diabetes,
     required this.batimentos,
     required this.alertas,
@@ -293,16 +478,26 @@ class ResumoDoDia {
   bool get temRegistros =>
       hidratacao.registrou ||
       refeicoes.registrou ||
+      medicacao.registrou ||
+      sono.registrou ||
+      exercicio.fez ||
       (diabetes?.registrou ?? false);
 
   // Itens da rotina que se aplicam a este paciente: agua, refeicoes (se o plano
-  // tem alguma) e glicemia (se tem diabetes).
+  // tem alguma), remedios (se tem algum cadastrado), sono e glicemia (se tem
+  // diabetes).
   int get itensTotais =>
-      1 + (refeicoes.total > 0 ? 1 : 0) + (diabetes != null ? 1 : 0);
+      1 +
+      (refeicoes.total > 0 ? 1 : 0) +
+      (medicacao.total > 0 ? 1 : 0) +
+      1 +
+      (diabetes != null ? 1 : 0);
 
   int get itensCompletos =>
       (hidratacao.metaAtingida ? 1 : 0) +
       (refeicoes.todasFeitas ? 1 : 0) +
+      (medicacao.todasTomadas ? 1 : 0) +
+      (sono.registrou ? 1 : 0) +
       (diabetes?.completo == true ? 1 : 0);
 
   SituacaoDoDia get situacao {

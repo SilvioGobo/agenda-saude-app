@@ -21,12 +21,14 @@ class _AuthRepositoryFalso extends AuthRepository {
 void main() {
   group('AuthViewModel Testes', () {
     late FakeFirebaseFirestore fakeFirestore;
+    late _AuthRepositoryFalso authRepository;
     late AuthViewModel viewModel;
 
     setUp(() {
       fakeFirestore = FakeFirebaseFirestore();
+      authRepository = _AuthRepositoryFalso();
       viewModel = AuthViewModel(
-        authRepository: _AuthRepositoryFalso(),
+        authRepository: authRepository,
         pacienteRepository: PacienteRepository(firestore: fakeFirestore),
         acompanhanteRepository: AcompanhanteRepository(firestore: fakeFirestore),
       );
@@ -175,6 +177,87 @@ void main() {
       expect(viewModel.acompanhanteCriado, isNotNull);
       expect(viewModel.acompanhanteCriado!.id, 'uid_falso_1');
       expect(viewModel.pacienteCriado, isNull);
+    });
+
+    test('Deve cadastrar o Paciente sem telefone, que é opcional', () async {
+      viewModel.selecionarPerfil('Paciente');
+
+      final sucesso = await viewModel.cadastrar(
+        nome: 'Maria Souza',
+        email: 'maria@email.com',
+        senha: '123456',
+      );
+
+      expect(sucesso, true);
+      final paciente = await PacienteRepository(firestore: fakeFirestore)
+          .getPaciente('uid_falso_1');
+      expect(paciente!.telefone, isNull);
+      expect(paciente.temTelefone, false);
+    });
+
+    test('Deve tratar telefone em branco como não informado', () async {
+      viewModel.selecionarPerfil('Paciente');
+
+      final sucesso = await viewModel.cadastrar(
+        nome: 'Maria Souza',
+        email: 'maria@email.com',
+        senha: '123456',
+        telefone: '   ',
+      );
+
+      expect(sucesso, true);
+      expect(viewModel.pacienteCriado!.telefone, isNull);
+    });
+
+    test('Deve guardar só os dígitos do telefone do Paciente', () async {
+      viewModel.selecionarPerfil('Paciente');
+
+      final sucesso = await viewModel.cadastrar(
+        nome: 'Maria Souza',
+        email: 'maria@email.com',
+        senha: '123456',
+        telefone: '(67) 99999-0000',
+      );
+
+      expect(sucesso, true);
+      final paciente = await PacienteRepository(firestore: fakeFirestore)
+          .getPaciente('uid_falso_1');
+      expect(paciente!.telefone, '67999990000');
+      expect(paciente.temTelefone, true);
+    });
+
+    test('Deve guardar só os dígitos do telefone do Acompanhante', () async {
+      viewModel.selecionarPerfil('Acompanhante');
+
+      final sucesso = await viewModel.cadastrar(
+        nome: 'Carlos Souza',
+        email: 'carlos@email.com',
+        senha: '123456',
+        telefone: '+55 67 3411-2233',
+      );
+
+      expect(sucesso, true);
+      final acompanhante =
+          await AcompanhanteRepository(firestore: fakeFirestore)
+              .getAcompanhante('uid_falso_1');
+      expect(acompanhante!.telefone, '6734112233');
+    });
+
+    test('Deve rejeitar telefone inválido antes de criar a conta', () async {
+      viewModel.selecionarPerfil('Paciente');
+
+      final sucesso = await viewModel.cadastrar(
+        nome: 'Maria Souza',
+        email: 'maria@email.com',
+        senha: '123456',
+        telefone: '99999-0000',
+      );
+
+      expect(sucesso, false);
+      expect(viewModel.mensagemErro, contains('DDD'));
+      expect(viewModel.carregando, false);
+      expect(authRepository.chamadas, 0);
+      expect((await fakeFirestore.collection('usuarios').get()).docs, isEmpty);
     });
   });
 

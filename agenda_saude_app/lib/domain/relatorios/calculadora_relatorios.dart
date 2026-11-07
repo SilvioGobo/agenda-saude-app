@@ -4,7 +4,10 @@ import '../models/batimento_cardiaco.dart';
 import '../models/paciente.dart';
 import '../models/registro_agua.dart';
 import '../models/registro_diabete.dart';
+import '../models/registro_exercicio.dart';
+import '../models/registro_medicacao.dart';
 import '../models/registro_refeicao.dart';
+import '../models/registro_sono.dart';
 import 'resumo_do_dia.dart';
 import 'resumo_do_mes.dart';
 
@@ -26,11 +29,17 @@ class CalculadoraRelatorios {
 
   // Resume o dia [dia] com os registros dele: as listas ja devem ser so desse
   // dia (quem consulta o Firestore filtra pelo intervalo do dia).
+  // [exerciciosDaSemana] sao os exercicios da semana ate o fim do dia, para o
+  // progresso da meta semanal; sem eles o progresso fica desconhecido.
   static ResumoDoDia resumirDia({
     required Paciente paciente,
     required DateTime dia,
     List<RegistroAgua> agua = const [],
     List<RegistroRefeicao> refeicoes = const [],
+    List<RegistroMedicacao> medicacoes = const [],
+    List<RegistroSono> sono = const [],
+    List<RegistroExercicio> exercicios = const [],
+    List<RegistroExercicio>? exerciciosDaSemana,
     List<RegistroDiabete> diabete = const [],
     List<BatimentoCardiaco> batimentos = const [],
     List<Alerta> alertas = const [],
@@ -45,6 +54,20 @@ class CalculadoraRelatorios {
       refeicoes: RefeicoesDoDia.de(
         plano: paciente.planoDeRefeicoes,
         registros: refeicoes,
+      ),
+      medicacao: MedicacaoDoDia.de(
+        medicamentos: paciente.medicamentos,
+        registros: medicacoes,
+      ),
+      sono: SonoDoDia.de(
+        sono,
+        metaMinHoras: paciente.metaSonoMinHoras,
+        metaMaxHoras: paciente.metaSonoMaxHoras,
+      ),
+      exercicio: ExercicioDoDia.de(
+        exercicios,
+        daSemana: exerciciosDaSemana,
+        metaSemanalMinutos: paciente.metaExercicioMinutosSemana,
       ),
       diabetes: paciente.possuiDiabetes
           ? DiabetesDoDia.de(
@@ -100,6 +123,9 @@ class CalculadoraRelatorios {
     required DateTime hoje,
     List<RegistroAgua> agua = const [],
     List<RegistroRefeicao> refeicoes = const [],
+    List<RegistroMedicacao> medicacoes = const [],
+    List<RegistroSono> sono = const [],
+    List<RegistroExercicio> exercicios = const [],
     List<RegistroDiabete> diabete = const [],
     List<Alerta> alertas = const [],
   }) {
@@ -118,6 +144,9 @@ class CalculadoraRelatorios {
 
     final aguaPorDia = _agruparPorDia(agua, (r) => r.dataHora);
     final refeicoesPorDia = _agruparPorDia(refeicoes, (r) => r.dataHora);
+    final medicacoesPorDia = _agruparPorDia(medicacoes, (r) => r.dataHora);
+    final sonoPorDia = _agruparPorDia(sono, (r) => r.dataHora);
+    final exerciciosPorDia = _agruparPorDia(exercicios, (r) => r.dataHora);
     final diabetePorDia = _agruparPorDia(diabete, (r) => r.dataHora);
     final alertasPorDia = _agruparPorDia(alertas, (a) => a.dataHora);
 
@@ -132,6 +161,9 @@ class CalculadoraRelatorios {
             dia: DateTime(primeiro.year, primeiro.month, dia),
             agua: aguaPorDia[dia] ?? const [],
             refeicoes: refeicoesPorDia[dia] ?? const [],
+            medicacoes: medicacoesPorDia[dia] ?? const [],
+            sono: sonoPorDia[dia] ?? const [],
+            exercicios: exerciciosPorDia[dia] ?? const [],
             diabete: diabetePorDia[dia] ?? const [],
             alertas: alertasPorDia[dia] ?? const [],
           ),

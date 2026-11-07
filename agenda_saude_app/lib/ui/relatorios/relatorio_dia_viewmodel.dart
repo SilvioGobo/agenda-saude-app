@@ -85,7 +85,7 @@ class RelatorioDiaViewModel extends ChangeNotifier {
 
     try {
       final fim = DateTime(dia.year, dia.month, dia.day + 1);
-      final (registros, batimentos) = await (
+      final (registros, batimentos, exerciciosDaSemana) = await (
         _relatoriosRepository.registrosDoPeriodo(
           paciente.id,
           dia,
@@ -93,6 +93,7 @@ class RelatorioDiaViewModel extends ChangeNotifier {
           incluirDiabete: paciente.possuiDiabetes,
         ),
         _relatoriosRepository.batimentosDoPeriodo(paciente.id, dia, fim),
+        _relatoriosRepository.exerciciosDaSemanaAte(paciente.id, dia),
       ).wait;
       if (_descartado || leitura != _leitura) return;
 
@@ -101,6 +102,10 @@ class RelatorioDiaViewModel extends ChangeNotifier {
         dia: dia,
         agua: registros.agua,
         refeicoes: registros.refeicoes,
+        medicacoes: registros.medicacoes,
+        sono: registros.sono,
+        exercicios: registros.exercicios,
+        exerciciosDaSemana: exerciciosDaSemana,
         diabete: registros.diabete,
         batimentos: batimentos,
         alertas: registros.alertas,

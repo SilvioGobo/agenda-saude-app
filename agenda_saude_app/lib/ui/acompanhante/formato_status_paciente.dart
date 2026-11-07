@@ -5,6 +5,7 @@ import '../../domain/models/registro_agua.dart';
 import '../../domain/models/registro_base.dart';
 import '../../domain/models/registro_diabete.dart';
 import '../../domain/models/registro_exercicio.dart';
+import '../../domain/models/registro_medicacao.dart';
 import '../../domain/models/registro_refeicao.dart';
 import '../../domain/models/registro_sono.dart';
 import '../insulina/formatacao_diabete.dart';
@@ -85,6 +86,15 @@ import 'status_paciente_viewmodel.dart';
       texto: tipo.isEmpty
           ? 'FEZ EXERCÍCIO: $duracao'
           : 'FEZ EXERCÍCIO: ${tipo.toUpperCase()}, $duracao',
+    );
+  }
+  if (registro is RegistroMedicacao) {
+    final remedio = registro.descricao.trim();
+    return (
+      icone: Icons.medication_rounded,
+      texto: remedio.isEmpty
+          ? 'TOMOU UM REMÉDIO'
+          : 'TOMOU O REMÉDIO: ${remedio.toUpperCase()}',
     );
   }
   return (icone: Icons.checklist_rounded, texto: 'ATIVIDADE DA ROTINA');

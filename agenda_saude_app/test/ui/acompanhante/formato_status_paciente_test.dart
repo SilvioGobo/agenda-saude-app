@@ -5,6 +5,7 @@ import 'package:agenda_saude_app/core/theme/app_cores.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/domain/models/registro_exercicio.dart';
+import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/ui/acompanhante/formato_status_paciente.dart';
@@ -105,6 +106,25 @@ void main() {
         )).texto,
         'FEZ EXERCÍCIO: CAMINHADA, 30 MINUTOS',
       );
+    });
+
+    test('Deve descrever o remédio tomado, com a dose quando houver', () {
+      RegistroMedicacao remedio({String nome = 'Losartana', String dose = ''}) =>
+          RegistroMedicacao(
+            id: '6',
+            pacienteId: 'p',
+            dataHora: quando,
+            medicamentoId: 'm1',
+            horario: '08:00',
+            nome: nome,
+            dose: dose,
+          );
+
+      final comDose = descreverAtividade(remedio(dose: '50 mg'));
+      expect(comDose.texto, 'TOMOU O REMÉDIO: LOSARTANA 50 MG');
+      expect(comDose.icone, Icons.medication_rounded);
+      expect(descreverAtividade(remedio()).texto, 'TOMOU O REMÉDIO: LOSARTANA');
+      expect(descreverAtividade(remedio(nome: '  ')).texto, 'TOMOU UM REMÉDIO');
     });
   });
 }

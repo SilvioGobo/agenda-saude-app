@@ -1,21 +1,31 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/constants/meta_exercicio.dart';
 import '../../domain/models/alerta.dart';
 import '../../domain/models/batimento_cardiaco.dart';
 import '../../domain/models/registro_agua.dart';
 import '../../domain/models/registro_diabete.dart';
+import '../../domain/models/registro_exercicio.dart';
+import '../../domain/models/registro_medicacao.dart';
 import '../../domain/models/registro_refeicao.dart';
+import '../../domain/models/registro_sono.dart';
 
 // Tudo o que o paciente registrou num periodo, exceto os batimentos.
 class RegistrosDoPeriodo {
   final List<RegistroAgua> agua;
   final List<RegistroRefeicao> refeicoes;
+  final List<RegistroMedicacao> medicacoes;
+  final List<RegistroSono> sono;
+  final List<RegistroExercicio> exercicios;
   final List<RegistroDiabete> diabete;
   final List<Alerta> alertas;
 
   const RegistrosDoPeriodo({
     this.agua = const [],
     this.refeicoes = const [],
+    this.medicacoes = const [],
+    this.sono = const [],
+    this.exercicios = const [],
     this.diabete = const [],
     this.alertas = const [],
   });
@@ -33,17 +43,22 @@ class RelatoriosRepository {
   RelatoriosRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  // Agua, refeicoes, glicemia/insulina e alertas do periodo, em consultas
-  // paralelas. A glicemia so e buscada de quem tem diabetes.
+  // Agua, refeicoes, remedios, sono, exercicio, glicemia/insulina e alertas do
+  // periodo, em consultas paralelas. A glicemia so e buscada de quem tem
+  // diabetes.
   Future<RegistrosDoPeriodo> registrosDoPeriodo(
     String pacienteId,
     DateTime inicio,
     DateTime fim, {
     required bool incluirDiabete,
   }) async {
-    final (agua, refeicoes, diabete, alertas) = await (
+    final (agua, refeicoes, medicacoes, sono, exercicios, diabete, alertas) =
+        await (
       _registros(pacienteId, 'agua', inicio, fim, RegistroAgua.fromJson),
       _registros(pacienteId, 'refeicao', inicio, fim, RegistroRefeicao.fromJson),
+      _registros(pacienteId, 'medicacao', inicio, fim, RegistroMedicacao.fromJson),
+      _registros(pacienteId, 'sono', inicio, fim, RegistroSono.fromJson),
+      _registros(pacienteId, 'exercicio', inicio, fim, RegistroExercicio.fromJson),
       incluirDiabete
           ? _registros(pacienteId, 'diabete', inicio, fim, RegistroDiabete.fromJson)
           : Future.value(const <RegistroDiabete>[]),
@@ -53,8 +68,27 @@ class RelatoriosRepository {
     return RegistrosDoPeriodo(
       agua: agua,
       refeicoes: refeicoes,
+      medicacoes: medicacoes,
+      sono: sono,
+      exercicios: exercicios,
       diabete: diabete,
       alertas: alertas,
+    );
+  }
+
+  // Exercicios da semana (de domingo a sabado) que contem [dia], do comeco da
+  // semana ate o fim desse dia: o progresso da meta de minutos "ate aquele
+  // dia" do relatorio do dia (RF03.3). Mesma consulta e mesmo indice do resto.
+  Future<List<RegistroExercicio>> exerciciosDaSemanaAte(
+    String pacienteId,
+    DateTime dia,
+  ) {
+    return _registros(
+      pacienteId,
+      'exercicio',
+      MetaExercicio.inicioDaSemana(dia),
+      DateTime(dia.year, dia.month, dia.day + 1),
+      RegistroExercicio.fromJson,
     );
   }
 

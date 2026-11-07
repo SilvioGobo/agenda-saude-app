@@ -175,3 +175,23 @@ do resto do app:
 | `BotaoSelecionavel`         | escolha entre poucas opções (Sim/Não, perfil)             |
 | `BarraAcoes`                | botões fixos na base (`bottomNavigationBar`) em telas longas, para a ação principal nunca sair da vista |
 | `LogoAgendaSaude`           | marca nas telas de entrada                                |
+| `PerguntaFormulario`        | pergunta numerada em caixa alta que abre cada bloco de um formulário da Rotina (sono, exercício) |
+| `ErroFormulario`            | erro de formulário: caixa alta, ícone e vermelho, anunciado pelo leitor de tela |
+| `BotaoSalvar`               | "SALVAR" de 72dp que fecha um formulário da Rotina; vira indicador de progresso enquanto grava |
+| `ContadorGrande`            | valor grande com "Menos" / "Mais" de 64dp, para números sem teclado (horas de sono, minutos de exercício); os botões descem um para baixo do outro com a fonte aumentada |
+
+## Rotina (`lib/ui/rotina/`)
+
+Um cartão compacto por atividade na "Minha Rotina", na ordem do dia: hidratação,
+medicações, refeições, glicemia e insulina (só para diabéticos), sono, exercício. O que é
+de um toque (copo d'água, tomar um remédio) resolve no próprio cartão; o que tem várias
+perguntas abre uma tela própria (registrar o sono, registrar um exercício, "Meus
+remédios"), que volta com um aviso ("Sono registrado.").
+
+- **Medicações**: uma linha por dose com **caixa de seleção grande** (44dp), como na
+  Figura 14 do TCC; marcada fica com fundo e borda verdes e o texto "Tomado às 08:10".
+- **Telas de registro**: perguntas numeradas em caixa alta (`PerguntaFormulario`), opções
+  em botões de 64dp com check no escolhido (`BotaoSelecionavel`) e "SALVAR" no fim
+  (`BotaoSalvar`). Nada de campo de texto quando uma escolha resolve; onde precisa digitar
+  (o horário de um remédio), o campo é numérico e grande.
+- **Semana de exercício**: começa no domingo, como o calendário dos relatórios.

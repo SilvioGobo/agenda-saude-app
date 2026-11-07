@@ -31,4 +31,52 @@ void main() {
       expect(await TelefoneServiceImpl().ligar('  '), isFalse);
     });
   });
+
+  group('normalizarTelefone Testes', () {
+    test('Deve guardar só os dígitos de celular e fixo com DDD', () {
+      expect(normalizarTelefone('(67) 99999-0000'), '67999990000');
+      expect(normalizarTelefone('67 3411-2233'), '6734112233');
+      expect(normalizarTelefone('67999990000'), '67999990000');
+      expect(normalizarTelefone('  (67) 99999-0000  '), '67999990000');
+    });
+
+    test('Deve tirar o código do país quando sobra um número completo', () {
+      expect(normalizarTelefone('+55 (67) 99999-0000'), '67999990000');
+      expect(normalizarTelefone('5567999990000'), '67999990000');
+      expect(normalizarTelefone('+55 67 3411-2233'), '6734112233');
+    });
+
+    test('Deve manter o DDD 55 quando o código do país não foi digitado', () {
+      expect(normalizarTelefone('55999990000'), '55999990000');
+      expect(normalizarTelefone('5534112233'), '5534112233');
+    });
+
+    test('Deve rejeitar número sem DDD', () {
+      expect(normalizarTelefone('99999-0000'), isNull);
+      expect(normalizarTelefone('3411-2233'), isNull);
+    });
+
+    test('Deve rejeitar celular que não começa com 9 e fixo fora de 2 a 5', () {
+      expect(normalizarTelefone('67899990000'), isNull);
+      expect(normalizarTelefone('6761112233'), isNull);
+    });
+
+    test('Deve rejeitar DDD que não existe', () {
+      expect(normalizarTelefone('00999990000'), isNull);
+      expect(normalizarTelefone('10999990000'), isNull);
+      expect(normalizarTelefone('20999990000'), isNull);
+    });
+
+    test('Deve rejeitar o que não é telefone', () {
+      expect(normalizarTelefone(''), isNull);
+      expect(normalizarTelefone('   '), isNull);
+      expect(normalizarTelefone('sem telefone'), isNull);
+      expect(normalizarTelefone('192'), isNull);
+    });
+
+    test('Deve rejeitar número com dígitos sobrando', () {
+      expect(normalizarTelefone('679999900001'), isNull);
+      expect(normalizarTelefone('55679999900001'), isNull);
+    });
+  });
 }

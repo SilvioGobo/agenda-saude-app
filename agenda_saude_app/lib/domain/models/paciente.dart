@@ -1,6 +1,9 @@
+import '../../core/constants/meta_exercicio.dart';
 import '../../core/constants/meta_hidratacao.dart';
+import '../../core/constants/meta_sono.dart';
 import '../metas/metas_personalizadas.dart';
 import '../refeicoes/refeicoes_padrao.dart';
+import 'medicamento.dart';
 import 'refeicao_planejada.dart';
 import 'usuario.dart';
 
@@ -41,6 +44,11 @@ class Paciente extends Usuario {
   // [planoDeRefeicoes], que cai no plano padrao.
   final List<RefeicaoPlanejada>? refeicoes;
 
+  // Remedios do paciente (RF003): o nome, a dose e os horarios de cada um. Lista
+  // vazia = nenhum remedio cadastrado. A rotina mostra uma linha por dose
+  // (remedio + horario) para marcar como tomada.
+  final List<Medicamento> medicamentos;
+
   Paciente({
     required super.id,
     required super.nome,
@@ -67,6 +75,7 @@ class Paciente extends Usuario {
     this.limiteLiquidoMl,
     this.metas,
     this.refeicoes,
+    this.medicamentos = const [],
   });
 
   // Refeicoes que aparecem na rotina: as do paciente ou, enquanto ele nao
@@ -82,6 +91,23 @@ class Paciente extends Usuario {
     return calculada != null && calculada >= MetaHidratacao.mlPorCopo
         ? calculada
         : MetaHidratacao.mlDiaria;
+  }
+
+  // Meta de sono por noite, em horas: a calculada na triagem (7 a 9 h; 7 a 8 h
+  // para idosos) ou, em contas sem metas, o padrao de 7 a 9 h. A rotina e os
+  // relatorios usam estes mesmos valores.
+  int get metaSonoMinHoras => metas?.sonoMinHoras ?? MetaSono.minHoras;
+
+  int get metaSonoMaxHoras => metas?.sonoMaxHoras ?? MetaSono.maxHoras;
+
+  // Meta de exercicio da semana, em minutos: a calculada na triagem (150, pela
+  // OMS) ou, em contas sem metas (ou com zero, que nao e uma meta), o padrao de
+  // 150. A rotina e os relatorios usam este mesmo valor.
+  int get metaExercicioMinutosSemana {
+    final calculada = metas?.exercicioMinutosSemana;
+    return calculada != null && calculada > 0
+        ? calculada
+        : MetaExercicio.minutosPorSemana;
   }
 
   // Do Firebase para o Dart
@@ -123,16 +149,24 @@ class Paciente extends Usuario {
                   Map<String, dynamic>.from(refeicao as Map)))
               .toList()
           : null,
+      medicamentos: json['medicamentos'] is List
+          ? (json['medicamentos'] as List)
+              .map((medicamento) => Medicamento.fromJson(
+                  Map<String, dynamic>.from(medicamento as Map)))
+              .toList()
+          : const [],
     );
   }
 
   // Copia com os campos que mudam depois da triagem: o peso e o nivel de
-  // atividade (atualizados ao recalcular), as metas e o plano de refeicoes.
+  // atividade (atualizados ao recalcular), as metas, o plano de refeicoes e os
+  // remedios.
   Paciente copyWith({
     double? pesoKg,
     String? nivelAtividadeFisica,
     MetasPersonalizadas? metas,
     List<RefeicaoPlanejada>? refeicoes,
+    List<Medicamento>? medicamentos,
   }) {
     return Paciente(
       id: id,
@@ -160,6 +194,7 @@ class Paciente extends Usuario {
       limiteLiquidoMl: limiteLiquidoMl,
       metas: metas ?? this.metas,
       refeicoes: refeicoes ?? this.refeicoes,
+      medicamentos: medicamentos ?? this.medicamentos,
     );
   }
 
@@ -191,6 +226,8 @@ class Paciente extends Usuario {
       'limiteLiquidoMl': limiteLiquidoMl,
       'metas': metas?.toJson(),
       'refeicoes': refeicoes?.map((refeicao) => refeicao.toJson()).toList(),
+      'medicamentos':
+          medicamentos.map((medicamento) => medicamento.toJson()).toList(),
     };
   }
 }

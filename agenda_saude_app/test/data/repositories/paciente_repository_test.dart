@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
@@ -212,6 +213,59 @@ void main() {
 
       final resultado = await repository.getPaciente('paciente_001');
       expect(resultado!.refeicoes!.map((r) => r.id), ['r3']);
+    });
+
+    test('Deve gravar os remédios sem mexer no resto do documento', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.salvarMedicamentos('paciente_001', const [
+        Medicamento(
+          id: 'm1',
+          nome: 'Losartana',
+          dose: '50 mg',
+          horarios: ['08:00'],
+        ),
+        Medicamento(
+          id: 'm2',
+          nome: 'Metformina',
+          dose: '500 mg',
+          horarios: ['12:00', '20:00'],
+        ),
+      ]);
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.medicamentos.map((m) => m.nome),
+          ['Losartana', 'Metformina']);
+      expect(resultado.medicamentos.first.dose, '50 mg');
+      expect(resultado.medicamentos.last.horarios, ['12:00', '20:00']);
+      expect(resultado.nome, 'João da Silva');
+      expect(resultado.codigoVinculo, 'ABC12');
+    });
+
+    test('Deve substituir os remédios antigos por inteiro, e aceitar a lista vazia', () async {
+      await repository.salvarPaciente(criarPaciente());
+      await repository.salvarMedicamentos('paciente_001', const [
+        Medicamento(id: 'm1', nome: 'Losartana', horarios: ['08:00']),
+        Medicamento(id: 'm2', nome: 'Metformina', horarios: ['12:00']),
+      ]);
+
+      await repository.salvarMedicamentos('paciente_001', const [
+        Medicamento(id: 'm3', nome: 'Sinvastatina', horarios: ['20:00']),
+      ]);
+      expect((await repository.getPaciente('paciente_001'))!
+          .medicamentos.map((m) => m.id), ['m3']);
+
+      await repository.salvarMedicamentos('paciente_001', const []);
+      expect((await repository.getPaciente('paciente_001'))!.medicamentos,
+          isEmpty);
+    });
+
+    test('Deve ler como sem remédios um paciente cadastrado antes deste recurso', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      final resultado = await repository.getPaciente('paciente_001');
+
+      expect(resultado!.medicamentos, isEmpty);
     });
   });
 }

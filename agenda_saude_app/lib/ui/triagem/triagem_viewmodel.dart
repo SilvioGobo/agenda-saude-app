@@ -228,6 +228,10 @@ class TriagemViewModel extends ChangeNotifier {
         nome: _pacienteOriginal.nome,
         email: _pacienteOriginal.email,
         perfil: _pacienteOriginal.perfil,
+        // O que o cadastro e a rotina ja gravaram: o paciente inteiro e
+        // gravado por cima do documento, entao nao pode se perder aqui.
+        telefone: _pacienteOriginal.telefone,
+        medicamentos: _pacienteOriginal.medicamentos,
         possuiDiabetes: possuiDiabetes!,
         tipoDiabetes: possuiDiabetes! ? tipoDiabetes : null,
         usaInsulina: possuiDiabetes! ? usaInsulina : null,

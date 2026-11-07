@@ -6,6 +6,7 @@ import '../shared/logo_agenda_saude.dart';
 import 'auth_view.dart';
 import 'auth_viewmodel.dart';
 import 'login_viewmodel.dart';
+import 'recuperar_senha_view.dart';
 import 'tela_inicial_usuario.dart';
 
 class LoginView extends StatefulWidget {
@@ -53,6 +54,17 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
+  // Leva o e-mail ja digitado para a tela de recuperar senha (RF 01.3).
+  void _irParaRecuperarSenha(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RecuperarSenhaView.comProviders(
+          emailInicial: _emailController.text,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<LoginViewModel>();
@@ -86,7 +98,15 @@ class _LoginViewState extends State<LoginView> {
                 style: const TextStyle(fontSize: 18),
                 decoration: const InputDecoration(labelText: 'Senha'),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _irParaRecuperarSenha(context),
+                  child: const Text('Esqueci minha senha'),
+                ),
+              ),
+              const SizedBox(height: 16),
               if (viewModel.mensagemErro != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),

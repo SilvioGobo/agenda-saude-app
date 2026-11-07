@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/constants/codigo_vinculo.dart';
+import '../../core/services/telefone_service.dart';
 import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/paciente_repository.dart';
@@ -61,10 +62,14 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // [telefone] e opcional: quem nao informa so nao aparece com botao de ligar
+  // nas telas dos outros (Figuras 13 e 16). Se vier preenchido, e gravado so
+  // com os digitos e o DDD.
   Future<bool> cadastrar({
     required String nome,
     required String email,
     required String senha,
+    String telefone = '',
   }) async {
     if (perfilSelecionado == null) {
       mensagemErro = 'Selecione se você é Paciente ou Acompanhante.';
@@ -80,6 +85,16 @@ class AuthViewModel extends ChangeNotifier {
       mensagemErro = 'Informe um e-mail válido.';
       notifyListeners();
       return false;
+    }
+    String? telefoneNormalizado;
+    if (telefone.trim().isNotEmpty) {
+      telefoneNormalizado = normalizarTelefone(telefone);
+      if (telefoneNormalizado == null) {
+        mensagemErro =
+            'Informe o telefone com DDD, por exemplo (67) 99999-0000, ou deixe em branco.';
+        notifyListeners();
+        return false;
+      }
     }
     if (calcularForcaSenha(senha) == ForcaSenha.fraca) {
       mensagemErro =
@@ -104,6 +119,7 @@ class AuthViewModel extends ChangeNotifier {
           nome: nome.trim(),
           email: email.trim(),
           perfil: 'Paciente',
+          telefone: telefoneNormalizado,
           possuiDiabetes: false,
           possuiCardiopatia: false,
           codigoVinculo: _gerarCodigoVinculo(),
@@ -116,6 +132,7 @@ class AuthViewModel extends ChangeNotifier {
           nome: nome.trim(),
           email: email.trim(),
           perfil: 'Acompanhante',
+          telefone: telefoneNormalizado,
           pacientesVinculadosIds: [],
         );
         await _acompanhanteRepository.salvarAcompanhante(acompanhante);

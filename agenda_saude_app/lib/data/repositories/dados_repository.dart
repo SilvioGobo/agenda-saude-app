@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/meta_exercicio.dart';
 import '../../domain/models/registro_agua.dart';
+import '../../domain/models/registro_medicacao.dart';
 import '../../domain/models/registro_refeicao.dart';
 import '../../domain/models/registro_sono.dart';
 import '../../domain/models/registro_exercicio.dart';
@@ -22,6 +24,19 @@ class DadosMedicosRepository {
     await _firestore.collection('registros_diarios').doc(registroId).delete();
   }
 
+  // Troca o conteudo de um registro que ja existe (ex.: o paciente corrige as
+  // horas de sono de hoje), mantendo o mesmo documento. As security rules so
+  // deixam o dono do registro fazer isso.
+  Future<void> atualizarRegistro(
+    String registroId,
+    RegistroBase registro,
+  ) async {
+    await _firestore
+        .collection('registros_diarios')
+        .doc(registroId)
+        .set(registro.toJson());
+  }
+
   // Registros de agua do paciente no dia de [dia] (do primeiro ao ultimo
   // instante no horario do aparelho), do mais recente para o mais antigo, em
   // tempo real - alimenta a barra de progresso da hidratacao (RF03.1).
@@ -30,6 +45,50 @@ class DadosMedicosRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => RegistroAgua.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Noite de sono registrada no dia de [dia], em tempo real - alimenta o
+  // cartao "Sono" da rotina (RF03.2). O paciente registra ao acordar, entao a
+  // noite cai no dia em que ele acordou (ver RegistroSono). Costuma ser um so
+  // registro; vem do mais recente para o mais antigo.
+  Stream<List<RegistroSono>> streamSonoDoDia(String pacienteId, DateTime dia) {
+    return _registrosDoDia(pacienteId, 'sono', dia)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroSono.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Doses de remedio que o paciente marcou como tomadas no dia de [dia], em
+  // tempo real - alimenta o cartao "Medicacoes" da rotina (RF003, Figura 14).
+  // Do mais recente para o mais antigo. Usa o mesmo indice das outras
+  // consultas de registros do dia.
+  Stream<List<RegistroMedicacao>> streamMedicacoesDoDia(
+    String pacienteId,
+    DateTime dia,
+  ) {
+    return _registrosDoDia(pacienteId, 'medicacao', dia)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroMedicacao.fromJson(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Exercicios da semana (de domingo a sabado) que contem [dia], em tempo real
+  // - alimenta o cartao "Exercicio" da rotina (RF03.3): os de hoje e o
+  // progresso da meta de minutos da semana. Do mais recente para o mais antigo.
+  Stream<List<RegistroExercicio>> streamExerciciosDaSemana(
+    String pacienteId,
+    DateTime dia,
+  ) {
+    final inicio = MetaExercicio.inicioDaSemana(dia);
+    final fim = DateTime(inicio.year, inicio.month, inicio.day + 7);
+
+    return _registrosEntre(pacienteId, 'exercicio', inicio, fim)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RegistroExercicio.fromJson(doc.data(), doc.id))
             .toList());
   }
 
@@ -100,6 +159,8 @@ class DadosMedicosRepository {
         return RegistroSono.fromJson(json, id);
       case 'exercicio':
         return RegistroExercicio.fromJson(json, id);
+      case 'medicacao':
+        return RegistroMedicacao.fromJson(json, id);
     }
     return null;
   }
@@ -112,9 +173,23 @@ class DadosMedicosRepository {
     String tipo,
     DateTime dia,
   ) {
-    final inicio = DateTime(dia.year, dia.month, dia.day);
-    final fim = DateTime(dia.year, dia.month, dia.day + 1);
+    return _registrosEntre(
+      pacienteId,
+      tipo,
+      DateTime(dia.year, dia.month, dia.day),
+      DateTime(dia.year, dia.month, dia.day + 1),
+    );
+  }
 
+  // Registros de um [tipo] no intervalo [inicio, fim), do mais recente para o
+  // mais antigo. Mesma consulta e mesmo indice do dia a dia, com um intervalo
+  // maior.
+  Query<Map<String, dynamic>> _registrosEntre(
+    String pacienteId,
+    String tipo,
+    DateTime inicio,
+    DateTime fim,
+  ) {
     return _firestore
         .collection('registros_diarios')
         .where('pacienteId', isEqualTo: pacienteId)
