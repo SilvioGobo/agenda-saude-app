@@ -16,6 +16,7 @@ import 'package:agenda_saude_app/ui/acompanhante/acompanhante_view.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 
 import '../../core/services/fake_notification_service.dart';
+import '../../core/services/fake_push_service.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
@@ -61,7 +62,10 @@ void main() {
     ));
   }
 
-  Future<void> montarPainel(WidgetTester tester) async {
+  Future<void> montarPainel(
+    WidgetTester tester, {
+    FakePushService? pushService,
+  }) async {
     final acompanhante =
         (await acompanhanteRepository.getAcompanhante('cuidador_01'))!;
     await tester.pumpWidget(
@@ -72,6 +76,7 @@ void main() {
           dadosRepository: dadosRepository,
           relatoriosRepository: RelatoriosRepository(firestore: fakeFirestore),
           notificationService: notificationService,
+          pushService: pushService,
         ),
       ),
     );
@@ -491,6 +496,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Notificações'), findsOneWidget);
     expect(find.text('Nenhuma notificação nova.'), findsOneWidget);
+  });
+
+  testWidgets('Painel registra este aparelho para receber o push dos alertas', (
+    tester,
+  ) async {
+    await montarPainel(tester, pushService: FakePushService());
+
+    final doc = await fakeFirestore.collection('usuarios').doc('cuidador_01').get();
+    expect(doc.data()!['fcmTokens'], ['token_aparelho_01']);
+  });
+
+  testWidgets('Tocar no push de emergência com o app fechado abre a tela de emergência', (
+    tester,
+  ) async {
+    await PacienteRepository(firestore: fakeFirestore).salvarPaciente(Paciente(
+      id: 'paciente_01',
+      nome: 'José Silva',
+      email: 'jose@email.com',
+      perfil: 'Paciente',
+      telefone: '67999990000',
+      possuiDiabetes: false,
+      possuiCardiopatia: false,
+      codigoVinculo: 'ABC123',
+    ));
+    await acompanhanteRepository.vincularPaciente('cuidador_01', 'paciente_01');
+    // O alerta que gerou o push ja existe; o app abre pelo toque na
+    // notificacao e ainda precisa carregar os pacientes e os alertas.
+    await fakeFirestore.collection('alertas').doc('alerta_push').set(Alerta(
+      id: '',
+      pacienteId: 'paciente_01',
+      tipo: Alerta.tipoEmergencia,
+      mensagem: 'Batimentos fora da zona de segurança há 6 minutos '
+          '(última leitura: 128 BPM).',
+      bpm: 128,
+      dataHora: DateTime.now(),
+    ).toJson());
+    notificationService.payloadDeAbertura = 'alerta_push';
+
+    await montarPainel(tester, pushService: FakePushService());
+
+    expect(find.text('ALERTA CRÍTICO'), findsOneWidget);
+    expect(find.text('128'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('LIGAR PARA O SAMU (192)'), 200);
+    expect(find.text('LIGAR PARA JOSÉ'), findsOneWidget);
+    // O alerta ja existia: abrir a tela nao gera outra notificacao.
+    expect(notificationService.mostradas, isEmpty);
   });
 
   testWidgets('Painel pede para ativar as notificações quando estão bloqueadas', (

@@ -21,7 +21,8 @@ inventar. O código Flutter fica em `agenda_saude_app/`.
   Flutter/Dart em si.
 - Dart 3.x, Material 3, seed color teal
 - **Firebase (BaaS)**: Auth (login/cadastro), Cloud Firestore (dados + sync em tempo
-  real), Cloud Messaging (notificações push). Projeto: `tcc-agenda-saude`
+  real), Cloud Messaging (notificações push) e Cloud Functions (`functions/` na raiz,
+  Node 22, quem manda o push; exige o plano Blaze). Projeto: `tcc-agenda-saude`
 - **Arquitetura: MVVM + Clean Architecture** — ViewModels com `ChangeNotifier` +
   `provider`; lógica de negócio independente de UI e de Firebase
 - Bibliotecas previstas no documento: `provider`, `health` (BPM do smartwatch),
@@ -37,6 +38,15 @@ fvm flutter pub get
 fvm flutter analyze
 fvm flutter test
 fvm flutter run
+```
+
+Cloud Functions (pasta `functions/` na raiz do repositório):
+
+```bash
+cd functions
+npm ci
+npm test                             # sem Firebase: Firestore e FCM falsos
+firebase deploy --only functions     # roda o npm test antes; exige o plano Blaze
 ```
 
 ## Estrutura de pastas
@@ -60,7 +70,7 @@ lib/
   core/
     theme/          # tema acessível (NF004): fonte grande, alto contraste, botões grandes
     constants/      # zonas de segurança de BPM, metas de hidratação, momentos de glicemia
-    services/       # tts_service, health_service, notification_service (wrappers de plugin)
+    services/       # tts_service, health_service, notification_service, push_service (wrappers de plugin)
   domain/models/    # já completo (ver abaixo)
   domain/metas/     # CalculadoraMetas + MetasPersonalizadas: metas a partir da triagem
   domain/refeicoes/ # RefeicoesPadrao: plano de refeições de quem não personalizou
@@ -89,6 +99,9 @@ test/               # espelha lib/ (test/domain/models, test/data/repositories, 
 integration_test/   # fluxos completos no emulador
 ```
 
+Fora do app, na raiz do repositório: `functions/` (Cloud Functions em JavaScript:
+`index.js` com o gatilho, `notificacao.js` com a lógica, `test/` com `node --test`).
+
 ## Modelo de dados (Firestore)
 
 Convenções já estabelecidas nos repositories — manter:
@@ -97,7 +110,13 @@ Convenções já estabelecidas nos repositories — manter:
   coleção, discriminados pelo campo `perfil` (`'Paciente'` | `'Acompanhante'`).
   Paciente tem `possuiDiabetes`, `possuiCardiopatia`, `codigoVinculo`,
   `acompanhantesVinculadosIds: List<String>`;
-  Acompanhante tem `pacientesVinculadosIds: List<String>`. Os dois podem ter
+  Acompanhante tem `pacientesVinculadosIds: List<String>` e `fcmTokens: List<String>`,
+  os aparelhos que recebem o push dos alertas (B6). O token entra ao abrir o painel (login
+  ou sessão salva) e na renovação do FCM, e sai ao tocar em "Sair"
+  (`AcompanhanteRepository.adicionarTokenPush`/`removerTokenPush`, só esse campo; fora do
+  `toJson()`). O paciente consegue ler os tokens pelo `get` de "Falar com Acompanhante",
+  mas um token sozinho não manda push: isso exige a conta de serviço do projeto. Os dois
+  podem ter
   `telefone` (opcional em `Usuario`, `temTelefone`): sem ele as telas escondem o botão
   de ligar para a pessoa. O campo é pedido (opcional) no cadastro e gravado só com os
   dígitos e o DDD (`normalizarTelefone`, em `telefone_service.dart`); contas criadas
@@ -188,7 +207,22 @@ Convenções já estabelecidas nos repositories — manter:
   `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
   `emergencia` com BPM fora da zona por 5 min. Doc sem `tipo` é tratado como emergência.
   O acompanhante escuta em tempo real (`AlertasViewModel`) e mostra notificação local
-  (`flutter_local_notifications`) — só com o app aberto ou em segundo plano.
+  (`flutter_local_notifications`) com o app aberto ou em segundo plano. Com o app
+  fechado, quem avisa é o **push (B6)**: a Cloud Function `notificarAlertaPaciente`
+  (`functions/`, região `southamerica-east1`, a mesma do Firestore) dispara ao criar o
+  doc, lê `acompanhantesVinculadosIds` do paciente e manda para os `fcmTokens` de cada
+  acompanhante que também tem o paciente em `pacientesVinculadosIds` (o critério das
+  rules), com prioridade alta; os tokens que o FCM recusa saem da lista. A mensagem só
+  tem dados (`tipo: 'alerta_paciente'`, `alertaId`, `acompanhanteId`, `nivel`, `titulo`,
+  `texto`, `dataHora`): quem mostra é o app (`receberPushEmSegundoPlano`, em
+  `push_service.dart`), no canal `alertas_pacientes` e com o mesmo id da notificação da
+  escuta (`idDaNotificacaoDoAlerta`), então o alerta aparece uma vez só. Só mostra se a
+  conta logada no aparelho for a do `acompanhanteId`. Tocar abre `abrirDetalhesDoAlerta`
+  (a tela de emergência), também com o app encerrado (`payloadQueAbriuOApp` +
+  `AlertasViewModel.aguardarAlerta`). Sem tela cheia por cima do bloqueio: exigiria
+  `USE_FULL_SCREEN_INTENT` e `showWhenLocked`, e com isso o app abriria com o celular
+  bloqueado; fica a notificação de prioridade máxima. Sem o deploy da função (plano
+  Blaze), tudo continua como antes, só sem o aviso com o app fechado.
 - `localizacoes/{pacienteId}` — **um doc por paciente** (doc id = UID) com a última
   posição: `pacienteId`, `ativo`, `latitude`, `longitude`, `precisaoMetros`, `dataHora`.
   Cada envio sobrescreve o anterior (sem histórico do trajeto, NF005); desligar grava
@@ -280,9 +314,11 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    `ui/shared/`). O botão "Falar com Acompanhante" do painel do paciente (Figura 13)
    abre `FalarComAcompanhanteView` (`ui/paciente/`): cada acompanhante vinculado com
    "LIGAR PARA [NOME]" (ou "SEM TELEFONE CADASTRADO") e o atalho "LIGAR PARA O SAMU
-   (192)" — dois toques do painel até o discador. Falta o push FCM com o app fechado
-   (exige Cloud Functions); tocar numa notificação com o app encerrado ainda não abre a
-   tela (entra junto com o push)*
+   (192)" — dois toques do painel até o discador. Push com o app fechado (RF06.2, B6)
+   também feito: `PushService` (`firebase_messaging` 16.2.2, a versão da mesma leva do
+   `firebase_core` 4.9.0; fake nos testes), token em `usuarios/{uid}.fcmTokens` e a
+   Cloud Function em `functions/` (ver `alertas` acima). Publicar com
+   `firebase deploy --only functions` (plano Blaze, decisão D2)*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007)
 
