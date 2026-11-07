@@ -33,4 +33,15 @@ class AuthRepository {
     );
     return credential.user!.uid;
   }
+
+  // Pede ao Firebase Auth que mande ao [email] o link para criar uma nova senha
+  // (RF 01.3). O e-mail e o link sao do proprio Firebase; o idioma vai antes
+  // para a mensagem sair em portugues e nao no padrao do projeto. Com a protecao
+  // contra enumeracao de contas ligada (padrao dos projetos novos), um e-mail
+  // sem conta tambem termina sem erro; sem ela, o Firebase lanca
+  // `user-not-found`.
+  Future<void> enviarEmailRedefinicaoSenha({required String email}) async {
+    await _auth.setLanguageCode('pt-BR');
+    await _auth.sendPasswordResetEmail(email: email);
+  }
 }

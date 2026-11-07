@@ -8,6 +8,8 @@ import '../../domain/models/alerta.dart';
 import '../../domain/models/registro_diabete.dart';
 import '../../domain/relatorios/resumo_do_dia.dart';
 import '../insulina/formatacao_diabete.dart';
+import '../rotina/formato_exercicio.dart';
+import '../rotina/formato_sono.dart';
 import '../rotina/resumo_nutricional.dart';
 import '../shared/caixa_alerta.dart';
 import '../shared/card_status.dart';
@@ -18,10 +20,10 @@ import 'relatorio_dia_viewmodel.dart';
 
 // O relatorio de um dia da rotina (RF05), igual para o paciente e para o
 // acompanhante: como o dia fechou, o que pede atencao e um cartao para cada
-// parte da rotina - hidratacao, refeicoes, glicemia e insulina (so para
-// diabeticos) e batimentos. Os textos falam do dia sem dizer "voce" nem o
-// nome, para servirem aos dois. Precisa de um [RelatorioDiaViewModel] acima na
-// arvore.
+// parte da rotina - hidratacao, medicacoes, refeicoes, glicemia e insulina (so
+// para diabeticos), sono, exercicio e batimentos. Os textos falam do dia sem dizer
+// "voce" nem o nome, para servirem aos dois. Precisa de um
+// [RelatorioDiaViewModel] acima na arvore.
 class RelatorioDiaConteudo extends StatelessWidget {
   const RelatorioDiaConteudo({super.key});
 
@@ -67,11 +69,17 @@ class _RelatorioPronto extends StatelessWidget {
         const SizedBox(height: 16),
         _CartaoHidratacao(hidratacao: resumo.hidratacao),
         const SizedBox(height: 16),
+        _CartaoMedicacao(medicacao: resumo.medicacao),
+        const SizedBox(height: 16),
         _CartaoRefeicoes(viewModel: viewModel, refeicoes: resumo.refeicoes),
         if (resumo.diabetes != null) ...[
           const SizedBox(height: 16),
           _CartaoGlicemia(diabetes: resumo.diabetes!),
         ],
+        const SizedBox(height: 16),
+        _CartaoSono(sono: resumo.sono),
+        const SizedBox(height: 16),
+        _CartaoExercicio(exercicio: resumo.exercicio),
         const SizedBox(height: 16),
         _CartaoBatimentos(resumo: resumo),
       ],
@@ -130,9 +138,12 @@ class _SituacaoGeral extends StatelessWidget {
   String get _detalhe {
     final itens = [
       ('meta de água', resumo.hidratacao.metaAtingida),
+      if (resumo.medicacao.total > 0)
+        ('remédios', resumo.medicacao.todasTomadas),
       if (resumo.refeicoes.total > 0)
         ('refeições', resumo.refeicoes.todasFeitas),
       if (resumo.diabetes != null) ('glicemia', resumo.diabetes!.completo),
+      ('sono', resumo.sono.registrou),
     ];
     final cumpridos = [
       for (final (nome, cumprido) in itens)
@@ -238,6 +249,110 @@ class _CartaoHidratacao extends StatelessWidget {
             texto: 'Meta do dia: ${formatarMl(h.metaMl)}.',
           ),
       ],
+    );
+  }
+}
+
+// As doses de remedio do dia (RF003, Figura 14): quais foram tomadas e a que
+// horas. Usa a lista de remedios de hoje, como o plano de refeicoes.
+class _CartaoMedicacao extends StatelessWidget {
+  final MedicacaoDoDia medicacao;
+
+  const _CartaoMedicacao({required this.medicacao});
+
+  @override
+  Widget build(BuildContext context) {
+    final m = medicacao;
+
+    return CartaoRelatorio(
+      icone: Icons.medication_rounded,
+      titulo: 'Medicações',
+      resumo: m.total == 0
+          ? 'Nenhum remédio cadastrado'
+          : '${m.tomadas} de ${m.total} tomados',
+      filhos: [
+        if (m.total > 0)
+          BarraDeProgresso(valor: m.progresso, completa: m.todasTomadas),
+        if (m.planejadas.isNotEmpty || m.foraDoPlano.isNotEmpty)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final item in m.planejadas)
+                _LinhaDeDose(
+                  descricao: item.dose.descricao,
+                  horario: item.dose.horario,
+                  tomadaEm: item.tomadaEm,
+                ),
+              for (final extra in m.foraDoPlano)
+                _LinhaDeDose(
+                  descricao: extra.descricao,
+                  horario: extra.horario,
+                  tomadaEm: extra.dataHora,
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+// "Losartana 50 mg - 08:00 - Tomado às 08:10" / "Não tomado". Icone, texto e
+// cor dizem a mesma coisa (nunca so a cor - NF004).
+class _LinhaDeDose extends StatelessWidget {
+  final String descricao;
+  final String horario;
+  final DateTime? tomadaEm;
+
+  const _LinhaDeDose({
+    required this.descricao,
+    required this.horario,
+    required this.tomadaEm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tomada = tomadaEm != null;
+    final cor = tomada ? AppCores.sucesso : colorScheme.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            tomada
+                ? Icons.check_box_rounded
+                : Icons.check_box_outline_blank_rounded,
+            size: 32,
+            color: cor,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$descricao · $horario',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  tomada ? 'Tomado às ${formatarHora(tomadaEm!)}' : 'Não tomado',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: cor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -348,6 +463,115 @@ class _LinhaDeRefeicao extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// A noite de sono do dia (RF03.2): horas, qualidade e a meta. A noite conta no
+// dia em que o paciente acordou e a registrou.
+class _CartaoSono extends StatelessWidget {
+  final SonoDoDia sono;
+
+  const _CartaoSono({required this.sono});
+
+  @override
+  Widget build(BuildContext context) {
+    final noite = sono.registro;
+    final meta = formatarMetaDeSono(sono.metaMinHoras, sono.metaMaxHoras);
+
+    return CartaoRelatorio(
+      icone: Icons.bedtime_rounded,
+      titulo: 'Sono',
+      resumo: noite == null
+          ? 'Nenhuma noite anotada'
+          : formatarHorasDeSono(noite.horasTotais),
+      filhos: [
+        if (noite != null) ...[
+          LinhaDoRelatorio(
+            icone: Icons.star_rounded,
+            texto: 'Qualidade: ${descreverQualidadeDoSono(noite.qualidade)}.',
+          ),
+          if (sono.metaAtingida)
+            const CardStatus(
+              rotulo: 'META DE SONO ATINGIDA',
+              icone: Icons.check_circle_rounded,
+              cor: AppCores.sucesso,
+            )
+          else
+            LinhaDoRelatorio(
+              icone: Icons.info_rounded,
+              cor: AppCores.aviso,
+              texto: 'Dormiu menos que a meta de $meta por noite.',
+            ),
+        ] else
+          LinhaDoRelatorio(
+            icone: Icons.flag_rounded,
+            texto: 'Meta de sono: $meta por noite.',
+          ),
+      ],
+    );
+  }
+}
+
+// Os exercicios do dia (RF03.3) e o progresso da meta de minutos da semana ate
+// esse dia. O exercicio nao entra no "dia completo": a meta e da semana.
+class _CartaoExercicio extends StatelessWidget {
+  final ExercicioDoDia exercicio;
+
+  const _CartaoExercicio({required this.exercicio});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final e = exercicio;
+
+    return CartaoRelatorio(
+      icone: Icons.directions_walk_rounded,
+      titulo: 'Exercício',
+      resumo: e.fez ? formatarMinutos(e.minutos) : 'Nenhum exercício anotado',
+      filhos: [
+        if (e.fez)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final registro in e.registros)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: LinhaDoRelatorio(
+                    icone: Icons.directions_walk_rounded,
+                    texto: '${formatarHora(registro.dataHora)} · '
+                        '${registro.tipoExercicio}, '
+                        '${formatarMinutos(registro.duracaoMinutos)}, '
+                        'intensidade ${registro.intensidade.toLowerCase()}.',
+                  ),
+                ),
+            ],
+          ),
+        if (e.temProgressoDaSemana) ...[
+          BarraDeProgresso(
+            valor: e.progressoDaSemana,
+            completa: e.metaDaSemanaAtingida,
+          ),
+          Text(
+            'Na semana, até este dia: ${e.minutosNaSemana} de '
+            '${e.metaSemanalMinutos} min.',
+            style: TextStyle(fontSize: 18, color: colorScheme.onSurfaceVariant),
+          ),
+          if (e.metaDaSemanaAtingida)
+            const CardStatus(
+              rotulo: 'META DA SEMANA ATINGIDA',
+              icone: Icons.check_circle_rounded,
+              cor: AppCores.sucesso,
+            )
+          else
+            LinhaDoRelatorio(
+              icone: Icons.info_rounded,
+              cor: AppCores.aviso,
+              texto: 'Faltavam ${e.minutosQueFaltavam} min para a meta da '
+                  'semana.',
+            ),
+        ],
+      ],
     );
   }
 }

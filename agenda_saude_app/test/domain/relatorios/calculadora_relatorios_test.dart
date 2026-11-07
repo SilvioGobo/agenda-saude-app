@@ -3,11 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
+import 'package:agenda_saude_app/domain/models/registro_exercicio.dart';
+import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/domain/relatorios/calculadora_relatorios.dart';
 import 'package:agenda_saude_app/domain/relatorios/resumo_do_dia.dart';
 
@@ -21,25 +25,28 @@ Paciente _paciente({
   bool cardiopatia = false,
   List<RefeicaoPlanejada>? plano = const [_cafe, _almoco],
   int? aguaMl,
+  int? sonoMaxHoras,
+  List<Medicamento> medicamentos = const [],
 }) {
   return Paciente(
     id: 'paciente_01',
     nome: 'José Silva',
     email: 'jose@email.com',
     perfil: 'Paciente',
+    medicamentos: medicamentos,
     possuiDiabetes: diabetes,
     usaInsulina: diabetes ? usaInsulina : null,
     possuiCardiopatia: cardiopatia,
     codigoVinculo: 'ABC123',
     refeicoes: plano,
-    metas: aguaMl == null
+    metas: aguaMl == null && sonoMaxHoras == null
         ? null
         : MetasPersonalizadas(
             imc: 24.7,
             classificacaoImc: ClassificacaoImc.adequado,
-            hidratacaoMl: aguaMl,
+            hidratacaoMl: aguaMl ?? 2000,
             sonoMinHoras: 7,
-            sonoMaxHoras: 9,
+            sonoMaxHoras: sonoMaxHoras ?? 9,
             passos: 6000,
             exercicioMinutosSemana: 150,
             calorias: 1800,
@@ -68,6 +75,56 @@ RegistroRefeicao _refeicao(String refeicaoId, DateTime quando) =>
       dataHora: quando,
       refeicaoId: refeicaoId,
       nome: refeicaoId,
+    );
+
+// A noite como o app grava: ao acordar, inicio e fim valem o instante do
+// registro.
+RegistroSono _sono(DateTime quando, {double horas = 7.5, int qualidade = 4}) =>
+    RegistroSono(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: quando,
+      dataFim: quando,
+      horasTotais: horas,
+      qualidade: qualidade,
+    );
+
+const _losartana = Medicamento(
+  id: 'm1',
+  nome: 'Losartana',
+  dose: '50 mg',
+  horarios: ['08:00'],
+);
+const _metformina = Medicamento(
+  id: 'm2',
+  nome: 'Metformina',
+  dose: '500 mg',
+  horarios: ['12:00', '20:00'],
+);
+
+RegistroMedicacao _dose(String medicamentoId, String horario, DateTime quando) =>
+    RegistroMedicacao(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: quando,
+      medicamentoId: medicamentoId,
+      horario: horario,
+      nome: medicamentoId,
+    );
+
+RegistroExercicio _exercicio(
+  DateTime quando, {
+  int minutos = 30,
+  String tipo = 'Caminhada',
+  String intensidade = 'Moderada',
+}) =>
+    RegistroExercicio(
+      id: '',
+      pacienteId: 'paciente_01',
+      dataHora: quando,
+      tipoExercicio: tipo,
+      duracaoMinutos: minutos,
+      intensidade: intensidade,
     );
 
 RegistroDiabete _diabete(
@@ -469,7 +526,319 @@ void main() {
       });
     });
 
+    group('Sono', () {
+      test('Deve mostrar a noite registrada e comparar com a meta padrão de 7 a 9 horas', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          sono: [_sono(DateTime(2026, 11, 1, 6, 30), horas: 8, qualidade: 5)],
+        );
+
+        expect(resumo.sono.registrou, isTrue);
+        expect(resumo.sono.registro!.horasTotais, 8);
+        expect(resumo.sono.registro!.qualidade, 5);
+        expect(resumo.sono.metaMinHoras, 7);
+        expect(resumo.sono.metaMaxHoras, 9);
+        expect(resumo.sono.metaAtingida, isTrue);
+      });
+
+      test('Sem noite registrada, o sono não conta como registrado nem como meta atingida', () {
+        final resumo =
+            CalculadoraRelatorios.resumirDia(paciente: _paciente(), dia: dia);
+
+        expect(resumo.sono.registrou, isFalse);
+        expect(resumo.sono.registro, isNull);
+        expect(resumo.sono.metaAtingida, isFalse);
+      });
+
+      test('Deve atingir a meta a partir do mínimo, sem penalizar quem dormiu mais', () {
+        SonoDoDia comHoras(double horas) => CalculadoraRelatorios.resumirDia(
+              paciente: _paciente(),
+              dia: dia,
+              sono: [_sono(DateTime(2026, 11, 1, 6, 30), horas: horas)],
+            ).sono;
+
+        expect(comHoras(6.5).metaAtingida, isFalse);
+        expect(comHoras(7).metaAtingida, isTrue);
+        expect(comHoras(11).metaAtingida, isTrue);
+      });
+
+      test('Deve usar a meta de sono calculada para o paciente', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(sonoMaxHoras: 8),
+          dia: dia,
+        );
+
+        expect(resumo.sono.metaMinHoras, 7);
+        expect(resumo.sono.metaMaxHoras, 8);
+      });
+
+      test('Quando há mais de uma noite no dia, vale a mais recente', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          sono: [
+            _sono(DateTime(2026, 11, 1, 9), horas: 8),
+            _sono(DateTime(2026, 11, 1, 6), horas: 5),
+          ],
+        );
+
+        expect(resumo.sono.registro!.horasTotais, 8);
+      });
+    });
+
+    group('Medicação', () {
+      final doisRemedios = _paciente(medicamentos: const [_losartana, _metformina]);
+
+      test('Deve listar as doses do plano em ordem de horário e marcar as tomadas', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: doisRemedios,
+          dia: dia,
+          medicacoes: [
+            _dose('m2', '12:00', DateTime(2026, 11, 1, 12, 20)),
+            _dose('m1', '08:00', DateTime(2026, 11, 1, 8, 10)),
+          ],
+        );
+
+        final m = resumo.medicacao;
+        expect(m.planejadas.map((d) => '${d.dose.nome} ${d.dose.horario}'),
+            ['Losartana 08:00', 'Metformina 12:00', 'Metformina 20:00']);
+        expect(m.planejadas.map((d) => d.tomada), [true, true, false]);
+        expect(m.planejadas.first.tomadaEm, DateTime(2026, 11, 1, 8, 10));
+        expect(m.tomadas, 2);
+        expect(m.total, 3);
+        expect(m.todasTomadas, isFalse);
+        expect(m.progresso, closeTo(2 / 3, 0.0001));
+        expect(m.registrou, isTrue);
+      });
+
+      test('Deve valer a primeira marcação quando a dose foi marcada duas vezes', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: doisRemedios,
+          dia: dia,
+          medicacoes: [
+            _dose('m1', '08:00', DateTime(2026, 11, 1, 10, 0)),
+            _dose('m1', '08:00', DateTime(2026, 11, 1, 8, 5)),
+          ],
+        );
+
+        expect(resumo.medicacao.planejadas.first.tomadaEm,
+            DateTime(2026, 11, 1, 8, 5));
+        expect(resumo.medicacao.tomadas, 1);
+      });
+
+      test('Deve guardar à parte as doses que já não estão na lista, sem contá-las como tomadas', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(medicamentos: const [_losartana]),
+          dia: dia,
+          medicacoes: [
+            // O remedio mudou de horario depois.
+            _dose('m1', '07:00', DateTime(2026, 11, 1, 7, 10)),
+            // E outro foi apagado.
+            _dose('m9', '09:00', DateTime(2026, 11, 1, 9, 5)),
+          ],
+        );
+
+        final m = resumo.medicacao;
+        expect(m.tomadas, 0);
+        expect(m.foraDoPlano.map((r) => r.medicamentoId), ['m1', 'm9']);
+        expect(m.registrou, isTrue);
+        expect(resumo.temRegistros, isTrue);
+      });
+
+      test('Sem remédios cadastrados, não há doses e elas não entram na conta do dia', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+        );
+
+        expect(resumo.medicacao.total, 0);
+        expect(resumo.medicacao.todasTomadas, isFalse);
+        expect(resumo.medicacao.registrou, isFalse);
+        expect(resumo.itensTotais, 3);
+      });
+    });
+
+    group('Exercício', () {
+      test('Deve listar os exercícios do dia, do mais antigo para o mais recente, e somar os minutos', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          exercicios: [
+            _exercicio(DateTime(2026, 11, 1, 17), minutos: 20, tipo: 'Alongamento'),
+            _exercicio(DateTime(2026, 11, 1, 7), minutos: 40),
+          ],
+        );
+
+        expect(resumo.exercicio.fez, isTrue);
+        expect(resumo.exercicio.registros.map((r) => r.tipoExercicio),
+            ['Caminhada', 'Alongamento']);
+        expect(resumo.exercicio.minutos, 60);
+      });
+
+      test('Sem exercício no dia, nada foi feito', () {
+        final resumo =
+            CalculadoraRelatorios.resumirDia(paciente: _paciente(), dia: dia);
+
+        expect(resumo.exercicio.fez, isFalse);
+        expect(resumo.exercicio.minutos, 0);
+        expect(resumo.exercicio.registros, isEmpty);
+      });
+
+      test('Deve comparar os minutos da semana até o dia com a meta padrão de 150', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          exercicios: [_exercicio(DateTime(2026, 11, 1, 7), minutos: 30)],
+          exerciciosDaSemana: [
+            _exercicio(DateTime(2026, 10, 27, 8), minutos: 60),
+            _exercicio(DateTime(2026, 11, 1, 7), minutos: 30),
+          ],
+        );
+
+        expect(resumo.exercicio.temProgressoDaSemana, isTrue);
+        expect(resumo.exercicio.minutosNaSemana, 90);
+        expect(resumo.exercicio.metaSemanalMinutos, 150);
+        expect(resumo.exercicio.minutosQueFaltavam, 60);
+        expect(resumo.exercicio.progressoDaSemana, closeTo(0.6, 0.0001));
+        expect(resumo.exercicio.metaDaSemanaAtingida, isFalse);
+      });
+
+      test('Deve atingir a meta da semana e travar a barra em 100%', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          exerciciosDaSemana: [
+            _exercicio(DateTime(2026, 10, 27, 8), minutos: 120),
+            _exercicio(DateTime(2026, 10, 30, 8), minutos: 60),
+          ],
+        );
+
+        expect(resumo.exercicio.minutosNaSemana, 180);
+        expect(resumo.exercicio.metaDaSemanaAtingida, isTrue);
+        expect(resumo.exercicio.minutosQueFaltavam, 0);
+        expect(resumo.exercicio.progressoDaSemana, 1);
+      });
+
+      test('Sem a semana lida, o progresso fica desconhecido em vez de zerado', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          exercicios: [_exercicio(DateTime(2026, 11, 1, 7))],
+        );
+
+        expect(resumo.exercicio.temProgressoDaSemana, isFalse);
+        expect(resumo.exercicio.minutosNaSemana, isNull);
+        expect(resumo.exercicio.progressoDaSemana, 0);
+        expect(resumo.exercicio.metaDaSemanaAtingida, isFalse);
+        expect(resumo.exercicio.minutosQueFaltavam, 0);
+      });
+
+      test('Deve usar a meta de exercício calculada para o paciente', () {
+        final paciente = _paciente().copyWith(
+          metas: MetasPersonalizadas(
+            imc: 24.7,
+            classificacaoImc: ClassificacaoImc.adequado,
+            hidratacaoMl: 2000,
+            sonoMinHoras: 7,
+            sonoMaxHoras: 9,
+            passos: 6000,
+            exercicioMinutosSemana: 90,
+            calorias: 1800,
+            carboidratosG: 225,
+            proteinasG: 90,
+            gordurasG: 60,
+            fibrasG: 25,
+            gorduraSaturadaMaxG: 14,
+            acucarLivreMaxG: 45,
+            sodioMaxMg: 2000,
+          ),
+        );
+
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: paciente,
+          dia: dia,
+          exerciciosDaSemana: [_exercicio(DateTime(2026, 11, 1, 7), minutos: 90)],
+        );
+
+        expect(resumo.exercicio.metaSemanalMinutos, 90);
+        expect(resumo.exercicio.metaDaSemanaAtingida, isTrue);
+      });
+    });
+
     group('Situação do dia', () {
+      test('Quem tem remédios só fecha o dia completo com todas as doses tomadas', () {
+        final paciente = _paciente(medicamentos: const [_losartana, _metformina]);
+        ResumoDoDia resumir(List<RegistroMedicacao> doses) =>
+            CalculadoraRelatorios.resumirDia(
+              paciente: paciente,
+              dia: dia,
+              agua: _copos(dia, 8),
+              refeicoes: [
+                _refeicao('cafe', DateTime(2026, 11, 1, 7)),
+                _refeicao('almoco', DateTime(2026, 11, 1, 12)),
+              ],
+              sono: [_sono(DateTime(2026, 11, 1, 6, 30))],
+              medicacoes: doses,
+            );
+
+        final faltando = resumir([
+          _dose('m1', '08:00', DateTime(2026, 11, 1, 8, 5)),
+          _dose('m2', '12:00', DateTime(2026, 11, 1, 12, 5)),
+        ]);
+        expect(faltando.itensTotais, 4);
+        expect(faltando.itensCompletos, 3);
+        expect(faltando.situacao, SituacaoDoDia.parcial);
+
+        final todas = resumir([
+          _dose('m1', '08:00', DateTime(2026, 11, 1, 8, 5)),
+          _dose('m2', '12:00', DateTime(2026, 11, 1, 12, 5)),
+          _dose('m2', '20:00', DateTime(2026, 11, 1, 20, 5)),
+        ]);
+        expect(todas.itensCompletos, 4);
+        expect(todas.situacao, SituacaoDoDia.completo);
+      });
+
+      test('Só uma dose tomada já tira o dia de "sem registro"', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(medicamentos: const [_losartana]),
+          dia: dia,
+          medicacoes: [_dose('m1', '08:00', DateTime(2026, 11, 1, 8, 5))],
+        );
+
+        expect(resumo.temRegistros, isTrue);
+        expect(resumo.situacao, SituacaoDoDia.parcial);
+      });
+
+      test('Só o exercício já tira o dia de "sem registro", mas não conta como item da rotina', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          exercicios: [_exercicio(DateTime(2026, 11, 1, 7))],
+        );
+
+        expect(resumo.temRegistros, isTrue);
+        expect(resumo.situacao, SituacaoDoDia.parcial);
+        expect(resumo.itensTotais, 3);
+        expect(resumo.itensCompletos, 0);
+      });
+
+      test('Um dia de descanso não deixa a rotina incompleta: o exercício não entra no "dia completo"', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          agua: _copos(dia, 8),
+          refeicoes: [
+            _refeicao('cafe', DateTime(2026, 11, 1, 7)),
+            _refeicao('almoco', DateTime(2026, 11, 1, 12)),
+          ],
+          sono: [_sono(DateTime(2026, 11, 1, 6, 30))],
+        );
+
+        expect(resumo.exercicio.fez, isFalse);
+        expect(resumo.situacao, SituacaoDoDia.completo);
+      });
+
       test('Sem nenhum registro da rotina o dia fica sem registro, mesmo com batimentos e alertas', () {
         final resumo = CalculadoraRelatorios.resumirDia(
           paciente: _paciente(),
@@ -490,11 +859,28 @@ void main() {
         );
 
         expect(resumo.situacao, SituacaoDoDia.parcial);
-        expect(resumo.itensTotais, 2);
+        expect(resumo.itensTotais, 3);
         expect(resumo.itensCompletos, 0);
       });
 
-      test('Com a meta de água e todas as refeições o dia fica completo', () {
+      test('Com a meta de água, todas as refeições e o sono registrado o dia fica completo', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          agua: _copos(dia, 8),
+          refeicoes: [
+            _refeicao('cafe', DateTime(2026, 11, 1, 7)),
+            _refeicao('almoco', DateTime(2026, 11, 1, 12)),
+          ],
+          sono: [_sono(DateTime(2026, 11, 1, 6, 30))],
+        );
+
+        expect(resumo.situacao, SituacaoDoDia.completo);
+        expect(resumo.itensCompletos, 3);
+        expect(resumo.itensTotais, 3);
+      });
+
+      test('Sem o sono registrado, a água e as refeições não bastam para o dia ficar completo', () {
         final resumo = CalculadoraRelatorios.resumirDia(
           paciente: _paciente(),
           dia: dia,
@@ -505,9 +891,9 @@ void main() {
           ],
         );
 
-        expect(resumo.situacao, SituacaoDoDia.completo);
+        expect(resumo.situacao, SituacaoDoDia.parcial);
         expect(resumo.itensCompletos, 2);
-        expect(resumo.itensTotais, 2);
+        expect(resumo.itensTotais, 3);
       });
 
       test('Para o diabético, o checklist de glicemia também precisa estar completo', () {
@@ -519,23 +905,37 @@ void main() {
             _refeicao('cafe', DateTime(2026, 11, 1, 7)),
             _refeicao('almoco', DateTime(2026, 11, 1, 12)),
           ],
+          sono: [_sono(DateTime(2026, 11, 1, 6, 30))],
           diabete: [_diabete(DateTime(2026, 11, 1, 7), glicose: 100)],
         );
 
-        expect(resumo.itensTotais, 3);
-        expect(resumo.itensCompletos, 2);
+        expect(resumo.itensTotais, 4);
+        expect(resumo.itensCompletos, 3);
         expect(resumo.situacao, SituacaoDoDia.parcial);
       });
 
-      test('Sem refeições no plano, só a água entra na conta', () {
+      test('Sem refeições no plano, só a água e o sono entram na conta', () {
         final resumo = CalculadoraRelatorios.resumirDia(
           paciente: _paciente(plano: const []),
           dia: dia,
           agua: _copos(dia, 8),
+          sono: [_sono(DateTime(2026, 11, 1, 6, 30))],
         );
 
-        expect(resumo.itensTotais, 1);
+        expect(resumo.itensTotais, 2);
         expect(resumo.situacao, SituacaoDoDia.completo);
+      });
+
+      test('Só a noite de sono registrada já tira o dia de "sem registro"', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          sono: [_sono(DateTime(2026, 11, 1, 6, 30))],
+        );
+
+        expect(resumo.temRegistros, isTrue);
+        expect(resumo.situacao, SituacaoDoDia.parcial);
+        expect(resumo.itensCompletos, 1);
       });
 
       test('Deve guardar o dia sem a hora', () {
@@ -635,6 +1035,7 @@ void main() {
           _refeicao('almoco', em(1, 12)),
           _refeicao('cafe', em(2, 7)),
         ],
+        sono: [_sono(em(1, 6))],
       );
 
       expect(resumo.dias.length, 5);
@@ -652,6 +1053,56 @@ void main() {
       expect(resumo.diasParciais, 2);
       expect(resumo.diasSemRegistro, 2);
       expect(resumo.diasComRegistro, 3);
+    });
+
+    test('Deve contar cada noite no dia em que o paciente acordou e a registrou', () {
+      final resumo = CalculadoraRelatorios.resumirMes(
+        paciente: _paciente(),
+        mes: novembro,
+        hoje: DateTime(2026, 11, 6),
+        sono: [_sono(em(2, 6), horas: 6), _sono(em(4, 7), horas: 8)],
+      );
+
+      expect(resumo.dias[0].sono.registrou, isFalse);
+      expect(resumo.dias[1].sono.registro!.horasTotais, 6);
+      expect(resumo.dias[2].sono.registrou, isFalse);
+      expect(resumo.dias[3].sono.registro!.horasTotais, 8);
+    });
+
+    test('Deve distribuir as doses tomadas pelos dias do mês', () {
+      final resumo = CalculadoraRelatorios.resumirMes(
+        paciente: _paciente(medicamentos: const [_losartana]),
+        mes: novembro,
+        hoje: DateTime(2026, 11, 6),
+        medicacoes: [_dose('m1', '08:00', em(2, 8))],
+      );
+
+      expect(resumo.dias[0].medicacao.tomadas, 0);
+      expect(resumo.dias[1].medicacao.tomadas, 1);
+      expect(resumo.dias[1].medicacao.todasTomadas, isTrue);
+      expect(resumo.dias[2].medicacao.tomadas, 0);
+      expect(resumo.dias[1].situacao, SituacaoDoDia.parcial);
+    });
+
+    test('Deve distribuir os exercícios pelos dias do mês, sem o progresso da semana', () {
+      final resumo = CalculadoraRelatorios.resumirMes(
+        paciente: _paciente(),
+        mes: novembro,
+        hoje: DateTime(2026, 11, 6),
+        exercicios: [
+          _exercicio(em(2, 7), minutos: 30),
+          _exercicio(em(2, 18), minutos: 15),
+          _exercicio(em(4, 7), minutos: 45),
+        ],
+      );
+
+      expect(resumo.dias[0].exercicio.fez, isFalse);
+      expect(resumo.dias[1].exercicio.minutos, 45);
+      expect(resumo.dias[3].exercicio.minutos, 45);
+      // O mes so le o dia a dia: a semana inteira vem do relatorio do dia.
+      expect(resumo.dias[1].exercicio.temProgressoDaSemana, isFalse);
+      // Dias so com exercicio ja tem registro, mas ficam parciais.
+      expect(resumo.dias[1].situacao, SituacaoDoDia.parcial);
     });
 
     test('Deve calcular os totais de hidratação e refeições do mês', () {

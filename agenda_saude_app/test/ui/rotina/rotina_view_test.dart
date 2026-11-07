@@ -9,9 +9,12 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 import 'package:agenda_saude_app/ui/rotina/card_hidratacao.dart';
+import 'package:agenda_saude_app/ui/rotina/exercicio_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/hidratacao_viewmodel.dart';
+import 'package:agenda_saude_app/ui/rotina/medicacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/refeicoes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/rotina_view.dart';
+import 'package:agenda_saude_app/ui/rotina/sono_viewmodel.dart';
 
 // Leitura do dia que sempre falha (ex.: indice composto ainda nao publicado).
 class _RepositorioSemLeitura extends DadosMedicosRepository {
@@ -93,6 +96,27 @@ void main() {
                   paciente: pacienteDaTela ?? paciente,
                   dadosRepository: repositorio ?? dadosRepository,
                   pacienteRepository: PacienteRepository(firestore: fakeFirestore),
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => SonoViewModel(
+                  paciente: pacienteDaTela ?? paciente,
+                  dadosRepository: repositorio ?? dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => ExercicioViewModel(
+                  paciente: pacienteDaTela ?? paciente,
+                  dadosRepository: repositorio ?? dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => MedicacaoViewModel(
+                  paciente: pacienteDaTela ?? paciente,
+                  dadosRepository: repositorio ?? dadosRepository,
                   agora: () => hoje,
                 ),
               ),
@@ -281,6 +305,27 @@ void main() {
                         ),
                         ChangeNotifierProvider(
                           create: (_) => RefeicoesViewModel(
+                            paciente: paciente,
+                            dadosRepository: dadosRepository,
+                            agora: () => hoje,
+                          ),
+                        ),
+                        ChangeNotifierProvider(
+                          create: (_) => SonoViewModel(
+                            paciente: paciente,
+                            dadosRepository: dadosRepository,
+                            agora: () => hoje,
+                          ),
+                        ),
+                        ChangeNotifierProvider(
+                          create: (_) => ExercicioViewModel(
+                            paciente: paciente,
+                            dadosRepository: dadosRepository,
+                            agora: () => hoje,
+                          ),
+                        ),
+                        ChangeNotifierProvider(
+                          create: (_) => MedicacaoViewModel(
                             paciente: paciente,
                             dadosRepository: dadosRepository,
                             agora: () => hoje,

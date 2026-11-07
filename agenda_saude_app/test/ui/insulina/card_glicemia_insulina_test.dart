@@ -10,9 +10,12 @@ import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/ui/insulina/card_glicemia_insulina.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 import 'package:agenda_saude_app/ui/insulina/glicemia_insulina_viewmodel.dart';
+import 'package:agenda_saude_app/ui/rotina/exercicio_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/hidratacao_viewmodel.dart';
+import 'package:agenda_saude_app/ui/rotina/medicacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/refeicoes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/rotina_view.dart';
+import 'package:agenda_saude_app/ui/rotina/sono_viewmodel.dart';
 
 void main() {
   group('CardGlicemiaInsulina Testes', () {
@@ -73,6 +76,27 @@ void main() {
               ),
               ChangeNotifierProvider(
                 create: (_) => GlicemiaInsulinaViewModel(
+                  paciente: paciente,
+                  dadosRepository: dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => SonoViewModel(
+                  paciente: paciente,
+                  dadosRepository: dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => ExercicioViewModel(
+                  paciente: paciente,
+                  dadosRepository: dadosRepository,
+                  agora: () => hoje,
+                ),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => MedicacaoViewModel(
                   paciente: paciente,
                   dadosRepository: dadosRepository,
                   agora: () => hoje,

@@ -5,6 +5,7 @@ import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_base.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
 import 'package:agenda_saude_app/domain/models/registro_exercicio.dart';
+import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
@@ -418,6 +419,259 @@ void main() {
       });
     });
 
+    group('Sono (RF03.2)', () {
+      final hoje = DateTime(2026, 10, 25, 15, 0);
+
+      // Como o app grava: ao acordar, inicio e fim valem o instante do registro.
+      Future<void> registrarSono(
+        String pacienteId,
+        DateTime quando, {
+        double horas = 7.5,
+        int qualidade = 4,
+      }) {
+        return repository.salvarRegistro(RegistroSono(
+          id: '',
+          pacienteId: pacienteId,
+          dataHora: quando,
+          dataFim: quando,
+          horasTotais: horas,
+          qualidade: qualidade,
+        ));
+      }
+
+      test('Deve devolver só o sono do dia, da noite mais recente para a mais antiga', () async {
+        await registrarSono('paciente_99', DateTime(2026, 10, 25, 6, 30), horas: 6);
+        await registrarSono('paciente_99', DateTime(2026, 10, 25, 9, 0), horas: 8);
+        // Fora do dia e de outro paciente.
+        await registrarSono('paciente_99', DateTime(2026, 10, 24, 6, 30));
+        await registrarSono('paciente_99', DateTime(2026, 10, 26, 0, 0));
+        await registrarSono('outro_paciente', DateTime(2026, 10, 25, 7, 0));
+
+        final registros =
+            await repository.streamSonoDoDia('paciente_99', hoje).first;
+
+        expect(registros.map((r) => r.horasTotais), [8, 6]);
+      });
+
+      test('Deve ignorar registros do dia que não são de sono', () async {
+        await registrarSono('paciente_99', DateTime(2026, 10, 25, 7, 0));
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 10, 25, 8, 0),
+          quantidadeML: 250,
+        ));
+
+        final registros =
+            await repository.streamSonoDoDia('paciente_99', hoje).first;
+
+        expect(registros.length, 1);
+        expect(registros.single.qualidade, 4);
+      });
+
+      test('Deve emitir a lista atualizada quando o sono é registrado', () async {
+        final emissoes = <int>[];
+        final assinatura = repository
+            .streamSonoDoDia('paciente_99', hoje)
+            .listen((registros) => emissoes.add(registros.length));
+
+        await Future<void>.delayed(Duration.zero);
+        await registrarSono('paciente_99', DateTime(2026, 10, 25, 7, 0));
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes, [0, 1]);
+      });
+
+      test('Deve trocar o conteúdo de um registro sem criar outro', () async {
+        await registrarSono('paciente_99', DateTime(2026, 10, 25, 7, 0));
+        final antes =
+            (await repository.streamSonoDoDia('paciente_99', hoje).first).single;
+
+        await repository.atualizarRegistro(
+          antes.id,
+          RegistroSono(
+            id: antes.id,
+            pacienteId: 'paciente_99',
+            dataHora: DateTime(2026, 10, 25, 8, 0),
+            dataFim: DateTime(2026, 10, 25, 8, 0),
+            horasTotais: 9,
+            qualidade: 2,
+          ),
+        );
+
+        final depois =
+            (await repository.streamSonoDoDia('paciente_99', hoje).first).single;
+        expect(depois.id, antes.id);
+        expect(depois.horasTotais, 9);
+        expect(depois.qualidade, 2);
+        expect(
+          (await fakeFirestore.collection('registros_diarios').get()).docs,
+          hasLength(1),
+        );
+      });
+    });
+
+    group('Medicação (RF003)', () {
+      final hoje = DateTime(2026, 10, 25, 15, 0);
+
+      Future<void> marcar(
+        String pacienteId,
+        String medicamentoId,
+        String horario,
+        DateTime quando,
+      ) {
+        return repository.salvarRegistro(RegistroMedicacao(
+          id: '',
+          pacienteId: pacienteId,
+          dataHora: quando,
+          medicamentoId: medicamentoId,
+          horario: horario,
+          nome: medicamentoId,
+          dose: '50 mg',
+        ));
+      }
+
+      test('Deve devolver só as doses tomadas hoje, da mais recente para a mais antiga', () async {
+        await marcar('paciente_99', 'losartana', '08:00', DateTime(2026, 10, 25, 8, 10));
+        await marcar('paciente_99', 'metformina', '12:00', DateTime(2026, 10, 25, 12, 5));
+        // Fora do dia e de outro paciente.
+        await marcar('paciente_99', 'losartana', '08:00', DateTime(2026, 10, 24, 8, 0));
+        await marcar('paciente_99', 'losartana', '08:00', DateTime(2026, 10, 26, 8, 0));
+        await marcar('outro_paciente', 'losartana', '08:00', DateTime(2026, 10, 25, 8, 30));
+
+        final registros =
+            await repository.streamMedicacoesDoDia('paciente_99', hoje).first;
+
+        expect(registros.map((r) => r.medicamentoId), ['metformina', 'losartana']);
+        expect(registros.first.horario, '12:00');
+        expect(registros.first.dose, '50 mg');
+      });
+
+      test('Deve ignorar registros do dia que não são de remédio', () async {
+        await marcar('paciente_99', 'losartana', '08:00', DateTime(2026, 10, 25, 8, 10));
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 10, 25, 9, 0),
+          quantidadeML: 250,
+        ));
+
+        final registros =
+            await repository.streamMedicacoesDoDia('paciente_99', hoje).first;
+
+        expect(registros.length, 1);
+      });
+
+      test('Deve emitir a lista atualizada quando uma dose é marcada ou desmarcada', () async {
+        final emissoes = <int>[];
+        final assinatura = repository
+            .streamMedicacoesDoDia('paciente_99', hoje)
+            .listen((registros) => emissoes.add(registros.length));
+
+        await Future<void>.delayed(Duration.zero);
+        await marcar('paciente_99', 'losartana', '08:00', DateTime(2026, 10, 25, 8, 10));
+        await Future<void>.delayed(Duration.zero);
+        final tomada =
+            (await repository.streamMedicacoesDoDia('paciente_99', hoje).first).single;
+        await repository.removerRegistro(tomada.id);
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes, [0, 1, 0]);
+      });
+    });
+
+    group('Exercício (RF03.3)', () {
+      // Quarta-feira, 28/10/2026: a semana (domingo a sabado) vai de 25/10 ate
+      // 31/10, e 1/11 ja e a semana seguinte.
+      final quarta = DateTime(2026, 10, 28, 15, 0);
+
+      Future<void> registrarExercicio(
+        String pacienteId,
+        DateTime quando, {
+        int minutos = 30,
+      }) {
+        return repository.salvarRegistro(RegistroExercicio(
+          id: '',
+          pacienteId: pacienteId,
+          dataHora: quando,
+          tipoExercicio: 'Caminhada',
+          duracaoMinutos: minutos,
+          intensidade: 'Leve',
+        ));
+      }
+
+      test('Deve devolver só os exercícios da semana, do mais recente para o mais antigo', () async {
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 25, 8, 0), minutos: 10);
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 28, 7, 0), minutos: 20);
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 31, 23, 59, 59), minutos: 30);
+        // Fora da semana (limites exatos) e de outro paciente.
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 24, 23, 59, 59));
+        await registrarExercicio('paciente_99', DateTime(2026, 11, 1, 0, 0));
+        await registrarExercicio('outro_paciente', DateTime(2026, 10, 28, 9, 0));
+
+        final registros =
+            await repository.streamExerciciosDaSemana('paciente_99', quarta).first;
+
+        expect(registros.map((r) => r.duracaoMinutos), [30, 20, 10]);
+      });
+
+      test('Deve dar a mesma semana para qualquer dia dela, do domingo ao sábado', () async {
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 28, 7, 0), minutos: 20);
+
+        for (final dia in [
+          DateTime(2026, 10, 25),
+          DateTime(2026, 10, 28, 23, 59),
+          DateTime(2026, 10, 31, 12, 0),
+        ]) {
+          final registros =
+              await repository.streamExerciciosDaSemana('paciente_99', dia).first;
+          expect(registros.map((r) => r.duracaoMinutos), [20], reason: '$dia');
+        }
+        // O domingo seguinte ja e outra semana.
+        final proxima = await repository
+            .streamExerciciosDaSemana('paciente_99', DateTime(2026, 11, 1))
+            .first;
+        expect(proxima, isEmpty);
+      });
+
+      test('Deve ignorar registros da semana que não são de exercício', () async {
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 28, 7, 0));
+        await repository.salvarRegistro(RegistroAgua(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 10, 28, 8, 0),
+          quantidadeML: 250,
+        ));
+
+        final registros =
+            await repository.streamExerciciosDaSemana('paciente_99', quarta).first;
+
+        expect(registros.length, 1);
+        expect(registros.single.tipoExercicio, 'Caminhada');
+      });
+
+      test('Deve emitir a lista atualizada quando um exercício é registrado ou apagado', () async {
+        final emissoes = <int>[];
+        final assinatura = repository
+            .streamExerciciosDaSemana('paciente_99', quarta)
+            .listen((registros) => emissoes.add(registros.length));
+
+        await Future<void>.delayed(Duration.zero);
+        await registrarExercicio('paciente_99', DateTime(2026, 10, 28, 9, 0));
+        await Future<void>.delayed(Duration.zero);
+        final registrado =
+            (await repository.streamExerciciosDaSemana('paciente_99', quarta).first)
+                .single;
+        await repository.removerRegistro(registrado.id);
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes, [0, 1, 0]);
+      });
+    });
+
     group('Última atividade da rotina (Figura 15)', () {
       test('Deve emitir null quando o paciente ainda não registrou nada', () async {
         final atividade =
@@ -489,6 +743,24 @@ void main() {
           await repository.streamUltimaAtividade('paciente_99').first,
           isA<RegistroExercicio>(),
         );
+      });
+
+      test('Deve montar a medicação pelo campo "tipo"', () async {
+        await repository.salvarRegistro(RegistroMedicacao(
+          id: '',
+          pacienteId: 'paciente_99',
+          dataHora: DateTime(2026, 11, 6, 8, 10),
+          medicamentoId: 'm1',
+          horario: '08:00',
+          nome: 'Losartana',
+          dose: '50 mg',
+        ));
+
+        final atividade =
+            await repository.streamUltimaAtividade('paciente_99').first;
+
+        expect(atividade, isA<RegistroMedicacao>());
+        expect((atividade as RegistroMedicacao).descricao, 'Losartana 50 mg');
       });
 
       test('Deve emitir null para um tipo de registro que o app não conhece', () async {

@@ -66,6 +66,7 @@ lib/
   domain/refeicoes/ # RefeicoesPadrao: plano de refeições de quem não personalizou
   domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
   domain/relatorios/ # ResumoDoDia, ResumoDoMes e CalculadoraRelatorios: as contas dos relatórios
+  domain/medicacao/ # DosePlanejada e normalizarHorario: as doses do dia a partir dos remédios do paciente
   data/repositories/
     auth_repository.dart          # existente: wrapper do FirebaseAuth (RF001)
     paciente_repository.dart      # existente
@@ -73,10 +74,10 @@ lib/
     dados_repository.dart         # existente: DadosMedicosRepository (registros, BPM, alertas)
     relatorios_repository.dart    # existente: RelatoriosRepository (só lê, por período)
   ui/
-    auth/           # abertura, login e cadastro, seleção de perfil (RF001)
+    auth/           # abertura, login, cadastro, recuperar senha, seleção de perfil (RF001)
     triagem/        # questionário adaptativo de comorbidades (RF002)
     paciente/       # painel principal: BPM em destaque, status, atalhos
-    rotina/         # checklist diário: água, sono, exercício, alimentação (RF003)
+    rotina/         # checklist diário: água, remédios, refeições, sono, exercício (RF003)
     insulina/       # glicemia + insulina — só visível se possuiDiabetes (RF008)
     acompanhante/   # painel com cards dos pacientes vinculados (RF005)
     relatorios/     # relatório do dia anterior e relatório mensal, para paciente e acompanhante (RF05)
@@ -98,7 +99,9 @@ Convenções já estabelecidas nos repositories — manter:
   `acompanhantesVinculadosIds: List<String>`;
   Acompanhante tem `pacientesVinculadosIds: List<String>`. Os dois podem ter
   `telefone` (opcional em `Usuario`, `temTelefone`): sem ele as telas escondem o botão
-  de ligar para a pessoa. O campo no cadastro é o A3 do roteiro.
+  de ligar para a pessoa. O campo é pedido (opcional) no cadastro e gravado só com os
+  dígitos e o DDD (`normalizarTelefone`, em `telefone_service.dart`); contas criadas
+  antes disso não têm onde cadastrar o telefone depois.
   O Paciente também guarda `metas` (map, `MetasPersonalizadas`) e `limiteLiquidoMl`
   (restrição de líquido do médico, perguntada só a cardiopatas). As `metas` saem da
   `CalculadoraMetas` (`domain/metas/`): fórmulas consagradas (Mifflin-St Jeor, OMS,
@@ -114,6 +117,13 @@ Convenções já estabelecidas nos repositories — manter:
   paciente tirou todas. O `id` liga a refeição aos registros do dia, então não muda ao
   renomear. Os nutrientes de uma refeição (e do dia) saem do catálogo de alimentos:
   `quantidadeG / 100 × valores por 100 g`, somados (`Nutrientes`).
+  O Paciente guarda também os `medicamentos` (RF003): lista de `Medicamento` (`id`,
+  `nome`, `dose`, `horarios` em "HH:MM"); lista vazia = nenhum remédio. Cada horário de
+  cada remédio é uma dose (`DosePlanejada`) que a rotina mostra para marcar; o `id` liga
+  o remédio aos registros do dia, então não muda ao editar. Gravada por
+  `PacienteRepository.salvarMedicamentos` (update só desse campo). O horário é digitado
+  em números ("0800" vira 08:00): o seletor de hora do sistema sairia em inglês, porque o
+  app não tem as localizações do Flutter.
 - **Catálogo de alimentos**: `assets/alimentos/taco.json`, 593 alimentos da TACO 4ª
   edição (NEPA/UNICAMP, 2011; reprodução permitida citando a fonte — a tela de busca
   cita) com kcal, proteína, gordura, carboidrato, fibra e sódio por 100 g. Embutido no
@@ -136,6 +146,16 @@ Convenções já estabelecidas nos repositories — manter:
   diabete, refeição), discriminadas pelo campo `tipo` gravado no `toJson()` de cada uma.
   `RegistroRefeicao` (`tipo: 'refeicao'`, `refeicaoId`, `nome`) = "esta refeição foi
   feita hoje": marcar cria o doc, desmarcar apaga. O paciente não descreve o que comeu.
+  `RegistroMedicacao` (`tipo: 'medicacao'`, `medicamentoId`, `horario`, `nome`, `dose`) =
+  "esta dose foi tomada hoje", no mesmo esquema (marcar cria, desmarcar apaga; `dataHora`
+  é quando marcou). `RegistroSono` (`tipo: 'sono'`): o paciente registra a noite ao
+  acordar, então `dataHora` e `dataFim` guardam o mesmo instante (o do registro) e a noite
+  conta no dia em que ele acordou, o que mantém as consultas por dia (e os índices) como
+  nos outros tipos; um por dia, corrigido no mesmo documento (`atualizarRegistro`).
+  `RegistroExercicio` (`tipo: 'exercicio'`, `tipoExercicio`, `duracaoMinutos`,
+  `intensidade`): vários por dia; a meta é por semana (de domingo a sábado, como o
+  calendário dos relatórios; 150 min por padrão, `Paciente.metaExercicioMinutosSemana`) e os
+  minutos contam pelo valor de face, sem ponderar pela intensidade.
 - `batimentos_cardiacos` — leituras de BPM com `pacienteId` + `timestamp`.
 - **Relatórios (RF05)** não têm coleção própria: `RelatoriosRepository` só lê as
   coleções acima por período (`[início, fim)` no horário do aparelho) e
@@ -144,10 +164,15 @@ Convenções já estabelecidas nos repositories — manter:
   por vez, mais `alertas` e `batimentos_cardiacos`), então **reaproveitam os índices
   que já existem — nenhum índice novo**. Quem lê é o paciente ou o acompanhante
   vinculado, pelas mesmas security rules (nada a mudar nelas). Regras de negócio:
-  - "Dia completo" = meta de água batida + todas as refeições do plano marcadas +
-    (diabéticos) todos os itens do checklist de glicemia; "parcial" = tem registro
-    mas falta algo; "sem registro" = nada da rotina anotado (BPM e alertas vêm do
-    smartwatch, não contam como rotina).
+  - "Dia completo" = meta de água batida + todas as refeições do plano marcadas + todas
+    as doses de remédio tomadas (se o paciente tem remédios) + noite de sono registrada
+    (basta registrar: quanto dormiu não deixa o dia incompleto) + (diabéticos) todos os
+    itens do checklist de glicemia; "parcial" = tem registro mas falta algo; "sem
+    registro" = nada da rotina anotado (BPM e alertas vêm do smartwatch, não contam como
+    rotina). O exercício não entra na conta (a meta é da semana, e dia de descanso é
+    normal), mas um dia só com exercício já conta como "tem registro". O relatório do dia
+    mostra o progresso da semana de exercício até aquele dia
+    (`RelatoriosRepository.exerciciosDaSemanaAte`); o do mês não.
   - O relatório do mês só conta os dias **já encerrados** (no mês atual, até ontem) e
     abre no mês anterior no dia 1. Ele **não lê as leituras de BPM** (podem ser
     dezenas de milhares por mês): só conta os alertas. O BPM detalhado (menor,
@@ -155,7 +180,9 @@ Convenções já estabelecidas nos repositories — manter:
     de um dia só.
   - As refeições e os nutrientes usam o plano **de hoje** (`Paciente.planoDeRefeicoes`):
     o plano não tem histórico, então mudar o plano muda a leitura dos dias antigos.
-    A estimativa de nutrientes só aparece no relatório do dia.
+    A estimativa de nutrientes só aparece no relatório do dia. A lista de remédios
+    (`Paciente.medicamentos`) vale igual: mudar os remédios muda a leitura dos dias
+    antigos, e doses marcadas que já não estão na lista aparecem à parte.
 - `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
   `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM:
   `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
@@ -183,8 +210,10 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
 ## Cronograma de desenvolvimento (seção 3.2 do TCC — seguir nesta ordem)
 
 1. **Módulo de Identidade** — cadastro, login, recuperação de senha, seleção de perfil
-   (RF001) e triagem de comorbidades (RF002). ← *cadastro, login e triagem já feitos
-   (`AuthRepository`, `ui/auth/`, `ui/triagem/`); falta a recuperação de senha*
+   (RF001) e triagem de comorbidades (RF002). ← *cadastro (com telefone opcional), login,
+   recuperação de senha (`RecuperarSenhaView`: o Firebase manda o link por e-mail; um
+   e-mail sem conta recebe a mesma resposta, para não revelar quais contas existem) e
+   triagem já feitos (`AuthRepository`, `ui/auth/`, `ui/triagem/`)*
 2. **Módulo de Sincronização IoT** — integração com smartwatch via pacote `health`,
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
    ← *leitura a cada 30 s com o app aberto (`SincronizacaoBpmViewModel`). Leitura com o
@@ -212,10 +241,18 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    e `doseInsulina` opcionais (registro só de glicemia ou só de insulina). Padrão da
    Rotina para as próximas atividades: um cartão compacto por atividade; o que é de um
    toque (copo d'água, tomar remédio) resolve no próprio cartão, o que tem várias
-   etapas abre tela própria. Faltam sono, exercício, medicação, os lembretes de
-   glicemia/insulina (RF 07.3) e sugerir/gerar os alimentos das refeições
-   automaticamente a partir das metas. Cada atividade nova também precisa entrar nos
-   relatórios: um tipo a mais em `RelatoriosRepository.registrosDoPeriodo`, um campo
+   etapas abre tela própria. Sono (RF03.2), exercício (RF03.3) e medicação (RF003, Figura
+   14) também feitos, cada um com cartão na Rotina, tela própria e cartão no relatório do
+   dia. Sono: `CardSono` + `RegistrarSonoView` (horas de meia em meia hora e nota de 1 a 5;
+   meta de `Paciente.metaSonoMinHoras`/`MaxHoras`). Exercício: `CardExercicio` (os de hoje,
+   com "Apagar", e o progresso da meta semanal) + `RegistrarExercicioView` (tipo, minutos e
+   intensidade em botões, sem digitar). Medicação: `CardMedicacao` (uma linha por dose, com
+   caixa de seleção grande) + `MeusRemediosView` (nome, dose e horários, no molde de
+   "Minhas refeições"). As telas de registro usam os widgets de `ui/shared/`
+   (`PerguntaFormulario`, `ErroFormulario`, `BotaoSalvar`, `ContadorGrande`). Faltam os
+   lembretes de glicemia/insulina e de remédio (RF 07.3) e sugerir/gerar os alimentos das
+   refeições automaticamente a partir das metas. Cada atividade nova também precisa entrar
+   nos relatórios: um tipo a mais em `RelatoriosRepository.registrosDoPeriodo`, um campo
    em `ResumoDoDia` (e no cálculo de "dia completo") e um cartão em
    `relatorio_dia_conteudo.dart`.
    A consulta do dia exige o índice composto de `registros_diarios` em

@@ -7,6 +7,7 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/domain/relatorios/calculadora_relatorios.dart';
 import 'package:agenda_saude_app/domain/relatorios/resumo_do_mes.dart';
 import 'package:agenda_saude_app/ui/relatorios/calendario_mensal.dart';
@@ -60,6 +61,16 @@ void main() {
             dataHora: DateTime(2026, 11, 3, 7),
             refeicaoId: 'cafe',
             nome: 'Café',
+          ),
+        ],
+        sono: [
+          RegistroSono(
+            id: '',
+            pacienteId: 'paciente_01',
+            dataHora: DateTime(2026, 11, 3, 6),
+            dataFim: DateTime(2026, 11, 3, 6),
+            horasTotais: 7.5,
+            qualidade: 4,
           ),
         ],
         alertas: [

@@ -35,6 +35,32 @@ String formatarTelefone(String numero) {
   return numero.trim();
 }
 
+// O telefone como o app guarda no cadastro: so os digitos, com DDD
+// ("67999990000"). Aceita o que a pessoa digitar - "(67) 99999-0000",
+// "67 3411-2233", "+55 67 99999-0000" - e devolve null quando nao e um
+// telefone brasileiro com DDD: celular de 11 digitos (comeca com 9 depois do
+// DDD) ou fixo de 10 (comeca de 2 a 5). O DDD vai de 11 a 99, sem zero no fim.
+String? normalizarTelefone(String entrada) {
+  var digitos = entrada.replaceAll(RegExp(r'[^0-9]'), '');
+
+  // Codigo do pais (+55): so sai quando sobra um numero completo. Um celular
+  // de DDD 55 digitado sem ele ("55999990000") tem 11 digitos e fica como esta.
+  if (digitos.length >= 12 && digitos.startsWith('55')) {
+    digitos = digitos.substring(2);
+  }
+  if (digitos.length != 10 && digitos.length != 11) return null;
+
+  final ddd = int.parse(digitos.substring(0, 2));
+  if (ddd < 11 || ddd % 10 == 0) return null;
+
+  final primeiroDigito = digitos[2];
+  final celular = digitos.length == 11;
+  if (celular ? primeiroDigito != '9' : !'2345'.contains(primeiroDigito)) {
+    return null;
+  }
+  return digitos;
+}
+
 // Implementacao real: link `tel:` pelo plugin `url_launcher`, que abre o app
 // de telefone do celular.
 class TelefoneServiceImpl implements TelefoneService {

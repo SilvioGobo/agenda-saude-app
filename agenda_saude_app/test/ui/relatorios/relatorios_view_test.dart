@@ -9,11 +9,15 @@ import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_diabete.dart';
+import 'package:agenda_saude_app/domain/models/registro_exercicio.dart';
+import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 import 'package:agenda_saude_app/ui/relatorios/calendario_mensal.dart';
 import 'package:agenda_saude_app/ui/relatorios/relatorios_view.dart';
@@ -58,12 +62,14 @@ void main() {
       bool diabetes = false,
       bool cardiopatia = false,
       List<RefeicaoPlanejada>? plano,
+      List<Medicamento> medicamentos = const [],
     }) {
       return Paciente(
         id: 'paciente_01',
         nome: 'José Silva',
         email: 'jose@email.com',
         perfil: 'Paciente',
+        medicamentos: medicamentos,
         possuiDiabetes: diabetes,
         usaInsulina: diabetes ? true : null,
         possuiCardiopatia: cardiopatia,
@@ -130,6 +136,48 @@ void main() {
         dataHora: DateTime(dia.year, dia.month, dia.day, hora),
         refeicaoId: id,
         nome: id,
+      ));
+    }
+
+    // A noite como o app grava: ao acordar, inicio e fim valem o instante do
+    // registro, que decide o dia a que ela pertence.
+    Future<void> sono(DateTime dia, double horas, int qualidade, {int hora = 6}) {
+      final quando = DateTime(dia.year, dia.month, dia.day, hora);
+      return dadosRepository.salvarRegistro(RegistroSono(
+        id: '',
+        pacienteId: 'paciente_01',
+        dataHora: quando,
+        dataFim: quando,
+        horasTotais: horas,
+        qualidade: qualidade,
+      ));
+    }
+
+    Future<void> dose(DateTime dia, String medicamentoId, String horario, int hora, int minuto) {
+      return dadosRepository.salvarRegistro(RegistroMedicacao(
+        id: '',
+        pacienteId: 'paciente_01',
+        dataHora: DateTime(dia.year, dia.month, dia.day, hora, minuto),
+        medicamentoId: medicamentoId,
+        horario: horario,
+        nome: medicamentoId,
+      ));
+    }
+
+    Future<void> exercicio(
+      DateTime dia,
+      int hora,
+      int minutos, {
+      String tipo = 'Caminhada',
+      String intensidade = 'Moderada',
+    }) {
+      return dadosRepository.salvarRegistro(RegistroExercicio(
+        id: '',
+        pacienteId: 'paciente_01',
+        dataHora: DateTime(dia.year, dia.month, dia.day, hora, 10),
+        tipoExercicio: tipo,
+        duracaoMinutos: minutos,
+        intensidade: intensidade,
       ));
     }
 
@@ -237,7 +285,7 @@ void main() {
         // Situacao do dia.
         expect(find.text('ROTINA PARCIAL'), findsOneWidget);
         expect(
-          find.text('Faltou: meta de água, refeições e glicemia.'),
+          find.text('Faltou: meta de água, refeições, glicemia e sono.'),
           findsOneWidget,
         );
 
@@ -284,6 +332,14 @@ void main() {
           findsOneWidget,
         );
 
+        // Sono: ninguem anotou a noite.
+        expect(find.text('Sono'), findsOneWidget);
+        expect(find.text('Nenhuma noite anotada'), findsOneWidget);
+        expect(
+          find.text('Meta de sono: 7 a 9 horas por noite.'),
+          findsOneWidget,
+        );
+
         // Batimentos e alertas do dia.
         expect(find.text('Batimentos'), findsOneWidget);
         expect(find.text('Média de 85 BPM'), findsOneWidget);
@@ -311,16 +367,21 @@ void main() {
         ]) {
           await refeicao(ontem, id, hora);
         }
+        await sono(ontem, 7.5, 4);
         await batimento(ontem, 9, 70);
         await montar(tester);
 
         expect(find.text('ROTINA COMPLETA'), findsOneWidget);
         expect(
-          find.text('Tudo cumprido: meta de água e refeições.'),
+          find.text('Tudo cumprido: meta de água, refeições e sono.'),
           findsOneWidget,
         );
         expect(find.text('META ATINGIDA'), findsOneWidget);
         expect(find.text('4 de 4 feitas'), findsOneWidget);
+        // Sono: a noite de ontem, dentro da meta.
+        expect(find.text('7 h 30 min'), findsOneWidget);
+        expect(find.text('Qualidade: Bom (4 de 5).'), findsOneWidget);
+        expect(find.text('META DE SONO ATINGIDA'), findsOneWidget);
         expect(
           find.text('Todas as leituras dentro da zona de segurança (60 a 100 BPM).'),
           findsOneWidget,
@@ -329,6 +390,111 @@ void main() {
         expect(find.text('PONTOS DE ATENÇÃO'), findsNothing);
         // Quem nao tem diabetes nao ve o cartao de glicemia.
         expect(find.text('Glicemia e insulina'), findsNothing);
+      });
+
+      testWidgets('Deve avisar com texto quando o sono ficou abaixo da meta, sem tirar o dia do completo', (tester) async {
+        await sono(ontem, 5.5, 2);
+        await montar(tester);
+
+        expect(find.text('5 h 30 min'), findsOneWidget);
+        expect(find.text('Qualidade: Ruim (2 de 5).'), findsOneWidget);
+        expect(
+          find.text('Dormiu menos que a meta de 7 a 9 horas por noite.'),
+          findsOneWidget,
+        );
+        expect(find.text('META DE SONO ATINGIDA'), findsNothing);
+        // Registrar a noite basta para o item "sono" do dia: o que faltou foi o
+        // resto da rotina.
+        expect(
+          find.text('Cumprido: sono. Faltou: meta de água e refeições.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('Deve mostrar as doses de remédio do dia, tomadas e não tomadas', (tester) async {
+        await dose(ontem, 'm1', '08:00', 8, 10);
+        await montar(
+          tester,
+          paciente: criarPaciente(medicamentos: const [
+            Medicamento(
+              id: 'm1',
+              nome: 'Losartana',
+              dose: '50 mg',
+              horarios: ['08:00'],
+            ),
+            Medicamento(
+              id: 'm2',
+              nome: 'Metformina',
+              dose: '500 mg',
+              horarios: ['12:00'],
+            ),
+          ]),
+        );
+
+        expect(find.text('Medicações'), findsOneWidget);
+        expect(find.text('1 de 2 tomados'), findsOneWidget);
+        expect(find.text('Losartana 50 mg · 08:00'), findsOneWidget);
+        expect(find.text('Tomado às 08:10'), findsOneWidget);
+        expect(find.text('Metformina 500 mg · 12:00'), findsOneWidget);
+        expect(find.text('Não tomado'), findsOneWidget);
+        // Os remedios entram no que o dia pedia: falta uma dose das duas.
+        expect(
+          find.text('Faltou: meta de água, remédios, refeições e sono.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('Sem remédios cadastrados, o relatório diz isso e não cobra doses', (tester) async {
+        await agua(ontem, 8);
+        await montar(tester);
+
+        expect(find.text('Medicações'), findsOneWidget);
+        expect(find.text('Nenhum remédio cadastrado'), findsOneWidget);
+        expect(find.textContaining('remédios'), findsNothing);
+      });
+
+      testWidgets('Deve mostrar os exercícios do dia e o progresso da semana até ele', (tester) async {
+        // Ontem foi quinta (19/11): a semana (domingo 15/11 a sabado 21/11) tem
+        // 40 min na segunda e os 30 de ontem; o de sexta ainda nao conta.
+        await exercicio(DateTime(2026, 11, 16), 8, 40);
+        await exercicio(ontem, 7, 30, tipo: 'Hidroginástica', intensidade: 'Leve');
+        await exercicio(DateTime(2026, 11, 20), 9, 60);
+        await montar(tester);
+
+        expect(find.text('Exercício'), findsOneWidget);
+        expect(find.text('30 min'), findsOneWidget);
+        expect(
+          find.text('07:10 · Hidroginástica, 30 min, intensidade leve.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Na semana, até este dia: 70 de 150 min.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Faltavam 80 min para a meta da semana.'),
+          findsOneWidget,
+        );
+        expect(find.text('META DA SEMANA ATINGIDA'), findsNothing);
+        // So o exercicio: o dia tem registro, mas a rotina ficou incompleta.
+        expect(find.text('ROTINA PARCIAL'), findsOneWidget);
+        expect(
+          find.text('Faltou: meta de água, refeições e sono.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('Deve mostrar a meta da semana atingida mesmo sem exercício no dia', (tester) async {
+        await exercicio(DateTime(2026, 11, 16), 8, 90);
+        await exercicio(DateTime(2026, 11, 17), 8, 60);
+        await montar(tester);
+
+        expect(find.text('Nenhum exercício anotado'), findsOneWidget);
+        expect(
+          find.text('Na semana, até este dia: 150 de 150 min.'),
+          findsOneWidget,
+        );
+        expect(find.text('META DA SEMANA ATINGIDA'), findsOneWidget);
       });
 
       testWidgets('Deve avisar que nada foi anotado quando o dia está vazio', (tester) async {
@@ -433,6 +599,7 @@ void main() {
         await refeicao(dia3, 'almoco', 12);
         await refeicao(dia3, 'lanche_da_tarde', 16);
         await refeicao(dia3, 'jantar', 19);
+        await sono(dia3, 8, 4);
         await agua(DateTime(2026, 11, 4), 2);
         await alerta(
           DateTime(2026, 11, 4, 14, 30),

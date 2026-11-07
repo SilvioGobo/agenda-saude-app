@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart'; // ajuste o import
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 
@@ -340,6 +341,111 @@ void main() {
       expect(criar(metas: metasComAgua(1500)).metaHidratacaoMl, 1500);
       // Menos que um copo nao e uma meta: cai no padrao.
       expect(criar(metas: metasComAgua(100)).metaHidratacaoMl, 2000);
+    });
+
+    test('Deve usar a meta de sono calculada e, sem ela, o padrão de 7 a 9 horas', () {
+      Paciente criar({MetasPersonalizadas? metas}) => Paciente(
+            id: 'id-123',
+            nome: 'João Silva',
+            email: 'joao@email.com',
+            perfil: 'Paciente',
+            possuiDiabetes: false,
+            possuiCardiopatia: false,
+            codigoVinculo: '12345',
+            metas: metas,
+          );
+      // Idosos: a National Sleep Foundation recomenda de 7 a 8 horas.
+      const metasDeIdoso = MetasPersonalizadas(
+        imc: 24.7,
+        classificacaoImc: ClassificacaoImc.adequado,
+        hidratacaoMl: 1500,
+        sonoMinHoras: 7,
+        sonoMaxHoras: 8,
+        passos: 6000,
+        exercicioMinutosSemana: 150,
+        calorias: 1800,
+        carboidratosG: 225,
+        proteinasG: 90,
+        gordurasG: 60,
+        fibrasG: 25,
+        gorduraSaturadaMaxG: 14,
+        acucarLivreMaxG: 45,
+        sodioMaxMg: 2000,
+      );
+
+      expect(criar().metaSonoMinHoras, 7);
+      expect(criar().metaSonoMaxHoras, 9);
+      expect(criar(metas: metasDeIdoso).metaSonoMinHoras, 7);
+      expect(criar(metas: metasDeIdoso).metaSonoMaxHoras, 8);
+    });
+
+    test('Deve usar a meta de exercício calculada e, sem ela, o padrão de 150 minutos por semana', () {
+      Paciente criar({MetasPersonalizadas? metas}) => Paciente(
+            id: 'id-123',
+            nome: 'João Silva',
+            email: 'joao@email.com',
+            perfil: 'Paciente',
+            possuiDiabetes: false,
+            possuiCardiopatia: false,
+            codigoVinculo: '12345',
+            metas: metas,
+          );
+      MetasPersonalizadas metasComExercicio(int minutos) => MetasPersonalizadas(
+            imc: 24.7,
+            classificacaoImc: ClassificacaoImc.adequado,
+            hidratacaoMl: 2000,
+            sonoMinHoras: 7,
+            sonoMaxHoras: 9,
+            passos: 6000,
+            exercicioMinutosSemana: minutos,
+            calorias: 1800,
+            carboidratosG: 225,
+            proteinasG: 90,
+            gordurasG: 60,
+            fibrasG: 25,
+            gorduraSaturadaMaxG: 14,
+            acucarLivreMaxG: 45,
+            sodioMaxMg: 2000,
+          );
+
+      expect(criar().metaExercicioMinutosSemana, 150);
+      expect(criar(metas: metasComExercicio(90)).metaExercicioMinutosSemana, 90);
+      // Zero (conta antiga, sem o campo) nao e uma meta: cai no padrao.
+      expect(criar(metas: metasComExercicio(0)).metaExercicioMinutosSemana, 150);
+    });
+
+    test('Deve guardar e ler os remédios pelo JSON, mantê-los no copyWith e começar sem nenhum', () {
+      final semRemedios = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: false,
+        codigoVinculo: '12345',
+      );
+      expect(semRemedios.medicamentos, isEmpty);
+      // Documento antigo, sem o campo.
+      expect(Paciente.fromJson({'nome': 'João'}, 'id-1').medicamentos, isEmpty);
+
+      final comRemedios = semRemedios.copyWith(medicamentos: const [
+        Medicamento(
+          id: 'm1',
+          nome: 'Losartana',
+          dose: '50 mg',
+          horarios: ['08:00'],
+        ),
+        Medicamento(id: 'm2', nome: 'Metformina', horarios: ['12:00', '20:00']),
+      ]);
+
+      final lido = Paciente.fromJson(comRemedios.toJson(), 'id-123');
+      expect(lido.medicamentos.map((m) => m.nome), ['Losartana', 'Metformina']);
+      expect(lido.medicamentos.first.dose, '50 mg');
+      expect(lido.medicamentos.last.horarios, ['12:00', '20:00']);
+
+      // Os outros copyWith nao perdem os remedios, e o original nao muda.
+      expect(comRemedios.copyWith(pesoKg: 70).medicamentos, hasLength(2));
+      expect(semRemedios.medicamentos, isEmpty);
     });
 
     test('Deve guardar e ler o telefone pelo JSON e mantê-lo no copyWith', () {
