@@ -215,9 +215,15 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    feitos: "Ontem" (resumo da rotina do dia anterior) e "Mês" (calendário da rotina
    que abre o relatório de cada dia, com gráficos de água e glicemia), a mesma tela
    para os dois perfis — o paciente abre pelo botão "Meus Relatórios" do painel e o
-   acompanhante pelo botão "Ver relatórios" do card do paciente (só muda o título);
-   faltam BPM/status por card, tela de emergência (overlay) e push FCM com o app
-   fechado (exige Cloud Functions)*
+   acompanhante pelo botão "Ver relatórios" do card do paciente (só muda o título).
+   BPM e status por card (RF05.1) também feitos: cada card tem o seu
+   `StatusPacienteViewModel` (criado num `ChangeNotifierProvider` por card) com o BPM
+   mais recente em tempo real, "há X min", o selo ESTÁVEL / ATENÇÃO / SEM DADOS (zona de
+   `ZonaSegurancaCardiaca`; leitura com mais de `validadeDaLeitura` = 1 h vira SEM DADOS)
+   e a última atividade da rotina (`DadosMedicosRepository.streamUltimaAtividade`, que
+   exige o índice `registros_diarios` pacienteId + dataHora; cada tipo novo de registro
+   precisa entrar em `_registroDoTipo` e em `descreverAtividade`). Faltam tela de
+   emergência (overlay) e push FCM com o app fechado (exige Cloud Functions)*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007)
 

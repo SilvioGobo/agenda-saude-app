@@ -67,6 +67,43 @@ class DadosMedicosRepository {
             .toList());
   }
 
+  // Registro mais recente da rotina do paciente, de qualquer tipo (agua,
+  // refeicao, glicemia/insulina...), em tempo real: a "ultima atividade da
+  // rotina" do card do acompanhante (Figura 15). Usa o indice composto de
+  // registros_diarios (pacienteId + dataHora) de firestore.indexes.json.
+  Stream<RegistroBase?> streamUltimaAtividade(String pacienteId) {
+    return _firestore
+        .collection('registros_diarios')
+        .where('pacienteId', isEqualTo: pacienteId)
+        .orderBy('dataHora', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) return null;
+      final doc = snapshot.docs.first;
+      return _registroDoTipo(doc.data(), doc.id);
+    });
+  }
+
+  // Monta a subclasse de RegistroBase pelo campo `tipo` gravado no toJson()
+  // de cada uma. Null para um tipo que esta versao do app nao conhece: cada
+  // atividade nova da rotina precisa entrar aqui.
+  static RegistroBase? _registroDoTipo(Map<String, dynamic> json, String id) {
+    switch (json['tipo']) {
+      case 'agua':
+        return RegistroAgua.fromJson(json, id);
+      case 'refeicao':
+        return RegistroRefeicao.fromJson(json, id);
+      case 'diabete':
+        return RegistroDiabete.fromJson(json, id);
+      case 'sono':
+        return RegistroSono.fromJson(json, id);
+      case 'exercicio':
+        return RegistroExercicio.fromJson(json, id);
+    }
+    return null;
+  }
+
   // Registros de um [tipo] no dia de [dia] (do primeiro ao ultimo instante no
   // horario do aparelho). Usa o indice composto de registros_diarios
   // (pacienteId + tipo + dataHora) de firestore.indexes.json.
