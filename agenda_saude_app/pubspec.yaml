@@ -37,6 +37,10 @@ dependencies:
   firebase_core: ^4.9.0
   cloud_firestore: ^6.4.1
   firebase_auth: ^6.5.1
+  # Push dos alertas para o acompanhante com o app fechado (B6). A 16.2.2 e da
+  # mesma leva do firebase_core 4.9.0; uma mais nova obrigaria a subir o
+  # Firebase inteiro (core, auth e firestore).
+  firebase_messaging: ^16.2.2
   provider: ^6.1.2
   health: ^13.3.1
   flutter_local_notifications: ^20.1.0

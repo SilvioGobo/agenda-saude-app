@@ -5,6 +5,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+// Id da notificacao de um alerta. O plugin identifica cada notificacao por um
+// int, e o mesmo alerta pode chegar duas vezes: pela escuta do app e pelo push
+// (B6), que roda em outro isolate. A mesma conta nos dois da o mesmo id, entao
+// a segunda notificacao so substitui a primeira, sem tocar de novo. E a conta
+// do `hashCode` de texto do Java, fixa; o `hashCode` do Dart nao promete isso.
+int idDaNotificacaoDoAlerta(String alertaId) {
+  var hash = 0;
+  for (final unidade in alertaId.codeUnits) {
+    hash = (hash * 31 + unidade) & 0x7fffffff;
+  }
+  return hash;
+}
+
 // Contrato das notificacoes no aparelho (RF06). A central de alertas do
 // acompanhante depende so desta interface, entao nos testes basta injetar um
 // fake em memoria.
@@ -65,6 +78,11 @@ abstract class NotificationService {
   // Payload de cada notificacao tocada pelo usuario com o app aberto ou em
   // segundo plano.
   Stream<String> get toques;
+
+  // Payload da notificacao cujo toque abriu o app que estava encerrado (ex.:
+  // o push de um alerta que chegou com o app fechado). Null se o app abriu
+  // de outro jeito.
+  Future<String?> payloadQueAbriuOApp();
 }
 
 // Implementacao real em cima do plugin `flutter_local_notifications`.
@@ -95,6 +113,11 @@ class NotificationServiceImpl implements NotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
   final _toques = StreamController<String>.broadcast();
   bool _inicializado = false;
+
+  // O Android responde com o mesmo toque enquanto o processo do app viver; so
+  // a primeira consulta vale, para quem sai e entra de novo na conta nao ver
+  // o mesmo alerta abrir outra vez.
+  static bool _aberturaConsultada = false;
 
   NotificationServiceImpl({FlutterLocalNotificationsPlugin? plugin})
       : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
@@ -184,6 +207,9 @@ class NotificationServiceImpl implements NotificationService {
           importance: Importance.max,
           priority: Priority.high,
           category: urgente ? AndroidNotificationCategory.alarm : null,
+          // A escuta do app e o push podem mostrar o mesmo alerta (mesmo
+          // id): a segunda vez so atualiza a notificacao, sem tocar de novo.
+          onlyAlertOnce: true,
           color: _vermelho,
           // horario da leitura de BPM, nao o de quando a notificacao chegou
           when: dataHora.millisecondsSinceEpoch,
@@ -268,4 +294,13 @@ class NotificationServiceImpl implements NotificationService {
 
   @override
   Stream<String> get toques => _toques.stream;
+
+  @override
+  Future<String?> payloadQueAbriuOApp() async {
+    if (!disponivel || _aberturaConsultada) return null;
+    _aberturaConsultada = true;
+    final detalhes = await _plugin.getNotificationAppLaunchDetails();
+    if (detalhes == null || !detalhes.didNotificationLaunchApp) return null;
+    return detalhes.notificationResponse?.payload;
+  }
 }

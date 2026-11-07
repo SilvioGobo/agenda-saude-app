@@ -17,6 +17,23 @@ class AcompanhanteRepository {
         .set(acompanhante.toJson());
   }
 
+  // Aparelhos do acompanhante que recebem o push dos alertas (B6): a Cloud
+  // Function le `usuarios/{uid}.fcmTokens` e manda para cada um. Uma lista,
+  // porque a mesma conta pode estar em mais de um celular. As security rules
+  // ja deixam o dono mexer no proprio documento.
+  Future<void> adicionarTokenPush(String acompanhanteId, String token) async {
+    await _firestore.collection('usuarios').doc(acompanhanteId).update({
+      'fcmTokens': FieldValue.arrayUnion([token]),
+    });
+  }
+
+  // Ao sair da conta, este aparelho deixa de receber os alertas.
+  Future<void> removerTokenPush(String acompanhanteId, String token) async {
+    await _firestore.collection('usuarios').doc(acompanhanteId).update({
+      'fcmTokens': FieldValue.arrayRemove([token]),
+    });
+  }
+
   Future<Acompanhante?> getAcompanhante(String id) async {
     final doc = await _firestore.collection('usuarios').doc(id).get();
 

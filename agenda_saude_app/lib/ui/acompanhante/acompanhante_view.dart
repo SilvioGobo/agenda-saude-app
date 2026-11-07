@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/services/notification_service.dart';
+import '../../core/services/push_service.dart';
 import '../../core/theme/app_cores.dart';
 import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/dados_repository.dart';
@@ -44,13 +45,14 @@ class AcompanhanteView extends StatefulWidget {
   });
 
   // Os parametros opcionais permitem aos testes montar o painel com
-  // repositories e notificacoes falsos.
+  // repositories, notificacoes e push falsos.
   static Widget comProviders(
     Acompanhante acompanhante, {
     AcompanhanteRepository? acompanhanteRepository,
     DadosMedicosRepository? dadosRepository,
     RelatoriosRepository? relatoriosRepository,
     NotificationService? notificationService,
+    PushService? pushService,
   }) {
     return MultiProvider(
       providers: [
@@ -61,11 +63,15 @@ class AcompanhanteView extends StatefulWidget {
           )..carregarPacientes(),
         ),
         // A central de alertas segue a lista de pacientes vinculados: a cada
-        // mudanca (carga, vinculo, desvinculo) abre ou encerra a escuta.
+        // mudanca (carga, vinculo, desvinculo) abre ou encerra a escuta. Ela
+        // tambem registra este aparelho para o push com o app fechado (B6).
         ChangeNotifierProxyProvider<AcompanhanteViewModel, AlertasViewModel>(
           create: (_) => AlertasViewModel(
             dadosRepository: dadosRepository,
             notificationService: notificationService,
+            pushService: pushService,
+            acompanhanteRepository: acompanhanteRepository,
+            acompanhanteId: acompanhante.id,
           )..iniciar(),
           update: (_, acompanhanteViewModel, alertasViewModel) =>
               alertasViewModel!
@@ -118,15 +124,18 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
   }
 
   // Tocar na notificacao traz o app para a frente: volta ao painel (fechando
-  // o que estiver aberto por cima), abre a lista e os detalhes do alerta.
-  void _abrirAlertaDaNotificacao(String alertaId) {
+  // o que estiver aberto por cima), abre a lista e os detalhes do alerta (a
+  // tela de emergencia, se for emergencia). Se o toque abriu o app que estava
+  // fechado, primeiro espera a escuta trazer o alerta.
+  Future<void> _abrirAlertaDaNotificacao(String alertaId) async {
     if (!mounted) return;
     final alertasViewModel = context.read<AlertasViewModel>();
+    final alerta = await alertasViewModel.aguardarAlerta(alertaId);
+    if (!mounted) return;
+
     final rotaDoPainel = ModalRoute.of(context);
     Navigator.of(context).popUntil((rota) => rota == rotaDoPainel);
     _abrirNotificacoes();
-
-    final alerta = alertasViewModel.alertaPorId(alertaId);
     if (alerta != null) {
       abrirDetalhesDoAlerta(context, alertasViewModel, alerta);
     }
@@ -215,7 +224,8 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
         automaticallyImplyLeading: false,
         actions: [
           BotaoNotificacoes(onPressed: _abrirNotificacoes),
-          const BotaoSair(),
+          // Quem sai da conta deixa de receber o push neste aparelho.
+          BotaoSair(antesDeSair: alertasViewModel.desligarPush),
         ],
       ),
       body: SafeArea(

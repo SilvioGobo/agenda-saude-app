@@ -35,6 +35,9 @@ class FakeNotificationService implements NotificationService {
   // As notificacoes agendadas e ainda nao tocadas, por id.
   final Map<int, AgendamentoFalso> agendadas = {};
 
+  // Payload da notificacao cujo toque "abriu o app" (app estava encerrado).
+  String? payloadDeAbertura;
+
   final _toques = StreamController<String>.broadcast();
 
   FakeNotificationService({
@@ -43,6 +46,7 @@ class FakeNotificationService implements NotificationService {
     this.concederAoSolicitar = true,
     this.alarmesExatos = true,
     this.concederAlarmeExatoAoSolicitar = true,
+    this.payloadDeAbertura,
   });
 
   void simularToque(String payload) => _toques.add(payload);
@@ -129,4 +133,12 @@ class FakeNotificationService implements NotificationService {
 
   @override
   Stream<String> get toques => _toques.stream;
+
+  // Como no aparelho, o toque que abriu o app so e entregue uma vez.
+  @override
+  Future<String?> payloadQueAbriuOApp() async {
+    final payload = payloadDeAbertura;
+    payloadDeAbertura = null;
+    return payload;
+  }
 }

@@ -24,12 +24,11 @@ Em caso de dúvida sobre comportamento ou escopo, o documento é a fonte da verd
 | Identidade            | Cadastro, login e escolha de perfil; triagem de comorbidades que adapta a interface (RF001, RF002) |
 | Rotina diária         | Hidratação, plano de refeições com catálogo TACO, glicemia e insulina para diabéticos (RF003, RF008) |
 | Metas                 | Metas de água, passos, exercício e alimentação calculadas por fórmulas consagradas, sem IA |
-| Sincronização         | BPM do smartwatch pelo Health Connect e zona de segurança cardíaca (RF004)                 |
+| Sincronização         | BPM do smartwatch pelo Health Connect e zona de segurança cardíaca, a cada 30 s com o app aberto e a cada 15 min com ele fechado, onde o Health Connect permite (RF004) |
 | Monitoramento         | Painel do acompanhante, vínculo por código, central de alertas, localização do paciente (RF005, RF006) |
 | Relatórios            | Relatório do dia anterior e relatório mensal, para os dois perfis                          |
 
-Ainda faltam recuperação de senha, sono, exercício, medicação, lembretes, tela de
-emergência em tela cheia, o push com o app fechado (exige Cloud Functions) e o narrador de
+Ainda faltam recuperação de senha, sono, exercício, medicação, lembretes e o narrador de
 texto (RF007).
 
 ## Como rodar
@@ -67,14 +66,25 @@ repositório (`lib/firebase_options.dart` e `android/app/google-services.json`),
 não é preciso rodar o `flutterfire configure`: o app conecta ao projeto assim que abre. O
 Firestore é o do projeto real, então use contas de teste.
 
-Serviços usados: **Authentication** (e-mail e senha) e **Cloud Firestore** (dados e
-sincronização em tempo real). O **Cloud Messaging** entra na etapa do push.
+Serviços usados: **Authentication** (e-mail e senha), **Cloud Firestore** (dados e
+sincronização em tempo real), **Cloud Messaging** (push dos alertas para o acompanhante) e
+**Cloud Functions** (a pasta `functions/`, que manda o push quando um alerta é criado).
 
 Para publicar as rules e os índices (precisa de acesso ao projeto):
 
 ```bash
 firebase deploy --only firestore:rules
 firebase deploy --only firestore:indexes
+```
+
+Para publicar as Cloud Functions (precisa do plano Blaze no projeto; o deploy roda os
+testes antes):
+
+```bash
+cd functions
+npm ci
+cd ..
+firebase deploy --only functions
 ```
 
 Para testar as rules sem tocar no Firebase real, use o emulador com um projeto `demo-*`:

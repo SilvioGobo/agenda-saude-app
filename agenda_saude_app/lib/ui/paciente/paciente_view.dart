@@ -172,9 +172,13 @@ class PacienteView extends StatelessWidget {
     if (!context.mounted || !confirmou) return;
     final pacienteViewModel = context.read<PacienteViewModel>();
     final lembretes = context.read<LembretesViewModel>();
+    final sincronizacao = context.read<SincronizacaoBpmViewModel>();
     await sairDaConta(
       context,
       sair: () async {
+        // Sem ninguem logado, a leitura com o app fechado (B7) nao tem para
+        // quem gravar: para neste aparelho.
+        await sincronizacao.desligarLeituraComAppFechado();
         await pacienteViewModel.sair();
         // Os avisos agendados sao deste celular: sem isto, quem entrar depois
         // receberia os lembretes de quem saiu. So depois de sair de fato: se o

@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:agenda_saude_app/data/repositories/acompanhante_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/domain/models/acompanhante.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/alertas/alertas_viewmodel.dart';
 
 import '../../core/services/fake_notification_service.dart';
+import '../../core/services/fake_push_service.dart';
 
 // Repository cuja escuta de alertas e controlada pelo teste, para simular a
 // lista chegando primeiro do cache do aparelho e depois do servidor.
@@ -291,6 +294,189 @@ void main() {
 
       expect(notificationService.solicitacoesDePermissao, 0);
       expect(viewModel.notificacoesDesativadas, false);
+      viewModel.dispose();
+    });
+
+    test('Deve avisar o toque na notificação que abriu o app fechado', () async {
+      notificationService.payloadDeAbertura = 'alerta_01';
+      final viewModel = criarViewModel();
+      final tocados = <String>[];
+      viewModel.notificacaoTocada.listen(tocados.add);
+
+      await viewModel.iniciar();
+      await aguardarEscuta();
+
+      expect(tocados, ['alerta_01']);
+      viewModel.dispose();
+    });
+
+    test('Deve repassar o toque numa notificação com o app aberto', () async {
+      final viewModel = criarViewModel();
+      final tocados = <String>[];
+      viewModel.notificacaoTocada.listen(tocados.add);
+
+      notificationService.simularToque('alerta_02');
+      await aguardarEscuta();
+
+      expect(tocados, ['alerta_02']);
+      viewModel.dispose();
+    });
+
+    test('Deve achar na hora o alerta da notificação tocada que já está na lista', () async {
+      final viewModel = criarViewModel()..acompanharPacientes([jose]);
+      await aguardarEscuta();
+      await gerarAlerta('paciente_01', tipo: Alerta.tipoEmergencia);
+      final alertaId = viewModel.alertas.single.id;
+
+      expect((await viewModel.aguardarAlerta(alertaId))!.id, alertaId);
+      viewModel.dispose();
+    });
+
+    test('Deve esperar a escuta trazer o alerta que ainda não chegou', () async {
+      final viewModel = criarViewModel()..acompanharPacientes([jose]);
+      await aguardarEscuta();
+
+      // App aberto pelo toque: o alerta chega pela escuta depois.
+      final espera = viewModel.aguardarAlerta('alerta_tardio');
+      await fakeFirestore.collection('alertas').doc('alerta_tardio').set(Alerta(
+        id: '',
+        pacienteId: 'paciente_01',
+        tipo: Alerta.tipoEmergencia,
+        mensagem: 'Batimentos fora da zona de segurança há 6 minutos.',
+        dataHora: DateTime.now(),
+      ).toJson());
+
+      final alerta = await espera;
+      expect(alerta!.id, 'alerta_tardio');
+      expect(alerta.ehEmergencia, true);
+      viewModel.dispose();
+    });
+
+    test('Deve desistir de esperar um alerta que não chega', () async {
+      final viewModel = criarViewModel()..acompanharPacientes([jose]);
+      await aguardarEscuta();
+
+      final alerta = await viewModel.aguardarAlerta(
+        'nao_existe',
+        limite: const Duration(milliseconds: 10),
+      );
+
+      expect(alerta, isNull);
+      viewModel.dispose();
+    });
+  });
+
+  group('AlertasViewModel push com o app fechado (B6) Testes', () {
+    late FakeFirebaseFirestore fakeFirestore;
+    late AcompanhanteRepository acompanhanteRepository;
+    late FakeNotificationService notificationService;
+    late FakePushService pushService;
+
+    setUp(() async {
+      fakeFirestore = FakeFirebaseFirestore();
+      acompanhanteRepository = AcompanhanteRepository(firestore: fakeFirestore);
+      notificationService = FakeNotificationService();
+      pushService = FakePushService();
+      await acompanhanteRepository.salvarAcompanhante(Acompanhante(
+        id: 'cuidador_01',
+        nome: 'Carlos Souza',
+        email: 'carlos@email.com',
+        perfil: 'Acompanhante',
+        pacientesVinculadosIds: [],
+      ));
+    });
+
+    AlertasViewModel criarViewModel({String? acompanhanteId = 'cuidador_01'}) {
+      return AlertasViewModel(
+        dadosRepository: DadosMedicosRepository(firestore: fakeFirestore),
+        notificationService: notificationService,
+        pushService: pushService,
+        acompanhanteRepository: acompanhanteRepository,
+        acompanhanteId: acompanhanteId,
+      );
+    }
+
+    Future<List<dynamic>> tokensGravados() async {
+      final doc =
+          await fakeFirestore.collection('usuarios').doc('cuidador_01').get();
+      return (doc.data()?['fcmTokens'] as List<dynamic>?) ?? [];
+    }
+
+    test('Deve gravar o token do aparelho em fcmTokens ao entrar', () async {
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(await tokensGravados(), ['token_aparelho_01']);
+      viewModel.dispose();
+    });
+
+    test('Deve trocar o token gravado quando o FCM renova o token', () async {
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+
+      pushService.simularRenovacao('token_aparelho_02');
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(await tokensGravados(), ['token_aparelho_02']);
+      viewModel.dispose();
+    });
+
+    test('Deve tirar o token e apagá-lo no FCM antes de sair da conta', () async {
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+
+      await viewModel.desligarPush();
+
+      expect(await tokensGravados(), isEmpty);
+      expect(pushService.tokensApagados, 1);
+
+      // Depois de desligado, uma renovacao atrasada nao grava de novo.
+      pushService.simularRenovacao('token_aparelho_03');
+      await Future<void>.delayed(Duration.zero);
+      expect(await tokensGravados(), isEmpty);
+      viewModel.dispose();
+    });
+
+    test('Deve manter o painel funcionando se o FCM não responder', () async {
+      pushService.erroAoObterToken = Exception('SERVICE_NOT_AVAILABLE');
+      final viewModel = criarViewModel();
+
+      await viewModel.iniciar();
+
+      expect(await tokensGravados(), isEmpty);
+      expect(notificationService.inicializacoes, 1);
+      viewModel.dispose();
+    });
+
+    test('Não deve usar o push sem o acompanhante ou fora do Android/iOS', () async {
+      final semAcompanhante = criarViewModel(acompanhanteId: null);
+      await semAcompanhante.iniciar();
+      await semAcompanhante.desligarPush();
+      semAcompanhante.dispose();
+
+      pushService.disponivel = false;
+      final semPush = criarViewModel();
+      await semPush.iniciar();
+      semPush.dispose();
+
+      expect(pushService.pedidosDeToken, 0);
+      expect(pushService.tokensApagados, 0);
+      expect(await tokensGravados(), isEmpty);
+    });
+
+    test('Deve avisar o toque nas notificações do push mostradas pelo sistema', () async {
+      pushService.alertaDeAbertura = 'alerta_abriu_o_app';
+      final viewModel = criarViewModel();
+      final tocados = <String>[];
+      viewModel.notificacaoTocada.listen(tocados.add);
+
+      await viewModel.iniciar();
+      pushService.simularToque('alerta_em_segundo_plano');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(tocados, ['alerta_abriu_o_app', 'alerta_em_segundo_plano']);
       viewModel.dispose();
     });
   });

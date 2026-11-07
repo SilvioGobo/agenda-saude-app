@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../core/services/notification_service.dart';
+import '../../core/services/push_service.dart';
+import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/alerta.dart';
 import '../../domain/models/paciente.dart';
@@ -13,20 +15,46 @@ import '../../domain/models/paciente.dart';
 // "ATENÇÃO") e guarda a lista exibida na tela de Notificacoes.
 //
 // A escuta vale enquanto o app do acompanhante esta aberto ou em segundo
-// plano. Com o app encerrado nao ha notificacao: isso exige push via FCM
-// disparado por um servidor (Cloud Functions), previsto para outra etapa.
+// plano. Com o app fechado, quem avisa e o push (B6): esta central grava o
+// token do aparelho em `usuarios/{uid}.fcmTokens`, que a Cloud Function usa
+// para mandar o alerta, e o tira ao sair da conta.
 class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
   final DadosMedicosRepository _dadosRepository;
   final NotificationService _notificationService;
+  final PushService _pushService;
+  // Dono do aparelho, para o push. Null nos testes que nao usam o push.
+  final String? _acompanhanteId;
+  AcompanhanteRepository? _acompanhanteRepository;
 
   // Quantos alertas mais recentes de cada paciente ficam na lista.
   static const int limitePorPaciente = 50;
 
+  // Quanto esperar a escuta trazer o alerta de uma notificacao tocada: com o
+  // app aberto pelo toque, os pacientes e os alertas ainda estao chegando.
+  static const Duration esperaPeloAlerta = Duration(seconds: 15);
+
+  // Quanto esperar o Firestore e o FCM ao sair da conta sem internet.
+  static const Duration esperaAoDesligarPush = Duration(seconds: 5);
+
   AlertasViewModel({
     DadosMedicosRepository? dadosRepository,
     NotificationService? notificationService,
+    PushService? pushService,
+    AcompanhanteRepository? acompanhanteRepository,
+    String? acompanhanteId,
   })  : _dadosRepository = dadosRepository ?? DadosMedicosRepository(),
-        _notificationService = notificationService ?? NotificationServiceImpl();
+        _notificationService = notificationService ?? NotificationServiceImpl(),
+        _pushService = pushService ?? PushServiceImpl(),
+        _acompanhanteRepository = acompanhanteRepository,
+        _acompanhanteId = acompanhanteId {
+    _toquesNaNotificacao =
+        _notificationService.toques.listen(_alertasParaAbrir.add);
+  }
+
+  // O repository real so e criado quando o push e usado: nos testes sem
+  // Firebase ele nem existe.
+  AcompanhanteRepository get _repositorioDeTokens =>
+      _acompanhanteRepository ??= AcompanhanteRepository();
 
   final Map<String, Paciente> _pacientes = {};
   final Map<String, StreamSubscription<Object?>> _assinaturas = {};
@@ -36,6 +64,16 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
   // fora do cache do aparelho e nao deve virar notificacao.
   final Set<String> _pacientesSincronizados = {};
   final Set<String> _idsConhecidos = {};
+
+  final _alertasParaAbrir = StreamController<String>.broadcast();
+  StreamSubscription<String>? _toquesNaNotificacao;
+  StreamSubscription<String>? _toquesNoPush;
+  StreamSubscription<String>? _tokensRenovados;
+  // Token gravado no Firestore nesta sessao.
+  String? _tokenPush;
+  bool _pushDesligado = false;
+  // Esperas de `aguardarAlerta` ainda abertas, encerradas no dispose.
+  final List<void Function(Alerta?)> _esperas = [];
 
   bool _observandoCicloDeVida = false;
   bool _descartado = false;
@@ -47,8 +85,9 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
   String? _mensagemErro;
   String? get mensagemErro => _mensagemErro;
 
-  // Id do alerta de cada notificacao tocada pelo usuario.
-  Stream<String> get notificacaoTocada => _notificationService.toques;
+  // Id do alerta de cada notificacao tocada pelo usuario: com o app aberto,
+  // em segundo plano ou encerrado (o toque abriu o app).
+  Stream<String> get notificacaoTocada => _alertasParaAbrir.stream;
 
   // Todos os alertas dos pacientes vinculados, do mais novo para o mais antigo.
   List<Alerta> get alertas =>
@@ -74,14 +113,27 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
   // Null se o paciente ja foi desvinculado.
   Paciente? pacienteDoAlerta(Alerta alerta) => _pacientes[alerta.pacienteId];
 
-  // Prepara as notificacoes e pede a permissao do sistema (Android 13+).
+  // Prepara as notificacoes, pede a permissao do sistema (Android 13+) e
+  // registra o aparelho para o push.
   Future<void> iniciar() async {
+    await Future.wait([_iniciarNotificacoes(), _iniciarPush()]);
+  }
+
+  Future<void> _iniciarNotificacoes() async {
     if (!_notificationService.disponivel) return;
     try {
       await _notificationService.inicializar();
-      _notificacoesPermitidas = await _notificationService.solicitarPermissao();
     } catch (e) {
       debugPrint('Falha ao preparar as notificações: $e');
+      return;
+    }
+    // O app estava fechado e abriu pelo toque numa notificacao de alerta.
+    await _abrirAlertaQueAbriuOApp(_notificationService.payloadQueAbriuOApp);
+
+    try {
+      _notificacoesPermitidas = await _notificationService.solicitarPermissao();
+    } catch (e) {
+      debugPrint('Falha ao pedir a permissão de notificações: $e');
       return;
     }
     if (_descartado) return;
@@ -90,6 +142,93 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _observandoCicloDeVida = true;
     notifyListeners();
+  }
+
+  // Grava o token deste aparelho para a Cloud Function mandar o push dos
+  // alertas (B6) e passa a ouvir os toques nas notificacoes mostradas pelo
+  // sistema. O token vale mesmo sem a permissao de notificacoes: se o
+  // acompanhante liberar depois, o push ja chega.
+  Future<void> _iniciarPush() async {
+    if (_acompanhanteId == null || !_pushService.disponivel) return;
+
+    try {
+      _toquesNoPush = _pushService.alertaTocado.listen(_alertasParaAbrir.add);
+      _tokensRenovados = _pushService.tokenRenovado.listen(
+        _registrarToken,
+        onError: (Object erro) =>
+            debugPrint('Renovação do token do push falhou: $erro'),
+      );
+    } catch (e) {
+      debugPrint('Falha ao ouvir o push: $e');
+    }
+    await _abrirAlertaQueAbriuOApp(_pushService.alertaQueAbriuOApp);
+
+    try {
+      final token = await _pushService.obterToken();
+      if (token != null) await _registrarToken(token);
+    } catch (e) {
+      debugPrint('Falha ao registrar o aparelho para o push: $e');
+    }
+  }
+
+  Future<void> _abrirAlertaQueAbriuOApp(
+    Future<String?> Function() consultar,
+  ) async {
+    try {
+      final alertaId = await consultar();
+      if (alertaId != null && !_descartado) _alertasParaAbrir.add(alertaId);
+    } catch (e) {
+      debugPrint('Falha ao ler a notificação que abriu o app: $e');
+    }
+  }
+
+  // Grava o token (no login e a cada renovacao). Se o FCM trocou o token, o
+  // antigo sai da lista, porque nao recebe mais nada.
+  Future<void> _registrarToken(String token) async {
+    final acompanhanteId = _acompanhanteId;
+    if (acompanhanteId == null || _descartado || _pushDesligado) return;
+    final anterior = _tokenPush;
+    try {
+      await _repositorioDeTokens.adicionarTokenPush(acompanhanteId, token);
+      _tokenPush = token;
+      if (anterior != null && anterior != token) {
+        await _repositorioDeTokens.removerTokenPush(acompanhanteId, anterior);
+      }
+    } catch (e) {
+      debugPrint('Falha ao gravar o token do push: $e');
+    }
+  }
+
+  // Chamado antes de sair da conta: tira o token deste aparelho da lista e o
+  // invalida no FCM, para os alertas dos pacientes nao chegarem mais aqui.
+  // Sem internet o Firestore nao confirma a gravacao; depois de
+  // [esperaAoDesligarPush] o app sai assim mesmo, e o aparelho continua sem
+  // mostrar os alertas, porque confere quem esta logado antes
+  // (`mostrarAlertaDoPush`).
+  Future<void> desligarPush() async {
+    final acompanhanteId = _acompanhanteId;
+    if (acompanhanteId == null || !_pushService.disponivel) return;
+    _pushDesligado = true;
+    await _tokensRenovados?.cancel();
+    _tokensRenovados = null;
+
+    try {
+      final token = _tokenPush ??
+          await _pushService.obterToken().timeout(esperaAoDesligarPush);
+      if (token != null) {
+        await _repositorioDeTokens
+            .removerTokenPush(acompanhanteId, token)
+            .timeout(esperaAoDesligarPush);
+      }
+    } catch (e) {
+      debugPrint('Falha ao tirar o token do push: $e');
+    }
+    try {
+      await _pushService.apagarToken().timeout(esperaAoDesligarPush);
+    } catch (e) {
+      debugPrint('Falha ao apagar o token do push: $e');
+    }
+    _tokenPush = null;
   }
 
   // Chamado sempre que a lista de pacientes vinculados muda (carregamento,
@@ -141,8 +280,10 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _notificar(Alerta alerta) async {
     final nome = nomeDoPaciente(alerta.pacienteId);
     try {
+      // O mesmo titulo do push (functions/notificacao.js), para a
+      // notificacao nao mudar quando um substitui o outro.
       await _notificationService.mostrar(
-        id: _idDaNotificacao(alerta),
+        id: idDaNotificacaoDoAlerta(alerta.id),
         titulo: alerta.ehEmergencia ? 'Emergência: $nome' : 'Atenção: $nome',
         texto: alerta.mensagem,
         dataHora: alerta.dataHora,
@@ -154,15 +295,42 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // O plugin identifica cada notificacao por um int; derivar do id do alerta
-  // permite remove-la da bandeja quando o alerta e lido no app.
-  int _idDaNotificacao(Alerta alerta) => alerta.id.hashCode & 0x7fffffff;
-
   Alerta? alertaPorId(String alertaId) {
     for (final alerta in alertas) {
       if (alerta.id == alertaId) return alerta;
     }
     return null;
+  }
+
+  // O alerta de uma notificacao tocada, assim que a escuta o trouxer (na
+  // hora, se ja estiver na lista). Null se nao chegar em [limite], por
+  // exemplo porque o paciente foi desvinculado.
+  Future<Alerta?> aguardarAlerta(
+    String alertaId, {
+    Duration limite = esperaPeloAlerta,
+  }) {
+    final encontrado = alertaPorId(alertaId);
+    if (encontrado != null || _descartado) return Future.value(encontrado);
+
+    final espera = Completer<Alerta?>();
+    late final VoidCallback conferir;
+    late final Timer prazo;
+    void terminar(Alerta? alerta) {
+      if (espera.isCompleted) return;
+      prazo.cancel();
+      removeListener(conferir);
+      _esperas.remove(terminar);
+      espera.complete(alerta);
+    }
+
+    conferir = () {
+      final alerta = alertaPorId(alertaId);
+      if (alerta != null) terminar(alerta);
+    };
+    prazo = Timer(limite, () => terminar(null));
+    addListener(conferir);
+    _esperas.add(terminar);
+    return espera.future;
   }
 
   Future<void> marcarComoLido(Alerta alerta) async {
@@ -188,7 +356,7 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
 
     for (final alerta in alertas) {
       try {
-        await _notificationService.cancelar(_idDaNotificacao(alerta));
+        await _notificationService.cancelar(idDaNotificacaoDoAlerta(alerta.id));
       } catch (e) {
         debugPrint('Falha ao remover a notificação: $e');
       }
@@ -228,9 +396,16 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _descartado = true;
+    for (final terminar in List.of(_esperas)) {
+      terminar(null);
+    }
     for (final assinatura in _assinaturas.values) {
       assinatura.cancel();
     }
+    _toquesNaNotificacao?.cancel();
+    _toquesNoPush?.cancel();
+    _tokensRenovados?.cancel();
+    _alertasParaAbrir.close();
     if (_observandoCicloDeVida) {
       WidgetsBinding.instance.removeObserver(this);
     }
