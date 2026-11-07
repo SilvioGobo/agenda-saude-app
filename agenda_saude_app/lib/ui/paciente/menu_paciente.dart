@@ -4,20 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
+import '../configuracoes/configuracoes_viewmodel.dart';
+import '../lembretes/lembretes_viewmodel.dart';
 import '../localizacao/compartilhamento_localizacao_viewmodel.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
 import 'paciente_viewmodel.dart';
 
 // Menu lateral do painel do paciente, aberto pelo botao "Menu". Guarda o que
 // o paciente usa pouco (codigo de vinculo, conexao do smartwatch,
-// compartilhamento da localizacao, sair) para o painel ficar so com o BPM e
-// os atalhos principais. Itens com 72dp de altura, icone 32 e texto 20, com
-// uma linha de explicacao embaixo (NF004).
+// compartilhamento da localizacao, lembretes, acessibilidade, sair) para o
+// painel ficar so com o BPM e os atalhos principais. Itens com 72dp de altura,
+// icone 32 e texto 20, com uma linha de explicacao embaixo (NF004).
 class MenuPaciente extends StatelessWidget {
   final VoidCallback aoAbrirMetas;
   final VoidCallback aoAbrirCodigo;
   final VoidCallback aoAbrirSmartwatch;
   final VoidCallback aoAbrirLocalizacao;
+  final VoidCallback aoAbrirLembretes;
+  final VoidCallback aoAbrirAcessibilidade;
   final VoidCallback aoSair;
 
   const MenuPaciente({
@@ -26,6 +30,8 @@ class MenuPaciente extends StatelessWidget {
     required this.aoAbrirCodigo,
     required this.aoAbrirSmartwatch,
     required this.aoAbrirLocalizacao,
+    required this.aoAbrirLembretes,
+    required this.aoAbrirAcessibilidade,
     required this.aoSair,
   });
 
@@ -82,14 +88,53 @@ class MenuPaciente extends StatelessWidget {
     }
   }
 
+  ({String texto, Color cor}) _situacaoLembretes(
+    BuildContext context,
+    LembretesViewModel lembretes,
+  ) {
+    final neutra = Theme.of(context).colorScheme.onSurfaceVariant;
+    switch (lembretes.situacao) {
+      case SituacaoLembretes.ativos:
+        return (texto: 'Ligados', cor: AppCores.sucesso);
+      case SituacaoLembretes.desligados:
+        return (texto: 'Desligados', cor: neutra);
+      case SituacaoLembretes.semLembretes:
+        return (texto: 'Remédios e horários da glicemia', cor: neutra);
+      case SituacaoLembretes.semPermissao:
+        return (texto: 'Notificações desativadas', cor: AppCores.aviso);
+      case SituacaoLembretes.semAlarmeExato:
+        return (texto: 'Podem atrasar', cor: AppCores.aviso);
+      case SituacaoLembretes.naoSuportado:
+        return (texto: 'Indisponíveis neste celular', cor: neutra);
+    }
+  }
+
+  ({String texto, Color cor}) _situacaoAcessibilidade(
+    BuildContext context,
+    ConfiguracoesViewModel configuracoes,
+  ) {
+    final neutra = Theme.of(context).colorScheme.onSurfaceVariant;
+    if (!configuracoes.suportado) {
+      return (texto: 'Indisponível neste celular', cor: neutra);
+    }
+    return configuracoes.narradorLigado
+        ? (texto: 'Narrador ligado', cor: AppCores.sucesso)
+        : (texto: 'Narrador desligado', cor: neutra);
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<PacienteViewModel>();
     final sincronizacao = context.watch<SincronizacaoBpmViewModel>();
     final localizacao = context.watch<CompartilhamentoLocalizacaoViewModel>();
+    final lembretes = context.watch<LembretesViewModel>();
+    final configuracoes = context.watch<ConfiguracoesViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
     final situacao = _situacaoSmartwatch(context, sincronizacao);
     final situacaoLocalizacao = _situacaoLocalizacao(context, localizacao);
+    final situacaoLembretes = _situacaoLembretes(context, lembretes);
+    final situacaoAcessibilidade =
+        _situacaoAcessibilidade(context, configuracoes);
     final nome = viewModel.paciente.nome.trim();
 
     return Drawer(
@@ -185,6 +230,20 @@ class MenuPaciente extends StatelessWidget {
               descricao: situacaoLocalizacao.texto,
               corDescricao: situacaoLocalizacao.cor,
               aoTocar: () => _tocar(context, aoAbrirLocalizacao),
+            ),
+            _ItemMenu(
+              icone: Icons.notifications_active_rounded,
+              rotulo: 'Meus lembretes',
+              descricao: situacaoLembretes.texto,
+              corDescricao: situacaoLembretes.cor,
+              aoTocar: () => _tocar(context, aoAbrirLembretes),
+            ),
+            _ItemMenu(
+              icone: Icons.accessibility_new_rounded,
+              rotulo: 'Acessibilidade',
+              descricao: situacaoAcessibilidade.texto,
+              corDescricao: situacaoAcessibilidade.cor,
+              aoTocar: () => _tocar(context, aoAbrirAcessibilidade),
             ),
             const SizedBox(height: 8),
             const Divider(height: 1),

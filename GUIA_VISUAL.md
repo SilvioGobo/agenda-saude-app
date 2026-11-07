@@ -115,7 +115,8 @@ o motivo, o BPM crítico em 76 e o que fazer, e os botões grandes "LIGAR PARA [
   acompanhante pelo botão "Ver relatórios" do card do paciente. É a mesma tela
   ("Ontem" e "Mês") para os dois; os textos dos relatórios não dizem "você" nem citam o
   nome, para servirem aos dois — só o título da tela muda.
-- **Menu lateral** para o que se usa pouco (minhas metas, código de vínculo, smartwatch, sair). Abre
+- **Menu lateral** para o que se usa pouco (minhas metas, código de vínculo, smartwatch,
+  localização, lembretes, acessibilidade, sair). Abre
   só pelo botão **"Menu" com ícone + texto** (`BotaoBarraSuperior.menu`); o gesto de
   arrastar da borda fica desligado, porque se confunde com o "voltar" do Android.
 - **Subtelas**: barra superior só com "Voltar" escrito (`BotaoBarraSuperior.voltar`) e
@@ -154,12 +155,42 @@ do resto do app:
   cores e das linhas de referência (meta de água, limites 70 e 180 mg/dL) e uma frase
   para o leitor de tela. Verde = meta batida / na faixa; cinza = abaixo da meta;
   laranja = glicemia alta; vermelho = glicemia baixa ou muito alta.
+- **Gráfico de linha do BPM** (`GraficoBatimentos`, só no relatório do dia): a curva das
+  24 horas com a **zona de segurança como faixa verde** (`sucessoContainer`), a linha da
+  média a cada 10 minutos (`primary`) com uma barra fina atrás do menor ao maior BPM, e
+  **buraco** onde o relógio ficou mais de 1 h sem medir. Os alertas se distinguem pela
+  **forma**, não só pela cor: círculo vermelho = emergência, losango laranja = atenção,
+  e a legenda embaixo diz o que é cada coisa (só os tipos que existem no dia). Os números
+  do eixo usam a fonte do tema a 16sp e, com a fonte do celular muito grande, pulam de
+  dois em dois sem nunca tirar os limites da zona; a altura do gráfico cresce junto. O
+  leitor de tela ouve uma descrição em frases (variação, leituras fora da zona e cada
+  alerta com a hora), e o desenho fica fora da árvore de semântica.
 - Calendário: o toque vale a célula inteira (cerca de 42 × 56dp num celular de 360dp e
   49 × 56dp num de 411dp — um pouco abaixo dos 48dp de largura nos celulares mais
   estreitos, porque são 7 colunas); cada célula tem texto falado ("Dia 4: rotina
   parcial, com alerta de saúde").
 - Com a fonte do celular muito grande, números lado a lado e botões "Mês anterior /
   Próximo mês" passam a ficar um embaixo do outro.
+
+## Lembretes (`lib/ui/lembretes/`) e Acessibilidade (`lib/ui/configuracoes/`)
+
+Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localização:
+
+- **Estado em texto e ícone, nunca só em cor**: "Lembretes ligados" / "Narrador ligado"
+  em verde (`AppCores.sucesso`) com ícone de sino ou de voz; desligado em cinza
+  (`onSurfaceVariant`) com o ícone cortado. Embaixo, **um botão grande que troca o
+  estado**: `FilledButton` "Ligar …" quando está desligado e `OutlinedButton` "Desligar …"
+  quando está ligado (nada de interruptor pequeno).
+- **Avisos que pedem uma ação** (notificações desativadas, alarmes exatos, voz em
+  português ausente) são cartões laranja (`AppCores.aviso`) com a explicação e, quando
+  dá para resolver, um `FilledButton` ("Ativar notificações", "Permitir alarmes").
+- **Lista de horários**: cartão por lembrete com o horário em 26 bold na cor principal e
+  o que fazer ao lado ("Tomar Losartana 50 mg"); a frase falada junta tudo ("…, às 8
+  horas"). "Mudar horário" (só glicemia e insulina; o dos remédios é em "Meus remédios")
+  abre um diálogo com campo numérico grande: digitar **4 números** ("0630" vira 06:30),
+  como em "Meus remédios", e "Voltar para 07:00" só aparece depois de mudar.
+- **Velocidade da voz**: três `BotaoSelecionavel` um embaixo do outro (Devagar, Normal,
+  Rápido, com check no escolhido) e "Testar voz"; tocar em uma velocidade já fala um exemplo.
 
 ## Widgets compartilhados (`lib/ui/shared/`)
 

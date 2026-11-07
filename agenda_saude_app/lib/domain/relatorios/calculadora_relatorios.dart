@@ -10,6 +10,7 @@ import '../models/registro_refeicao.dart';
 import '../models/registro_sono.dart';
 import 'resumo_do_dia.dart';
 import 'resumo_do_mes.dart';
+import 'serie_de_batimentos.dart';
 
 // Monta os relatorios (RF05) a partir dos registros que o paciente fez. Sao
 // contas simples sobre listas - sem Firebase nem Flutter - para o resultado
@@ -78,15 +79,19 @@ class CalculadoraRelatorios {
       batimentos: resumirBatimentos(
         batimentos,
         possuiCardiopatia: paciente.possuiCardiopatia,
+        dia: dia,
       ),
       // Do mais recente para o mais antigo, como a tela mostra.
       alertas: [...alertas]..sort((a, b) => b.dataHora.compareTo(a.dataHora)),
     );
   }
 
+  // [dia], quando vem, e o dia das leituras: com ele sai tambem a curva do dia
+  // ([BatimentosDoDia.serie]), usada no grafico.
   static BatimentosDoDia resumirBatimentos(
     List<BatimentoCardiaco> leituras, {
     required bool possuiCardiopatia,
+    DateTime? dia,
   }) {
     final minimoDaZona =
         ZonaSegurancaCardiaca.bpmMinimo(possuiCardiopatia: possuiCardiopatia);
@@ -101,6 +106,7 @@ class CalculadoraRelatorios {
     }
 
     final valores = leituras.map((leitura) => leitura.bpm).toList();
+    final comeco = dia == null ? null : inicioDoDia(dia);
     return BatimentosDoDia(
       leituras: valores.length,
       media: valores.reduce((a, b) => a + b) / valores.length,
@@ -111,6 +117,13 @@ class CalculadoraRelatorios {
           .length,
       zonaMinima: minimoDaZona,
       zonaMaxima: maximoDaZona,
+      serie: comeco == null
+          ? null
+          : SerieDeBatimentos.de(
+              leituras,
+              inicio: comeco,
+              fim: DateTime(comeco.year, comeco.month, comeco.day + 1),
+            ),
     );
   }
 

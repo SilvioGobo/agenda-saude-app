@@ -23,27 +23,46 @@ class MomentoGlicemia {
   // Tipo de insulina ja definido pelo momento (a lenta das 22h); nos demais o
   // paciente escolhe ao registrar.
   final String? tipoInsulinaFixo;
+  // Horario sugerido para o lembrete (RF 07.3), em "HH:MM". A entrevista E6 so
+  // fixa as 22h da insulina lenta; os demais sao horarios comuns de rotina, que
+  // o paciente pode mudar. Null na medicao avulsa, que nao tem hora marcada.
+  final String? horarioPadrao;
 
   const MomentoGlicemia._(
     this.nome,
     this.rotulo, {
     this.medeGlicemia = true,
     this.tipoInsulinaFixo,
+    this.horarioPadrao,
   });
 
-  static const aoAcordar = MomentoGlicemia._('Ao acordar', 'AO ACORDAR');
-  static const antesDoAlmoco =
-      MomentoGlicemia._('Antes do almoço', 'ANTES DO ALMOÇO');
-  static const antesDoJantar =
-      MomentoGlicemia._('Antes do jantar', 'ANTES DO JANTAR');
-  static const antesDeDormir =
-      MomentoGlicemia._('Antes de dormir', 'ANTES DE DORMIR');
+  static const aoAcordar = MomentoGlicemia._(
+    'Ao acordar',
+    'AO ACORDAR',
+    horarioPadrao: '07:00',
+  );
+  static const antesDoAlmoco = MomentoGlicemia._(
+    'Antes do almoço',
+    'ANTES DO ALMOÇO',
+    horarioPadrao: '11:30',
+  );
+  static const antesDoJantar = MomentoGlicemia._(
+    'Antes do jantar',
+    'ANTES DO JANTAR',
+    horarioPadrao: '18:00',
+  );
+  static const antesDeDormir = MomentoGlicemia._(
+    'Antes de dormir',
+    'ANTES DE DORMIR',
+    horarioPadrao: '21:30',
+  );
   static const insulinaLenta = MomentoGlicemia._(
     'Insulina lenta (22h)',
     // Espaco que nao quebra: "(22 HORAS)" fica junto na mesma linha.
     'INSULINA LENTA (22\u00A0HORAS)',
     medeGlicemia: false,
     tipoInsulinaFixo: TipoInsulina.lenta,
+    horarioPadrao: '22:00',
   );
   static const outraMedicao =
       MomentoGlicemia._('Outra medição', 'OUTRA MEDIÇÃO');

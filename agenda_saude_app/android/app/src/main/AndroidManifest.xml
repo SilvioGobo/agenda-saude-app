@@ -10,6 +10,14 @@
          ("durante o uso do app"): sem ACCESS_BACKGROUND_LOCATION. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Lembretes de remedio, glicemia e insulina (RF 07.3): avisos agendados
+         que tocam com o app fechado. RECEIVE_BOOT_COMPLETED deixa o plugin
+         reagendar os avisos quando o celular reinicia. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- No Android 12 ou mais novo o aviso so toca na hora exata se o usuario
+         permitir "Alarmes e lembretes" para o app (o app pede, pela tela de
+         lembretes). Sem isso o aviso cai no modo aproximado e pode atrasar. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
         android:label="agenda_saude_app"
@@ -54,6 +62,23 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Lembretes agendados (flutter_local_notifications): o primeiro mostra o
+             aviso na hora marcada; o segundo os agenda de novo depois que o
+             celular reinicia ou o app e atualizado. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -72,6 +97,11 @@
         </intent>
         <!-- Permite verificar se o Health Connect esta instalado -->
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- Narrador de voz (RF 08): a partir do Android 11 o app so enxerga o
+             motor de voz do sistema (flutter_tts) se declarar isto. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
         </intent>

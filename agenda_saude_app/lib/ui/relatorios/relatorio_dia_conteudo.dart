@@ -15,7 +15,9 @@ import '../shared/caixa_alerta.dart';
 import '../shared/card_status.dart';
 import 'cartao_relatorio.dart';
 import 'estado_relatorio.dart';
+import 'formato_batimentos.dart';
 import 'formato_relatorios.dart';
+import 'grafico_batimentos.dart';
 import 'relatorio_dia_viewmodel.dart';
 
 // O relatorio de um dia da rotina (RF05), igual para o paciente e para o
@@ -807,6 +809,18 @@ class _CartaoBatimentos extends StatelessWidget {
               (rotulo: 'Leituras', valor: '${b.leituras}'),
             ],
           ),
+          // A curva das 24 horas, com a zona de seguranca e os alertas (RF 04.3).
+          if (b.temSerie)
+            GraficoBatimentos(
+              serie: b.serie!,
+              zonaMinima: b.zonaMinima,
+              zonaMaxima: b.zonaMaxima,
+              alertas: alertas,
+              descricao: descreverGraficoDeBatimentos(
+                batimentos: b,
+                alertas: alertas,
+              ),
+            ),
           if (b.foraDaZona == 0)
             LinhaDoRelatorio(
               icone: Icons.check_circle_rounded,
