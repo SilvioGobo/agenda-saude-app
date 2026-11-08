@@ -117,7 +117,8 @@ integration_test/   # fluxos completos no emulador
 ```
 
 Fora do app, na raiz do repositório: `functions/` (Cloud Functions em JavaScript:
-`index.js` com o gatilho, `notificacao.js` com a lógica, `test/` com `node --test`) e
+`index.js` com o gatilho e a função agendada, `notificacao.js` e `pendencias.js` com a
+lógica, `test/` com `node --test` e um Firestore falso em `test/firestore_falso.js`) e
 `firestore_rules_test/` (testes do `firestore.rules` no emulador, com
 `@firebase/rules-unit-testing`; um arquivo `*.test.js` por regra).
 
@@ -243,8 +244,19 @@ Convenções já estabelecidas nos repositories — manter:
     A estimativa de nutrientes só aparece no relatório do dia. A lista de remédios
     (`Paciente.medicamentos`) vale igual: mudar os remédios muda a leitura dos dias
     antigos, e doses marcadas que já não estão na lista aparecem à parte.
-- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
-  `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM, com o app
+- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'` | `'pendencia'`),
+  `mensagem`, `bpm`, `dataHora`, `lido`. `Alerta.ehDeBatimento` = atenção ou emergência:
+  é o que o monitor de BPM e os relatórios contam (a pendência fica de fora deles).
+  A **pendência de atividade** (RF 06.3, B9) é criada pela Cloud Function agendada
+  `verificarPendencias` (`functions/pendencias.js`, a cada 10 min, Cloud Scheduler):
+  para cada paciente com acompanhante, lê `tarefasDiarias` e `fusoHorarioMinutos` do
+  doc dele e, quando o horário-limite de uma tarefa (horário + 1 h,
+  `PendenciaAtividade.tolerancia`) passou na última hora sem o registro do dia
+  (`medicacao` com `medicamentoId` + `horario`, ou `diabete` do momento), cria o alerta
+  com id fixo (`pendencia_{paciente}_{dia}_{hash da chave}`, então nunca repete), o
+  horário-limite em `dataHora`, `bpm: null` e a tarefa em `tarefa`. O push sai pelo
+  mesmo gatilho dos alertas de BPM (`nivel: 'pendencia'`, título "Pendência: [nome]",
+  sem ser urgente). Os alertas de BPM são gerados pelo app do paciente na sincronização de BPM, com o app
   aberto (a cada 30 s) e com ele fechado (a cada 15 min, B7), pelas mesmas regras
   (`MonitorZonaSeguranca`, em `domain/batimentos/`):
   `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
@@ -284,6 +296,19 @@ Convenções já estabelecidas nos repositories — manter:
   medições de glicemia e a insulina lenta (a notificação agendada é daquele celular) e,
   **do aparelho todo**, o narrador de voz (ligado e velocidade). Os horários dos remédios,
   esses sim, ficam em `Paciente.medicamentos`.
+- **Tarefas do dia para a pendência (RF 06.3, B9)**: o `LembretesViewModel` do
+  paciente publica em `usuarios/{uid}` a `tarefasDiarias` (lista de `{chave, tipo,
+  descricao, horario}`, os mesmos itens dos lembretes: `Lembrete.toJsonTarefa()`, com o
+  horário da glicemia que o paciente escolheu) e o `fusoHorarioMinutos` do aparelho
+  (`DadosMedicosRepository.salvarTarefasDiarias`, update só desses campos). Publica ao
+  abrir o painel, quando os remédios ou os horários mudam e ao voltar ao app, só se a
+  lista mudou; vale com os lembretes desligados. Sem a publicação (conta que ainda não
+  abriu esta versão do app) a função não tem o que conferir; sem o fuso, usa o de
+  Brasília. No aparelho, o aviso de pendência do paciente é uma notificação a mais do
+  `PlanejadorDeLembretes` (`OcorrenciaDeLembrete.pendencia`, payload com
+  `#pendencia`), no horário-limite, só para hoje e amanhã e fora do limite de 60 dos
+  lembretes; some junto com o lembrete quando a tarefa é registrada. A que passaria da
+  meia-noite (tarefa depois das 23h) fica só com o acompanhante.
 
 Padrões dos models: classe abstrata (`Usuario`, `RegistroBase`) + subclasses;
 `fromJson(Map, documentId)` factory + `toJson()`; campos com fallback (`?? ''`, `?? 0`).
@@ -396,7 +421,12 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    `firebase deploy --only functions` (plano Blaze, decisão D2). Limites de alerta pelo
    acompanhante (RF 06.1, B8) também feitos: botão "Limites de alerta" do card →
    `LimitesAlertaView` (ver `limitesAlerta` em `usuarios/{uid}`); exige publicar as rules
-   (`firebase deploy --only firestore:rules`), com teste em `firestore_rules_test/`*
+   (`firebase deploy --only firestore:rules`), com teste em `firestore_rules_test/`.
+   Aviso de pendência de atividade (RF 06.3, B9) também feito: o paciente recebe o
+   aviso no aparelho pelos lembretes do A7 e o acompanhante, o push da função agendada
+   `verificarPendencias` (ver `alertas` e "Tarefas do dia" acima), que vai junto no
+   `firebase deploy --only functions`. A pendência aparece em laranja ("PENDÊNCIA") na
+   central de alertas e no card, com a orientação de lembrar o paciente*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007) ← *configurações feitas
    (`ui/configuracoes/`, menu > Acessibilidade): liga/desliga o narrador, três velocidades

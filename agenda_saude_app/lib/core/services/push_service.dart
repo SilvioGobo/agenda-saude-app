@@ -29,7 +29,7 @@ class AlertaPush {
   // Para quem o push foi mandado. O aparelho so mostra o alerta se essa
   // pessoa estiver logada nele.
   final String acompanhanteId;
-  // `atencao` ou `emergencia`, como o campo `tipo` do alerta.
+  // `atencao`, `emergencia` ou `pendencia`, como o campo `tipo` do alerta.
   final String nivel;
   final String titulo;
   final String texto;
@@ -46,8 +46,9 @@ class AlertaPush {
     required this.dataHora,
   });
 
-  // Alerta sem nivel conta como emergencia, como em `Alerta.fromJson`.
-  bool get ehEmergencia => nivel != Alerta.tipoAtencao;
+  // Alerta sem nivel conta como emergencia, como em `Alerta.fromJson`. O aviso
+  // de pendencia (RF 06.3) nao e urgente.
+  bool get ehEmergencia => nivel == Alerta.tipoEmergencia || nivel.isEmpty;
 
   // Le os dados da mensagem do FCM (todos os valores chegam como texto).
   // Null se a mensagem nao e de alerta ou veio sem os ids.

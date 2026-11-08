@@ -142,6 +142,37 @@ describe('montarMensagem Testes', () => {
     assert.equal(mensagem.data.titulo, 'Atenção: José Silva');
   });
 
+  it('Deve montar o push de pendência de atividade (RF 06.3) com o título do app', () => {
+    const pendencia = alertaDeEmergencia({
+      tipo: 'pendencia',
+      mensagem: 'Não marcou como tomado o remédio das 08:00 (Losartana 50 mg).',
+      bpm: null,
+    });
+    const mensagem = montarMensagem({
+      alertaId: 'pendencia_paciente_01_2026-11-08_0a1b2c3d',
+      alerta: pendencia,
+      nomePaciente: 'José Silva',
+      acompanhanteId: 'cuidador_01',
+      tokens: ['token_celular'],
+    });
+
+    assert.equal(mensagem.data.nivel, 'pendencia');
+    assert.equal(mensagem.data.titulo, 'Pendência: José Silva');
+    assert.equal(
+      mensagem.data.texto,
+      'Não marcou como tomado o remédio das 08:00 (Losartana 50 mg).',
+    );
+
+    const semTexto = montarMensagem({
+      alertaId: 'pendencia_2',
+      alerta: { ...pendencia, mensagem: '' },
+      nomePaciente: 'José Silva',
+      acompanhanteId: 'cuidador_01',
+      tokens: ['token_celular'],
+    });
+    assert.equal(semTexto.data.texto, 'Atividade da rotina não registrada.');
+  });
+
   it('Deve tratar o alerta sem tipo como emergência e encurtar texto longo', () => {
     const alerta = alertaDeEmergencia({ mensagem: 'x'.repeat(5000) });
     delete alerta.tipo;

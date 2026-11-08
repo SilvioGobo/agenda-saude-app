@@ -97,6 +97,34 @@ void main() {
     expect(find.text('Marcar todas como lidas'), findsOneWidget);
   });
 
+  testWidgets('Pendência de atividade aparece como PENDÊNCIA e os detalhes orientam a lembrar o paciente', (
+    tester,
+  ) async {
+    await dadosRepository.gerarAlerta(Alerta(
+      id: '',
+      pacienteId: 'paciente_01',
+      tipo: Alerta.tipoPendencia,
+      mensagem: 'Não marcou como tomado o remédio das 08:00 (Losartana 50 mg).',
+      dataHora: DateTime.now().subtract(const Duration(minutes: 3)),
+    ));
+    await montarTela(tester);
+
+    expect(find.text('PENDÊNCIA'), findsOneWidget);
+    expect(
+      find.text('Não marcou como tomado o remédio das 08:00 (Losartana 50 mg).'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byType(CardAlerta));
+    await tester.pumpAndSettle();
+
+    // Nao e emergencia: abre a folha de detalhes, sem BPM.
+    expect(find.byType(EmergenciaView), findsNothing);
+    expect(find.text('O que fazer'), findsOneWidget);
+    expect(find.textContaining('para lembrar José Silva'), findsOneWidget);
+    expect(find.text('BPM', findRichText: true), findsNothing);
+  });
+
   testWidgets('Tocar no alerta abre os detalhes e marca como lido', (
     tester,
   ) async {

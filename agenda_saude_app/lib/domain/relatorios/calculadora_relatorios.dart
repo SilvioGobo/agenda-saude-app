@@ -85,8 +85,11 @@ class CalculadoraRelatorios {
         limites: paciente.limitesAlerta,
         dia: dia,
       ),
-      // Do mais recente para o mais antigo, como a tela mostra.
-      alertas: [...alertas]..sort((a, b) => b.dataHora.compareTo(a.dataHora)),
+      // Do mais recente para o mais antigo, como a tela mostra. So os alertas
+      // dos batimentos: a pendencia de uma tarefa (RF 06.3) ja aparece no
+      // cartao da propria tarefa, como "nao feita".
+      alertas: alertas.where((alerta) => alerta.ehDeBatimento).toList()
+        ..sort((a, b) => b.dataHora.compareTo(a.dataHora)),
     );
   }
 

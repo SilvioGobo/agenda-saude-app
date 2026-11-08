@@ -34,6 +34,12 @@ enum SituacaoLembretes {
 // remedios ou os horarios - refaz o plano e acerta o que esta agendado: o aviso
 // do que ja foi cumprido hoje some (da bandeja tambem), o de amanha continua.
 //
+// Cada lembrete tem tambem o aviso de pendencia (RF 06.3, B9), no
+// horario-limite, se a tarefa ainda nao foi registrada. Para o acompanhante
+// receber o mesmo aviso por push, a lista de tarefas do dia vai para o doc do
+// paciente ([_publicarTarefas]), que a Cloud Function `verificarPendencias`
+// confere a cada 10 minutos.
+//
 // Fica vivo enquanto o painel do paciente estiver aberto. Fechar o app nao
 // cancela os avisos; so sair da conta ([cancelarTodos]).
 class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
@@ -70,6 +76,10 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
   // Saiu da conta ou o painel fechou: nada mais deve ser agendado.
   bool _encerrado = false;
   bool _descartado = false;
+
+  // A lista de tarefas (com o fuso) gravada no Firestore nesta sessao, para
+  // nao gravar de novo o que nao mudou.
+  String? _tarefasPublicadas;
 
   LembretesViewModel({
     required Paciente paciente,
@@ -138,6 +148,9 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
 
     _observarDia();
     notifyListeners();
+    // Sem esperar: sem internet a gravacao so termina quando a conexao volta, e
+    // os avisos do aparelho nao podem ficar esperando por ela.
+    unawaited(_publicarTarefas());
     await _pedirPermissaoDeNotificacoes();
     // Nao espera os registros de hoje chegarem: se o Firestore demorar ou falhar,
     // os avisos ficam agendados do mesmo jeito (melhor um aviso a mais do que um
@@ -157,6 +170,7 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
     scheduleMicrotask(() {
       if (!_descartado) notifyListeners();
     });
+    unawaited(_publicarTarefas());
     _pedirPermissaoDeNotificacoes().then((_) => _reagendar());
   }
 
@@ -212,6 +226,7 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
     }
     _horarios = novos;
     if (!_descartado) notifyListeners();
+    unawaited(_publicarTarefas());
     await _reagendar();
     return true;
   }
@@ -261,10 +276,14 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
       for (final id in agendados) {
         await _servico.cancelar(id);
       }
-      // Os de hoje que ja tocaram e continuam na bandeja.
+      // Os de hoje que ja tocaram e continuam na bandeja (o lembrete e o aviso
+      // de pendencia).
       final hoje = _agora();
       for (final lembrete in lembretes) {
-        await _servico.cancelar(OcorrenciaDeLembrete(lembrete, lembrete.em(hoje)).id);
+        final horario = lembrete.em(hoje);
+        await _servico.cancelar(OcorrenciaDeLembrete(lembrete, horario).id);
+        await _servico
+            .cancelar(OcorrenciaDeLembrete.pendencia(lembrete, horario).id);
       }
     } catch (erro) {
       debugPrint('Falha ao cancelar os lembretes: $erro');
@@ -395,8 +414,8 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
         try {
           await _servico.agendarLembrete(
             id: ocorrencia.id,
-            titulo: ocorrencia.lembrete.titulo,
-            texto: ocorrencia.lembrete.texto,
+            titulo: ocorrencia.titulo,
+            texto: ocorrencia.texto,
             dataHora: ocorrencia.dataHora,
             payload: ocorrencia.payload,
           );
@@ -407,6 +426,34 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
       }
     } catch (erro) {
       debugPrint('Falha ao refazer os lembretes: $erro');
+    }
+  }
+
+  // RF 06.3: grava no doc do paciente as tarefas do dia com horario (as mesmas
+  // dos lembretes) e o fuso do aparelho. E por elas que a Cloud Function
+  // `verificarPendencias` avisa o acompanhante quando uma passa do
+  // horario-limite sem registro, mesmo com o app do paciente fechado. Vale
+  // tambem com os lembretes desligados: o paciente escolheu nao ser lembrado,
+  // mas o acompanhante continua acompanhando. Uma falha so fica no log; a
+  // proxima mudanca (ou abertura do app) tenta de novo.
+  Future<void> _publicarTarefas() async {
+    if (_descartado || _encerrado) return;
+    final tarefas = lembretes;
+    final fusoHorarioMinutos = _agora().timeZoneOffset.inMinutes;
+    final conteudo = jsonEncode([
+      fusoHorarioMinutos,
+      tarefas.map((tarefa) => tarefa.toJsonTarefa()).toList(),
+    ]);
+    if (conteudo == _tarefasPublicadas) return;
+    try {
+      await _dadosRepository.salvarTarefasDiarias(
+        _paciente.id,
+        tarefas,
+        fusoHorarioMinutos: fusoHorarioMinutos,
+      );
+      _tarefasPublicadas = conteudo;
+    } catch (erro) {
+      debugPrint('Falha ao publicar as tarefas do dia: $erro');
     }
   }
 
@@ -433,6 +480,8 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('Falha ao verificar as permissões dos lembretes: $erro');
     }
     if (_descartado || _encerrado) return;
+    // O paciente pode ter viajado para outro fuso.
+    unawaited(_publicarTarefas());
     final hoje = _agora();
     if (DateTime(hoje.year, hoje.month, hoje.day) != _dia) {
       _aoVirarODia();

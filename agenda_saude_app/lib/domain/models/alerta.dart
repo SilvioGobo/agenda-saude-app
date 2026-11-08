@@ -5,6 +5,10 @@ class Alerta {
   // - emergencia: BPM fora da zona por tempo prolongado (UC04.4 -> UC06).
   static const String tipoAtencao = 'atencao';
   static const String tipoEmergencia = 'emergencia';
+  // E o aviso que nao vem do BPM, gerado pela Cloud Function agendada:
+  // - pendencia: uma tarefa do dia (remedio, glicemia, insulina) passou do
+  //   horario-limite sem registro - RF 06.3.
+  static const String tipoPendencia = 'pendencia';
 
   final String id;
   final String pacienteId;
@@ -26,6 +30,12 @@ class Alerta {
   });
 
   bool get ehEmergencia => tipo == tipoEmergencia;
+
+  bool get ehPendencia => tipo == tipoPendencia;
+
+  // Alerta dos batimentos (atencao ou emergencia): o que o monitor da zona de
+  // seguranca e os relatorios de BPM contam.
+  bool get ehDeBatimento => tipo == tipoAtencao || tipo == tipoEmergencia;
 
   factory Alerta.fromJson(Map<String, dynamic> json, String documentId) {
     return Alerta(

@@ -567,6 +567,21 @@ void main() {
         expect(resumo.batimentos.foraDaZona, 1);
       });
 
+      test('Deve deixar a pendência de atividade (RF 06.3) fora dos alertas de batimento', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          alertas: [
+            _alerta(Alerta.tipoAtencao, DateTime(2026, 11, 1, 10)),
+            _alerta(Alerta.tipoPendencia, DateTime(2026, 11, 1, 9)),
+          ],
+        );
+
+        expect(resumo.alertas.map((a) => a.tipo), [Alerta.tipoAtencao]);
+        expect(resumo.avisos, 1);
+        expect(resumo.emergencias, 0);
+      });
+
       test('Deve ordenar os alertas do mais recente para o mais antigo e contá-los por tipo', () {
         final resumo = CalculadoraRelatorios.resumirDia(
           paciente: _paciente(),

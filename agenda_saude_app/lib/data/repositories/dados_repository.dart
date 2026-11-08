@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/meta_exercicio.dart';
+import '../../domain/lembretes/lembrete.dart';
 import '../../domain/models/registro_agua.dart';
 import '../../domain/models/registro_medicacao.dart';
 import '../../domain/models/registro_refeicao.dart';
@@ -323,6 +324,23 @@ class DadosMedicosRepository {
   ) async {
     await _firestore.collection('usuarios').doc(pacienteId).update({
       'limitesAlerta': limites == null ? FieldValue.delete() : limites.toJson(),
+    });
+  }
+
+  // RF 06.3: a lista de tarefas do dia com horario (as dos lembretes: remedios,
+  // glicemia e insulina) e o fuso do aparelho, em minutos a partir do UTC, no
+  // doc do paciente. A Cloud Function `verificarPendencias` le daqui o que
+  // conferir e a que horas, e avisa o acompanhante quando uma tarefa passa do
+  // horario-limite sem registro. So o paciente grava: as rules nao deixam o
+  // acompanhante mexer nesses campos.
+  Future<void> salvarTarefasDiarias(
+    String pacienteId,
+    List<Lembrete> tarefas, {
+    required int fusoHorarioMinutos,
+  }) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'tarefasDiarias': tarefas.map((tarefa) => tarefa.toJsonTarefa()).toList(),
+      'fusoHorarioMinutos': fusoHorarioMinutos,
     });
   }
 

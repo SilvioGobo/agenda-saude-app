@@ -29,26 +29,38 @@ function nomeDoPaciente(paciente) {
   return nome || 'Paciente';
 }
 
-// Alerta sem `tipo` conta como emergencia, como no app (`Alerta.fromJson`).
-function ehAtencao(alerta) {
-  return alerta?.tipo === 'atencao';
+// O nivel do alerta para o app: `atencao` e `emergencia` vem do BPM;
+// `pendencia` e a tarefa do dia que passou do horario-limite (RF 06.3, ver
+// pendencias.js). Alerta sem `tipo` conta como emergencia, como no app
+// (`Alerta.fromJson`).
+function nivelDoAlerta(alerta) {
+  if (alerta?.tipo === 'atencao') return 'atencao';
+  if (alerta?.tipo === 'pendencia') return 'pendencia';
+  return 'emergencia';
 }
 
 // Mesmo titulo da notificacao que o app mostra pela escuta em tempo real
-// (`AlertasViewModel._notificar`), para nada mudar quando uma substitui a outra.
+// (`tituloDoAlerta`, em lib/ui/alertas/formato_alertas.dart), para nada mudar
+// quando uma substitui a outra.
 function tituloDoAlerta(alerta, nomePaciente) {
-  return ehAtencao(alerta)
-    ? `Atenção: ${nomePaciente}`
-    : `Emergência: ${nomePaciente}`;
+  switch (nivelDoAlerta(alerta)) {
+    case 'atencao':
+      return `Atenção: ${nomePaciente}`;
+    case 'pendencia':
+      return `Pendência: ${nomePaciente}`;
+    default:
+      return `Emergência: ${nomePaciente}`;
+  }
 }
 
 function textoDoAlerta(alerta) {
   const mensagem =
     typeof alerta?.mensagem === 'string' ? alerta.mensagem.trim() : '';
-  return (mensagem || 'Batimentos fora da zona de segurança.').slice(
-    0,
-    TAMANHO_MAXIMO_DO_TEXTO,
-  );
+  const padrao =
+    nivelDoAlerta(alerta) === 'pendencia'
+      ? 'Atividade da rotina não registrada.'
+      : 'Batimentos fora da zona de segurança.';
+  return (mensagem || padrao).slice(0, TAMANHO_MAXIMO_DO_TEXTO);
 }
 
 // `dataHora` chega do Firestore como Timestamp.
@@ -82,7 +94,7 @@ function montarMensagem({
       alertaId,
       pacienteId: String(alerta?.pacienteId ?? ''),
       acompanhanteId,
-      nivel: ehAtencao(alerta) ? 'atencao' : 'emergencia',
+      nivel: nivelDoAlerta(alerta),
       titulo,
       texto,
       dataHora: String(emMilissegundos(alerta?.dataHora)),

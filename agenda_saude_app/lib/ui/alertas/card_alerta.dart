@@ -7,13 +7,21 @@ import '../../domain/models/alerta.dart';
 // o mesmo vermelho do selo de status do painel do paciente (Figura 13), para
 // os dois perfis reconhecerem o mesmo aviso. O vermelho e `AppCores.perigo`,
 // com contraste de 6,2:1 para o texto pequeno (NF004); a emergencia se
-// diferencia pelo rotulo, pelo icone e pelo circulo cheio.
+// diferencia pelo rotulo, pelo icone e pelo circulo cheio. A pendencia de
+// atividade (RF 06.3) e aviso, em laranja: o vermelho fica para os batimentos.
 ({String rotulo, IconData icone, Color cor}) estiloDoAlerta(Alerta alerta) {
   if (alerta.ehEmergencia) {
     return (
       rotulo: 'EMERGÊNCIA',
       icone: Icons.emergency_rounded,
       cor: AppCores.perigo,
+    );
+  }
+  if (alerta.ehPendencia) {
+    return (
+      rotulo: 'PENDÊNCIA',
+      icone: Icons.pending_actions_rounded,
+      cor: AppCores.aviso,
     );
   }
   return (

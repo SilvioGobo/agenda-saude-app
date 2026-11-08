@@ -8,6 +8,7 @@ import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/alerta.dart';
 import '../../domain/models/paciente.dart';
+import 'formato_alertas.dart';
 
 // Central de alertas do acompanhante (RF06): escuta em tempo real os alertas
 // de cada paciente vinculado, mostra uma notificacao no aparelho assim que o
@@ -284,7 +285,7 @@ class AlertasViewModel extends ChangeNotifier with WidgetsBindingObserver {
       // notificacao nao mudar quando um substitui o outro.
       await _notificationService.mostrar(
         id: idDaNotificacaoDoAlerta(alerta.id),
-        titulo: alerta.ehEmergencia ? 'Emergência: $nome' : 'Atenção: $nome',
+        titulo: tituloDoAlerta(alerta, nome),
         texto: alerta.mensagem,
         dataHora: alerta.dataHora,
         urgente: alerta.ehEmergencia,

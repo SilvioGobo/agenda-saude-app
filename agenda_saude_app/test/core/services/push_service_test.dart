@@ -53,6 +53,13 @@ void main() {
       expect(alerta.ehEmergencia, true);
     });
 
+    test('Não deve tratar o push de pendência de atividade como emergência', () {
+      final alerta = AlertaPush.daMensagem(dadosDoPush(nivel: 'pendencia'))!;
+
+      expect(alerta.nivel, 'pendencia');
+      expect(alerta.ehEmergencia, false);
+    });
+
     test('Deve ignorar mensagem que não é de alerta', () {
       expect(AlertaPush.daMensagem(dadosDoPush(tipo: 'outra_coisa')), isNull);
       expect(AlertaPush.daMensagem({}), isNull);

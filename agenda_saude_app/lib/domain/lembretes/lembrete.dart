@@ -18,6 +18,10 @@ class Lembrete {
   // O aviso em poucas palavras, para a lista da tela de lembretes ("Tomar
   // Losartana 50 mg").
   final String resumo;
+  // O que e, sem o verbo: o remedio com a dose ("Losartana 50 mg"), o momento
+  // da glicemia ("Ao acordar") ou "Insulina lenta". Vai no aviso de pendencia
+  // (RF 06.3), no aparelho e no push do acompanhante.
+  final String descricao;
   // Em "HH:MM".
   final String horario;
   // O momento da glicemia (`MomentoGlicemia.nome`) de um lembrete de glicemia ou
@@ -31,9 +35,47 @@ class Lembrete {
     required this.titulo,
     required this.texto,
     required this.resumo,
+    this.descricao = '',
     required this.horario,
     this.nomeDoMomento,
   });
+
+  // O aviso de pendencia (RF 06.3): toca no horario-limite, se o paciente ainda
+  // nao registrou a tarefa.
+  String get tituloDaPendencia {
+    switch (tipo) {
+      case TipoLembrete.remedio:
+        return 'Remédio ainda não marcado';
+      case TipoLembrete.glicemia:
+        return 'Glicemia ainda não anotada';
+      case TipoLembrete.insulina:
+        return 'Insulina ainda não anotada';
+    }
+  }
+
+  String get textoDaPendencia {
+    final oQue = descricao.isEmpty ? '' : '$descricao, ';
+    switch (tipo) {
+      case TipoLembrete.remedio:
+        return '${oQue}das $horario. Se já tomou, marque em Minha Rotina.';
+      case TipoLembrete.glicemia:
+        return '${oQue}das $horario. Se já mediu, anote em Minha Rotina.';
+      case TipoLembrete.insulina:
+        return '${oQue}das $horario. Se já aplicou, anote em Minha Rotina.';
+    }
+  }
+
+  // A tarefa como vai para `usuarios/{uid}.tarefasDiarias`: e por essa lista
+  // que a Cloud Function `verificarPendencias` sabe o que conferir e quando
+  // (RF 06.3, "verificacao automatica da lista de tarefas diarias").
+  Map<String, dynamic> toJsonTarefa() {
+    return {
+      'chave': chave,
+      'tipo': tipo.name,
+      'descricao': descricao,
+      'horario': horario,
+    };
+  }
 
   int get hora => int.parse(horario.substring(0, 2));
 
@@ -77,6 +119,7 @@ class Lembrete {
           titulo: 'Hora do remédio',
           texto: '${dose.descricao}. Depois de tomar, marque em Minha Rotina.',
           resumo: 'Tomar ${dose.descricao}',
+          descricao: dose.descricao,
           horario: horario,
         ),
       );
@@ -97,6 +140,7 @@ class Lembrete {
                   texto:
                       '${momento.nome}. Depois de medir, anote em Minha Rotina.',
                   resumo: 'Medir a glicemia (${_minuscula(momento.nome)})',
+                  descricao: momento.nome,
                   horario: horario,
                   nomeDoMomento: momento.nome,
                 )
@@ -106,6 +150,7 @@ class Lembrete {
                   titulo: 'Hora da insulina lenta',
                   texto: 'Aplique a dose e anote em Minha Rotina.',
                   resumo: 'Aplicar a insulina lenta',
+                  descricao: 'Insulina lenta',
                   horario: horario,
                   nomeDoMomento: momento.nome,
                 ),
