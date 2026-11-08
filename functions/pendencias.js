@@ -1,8 +1,9 @@
 'use strict';
 
 // Aviso de pendencia de atividade (RF 06.3, B9). A funcao agendada
-// `verificarPendencias` (index.js) roda a cada 10 minutos: para cada paciente
-// com acompanhante, olha a lista de tarefas do dia que o app do paciente
+// `verificarPendencias` (index.js, verificacoes.js) roda a cada 10 minutos:
+// para cada paciente com acompanhante, olha a lista de tarefas do dia que o
+// app do paciente
 // publica em `usuarios/{uid}.tarefasDiarias` (remedios, glicemia e insulina,
 // as mesmas dos lembretes do A7) e, quando o horario-limite de uma tarefa
 // acaba de passar sem o registro do dia, cria um alerta do tipo `pendencia`.
@@ -249,49 +250,15 @@ async function verificarPendenciasDoPaciente({
   return criados;
 }
 
-// Uma execucao da funcao agendada: confere todos os pacientes que tem
-// acompanhante. Um paciente com problema (ex.: dado estranho) nao impede os
-// outros. Devolve os totais, para o log.
-async function verificarPacientes({
-  firestore,
-  agoraMs = Date.now(),
-  logger = console,
-}) {
-  const totais = { pacientes: 0, pendencias: 0, falhas: 0 };
-  const snapshot = await firestore
-    .collection('usuarios')
-    .where('perfil', '==', 'Paciente')
-    .get();
-
-  for (const doc of snapshot.docs) {
-    const paciente = doc.data();
-    // Sem acompanhante, nao ha a quem avisar: o paciente ja tem o lembrete no
-    // aparelho.
-    if (lista(paciente.acompanhantesVinculadosIds).length === 0) continue;
-    totais.pacientes += 1;
-    try {
-      totais.pendencias += await verificarPendenciasDoPaciente({
-        pacienteId: doc.id,
-        paciente,
-        firestore,
-        agoraMs,
-      });
-    } catch (erro) {
-      totais.falhas += 1;
-      logger.error('Falha ao verificar as pendências de um paciente', {
-        pacienteId: doc.id,
-        erro: String(erro),
-      });
-    }
-  }
-  return totais;
-}
-
 module.exports = {
+  MINUTO_MS,
+  HORA_MS,
+  DIA_MS,
   TOLERANCIA_MS,
   JANELA_MS,
   FUSO_PADRAO_MINUTOS,
   TIPO_PENDENCIA,
+  lista,
   fusoDoPaciente,
   tarefasDoPaciente,
   diaDoPaciente,
@@ -299,6 +266,6 @@ module.exports = {
   chavesCumpridas,
   mensagemDaPendencia,
   idDoAlertaDePendencia,
+  criarSeNaoExiste,
   verificarPendenciasDoPaciente,
-  verificarPacientes,
 };

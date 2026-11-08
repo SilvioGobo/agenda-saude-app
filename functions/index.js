@@ -13,7 +13,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
 const { notificarAcompanhantes } = require('./notificacao');
-const { verificarPacientes } = require('./pendencias');
+const { verificarPacientes } = require('./verificacoes');
 
 initializeApp();
 
@@ -42,11 +42,12 @@ exports.notificarAlertaPaciente = onDocumentCreated(
   },
 );
 
-// B9 (RF 06.3): a cada 10 minutos confere a lista de tarefas do dia de cada
-// paciente com acompanhante e cria o alerta de pendencia das que passaram do
-// horario-limite sem registro; o push sai pelo gatilho acima. Usa o Cloud
-// Scheduler (plano Blaze). Sem novas tentativas: a proxima execucao confere de
-// novo, e o id fixo de cada alerta impede aviso repetido.
+// B9 (RF 06.3) e B10: a cada 10 minutos, para cada paciente com acompanhante,
+// cria o alerta de pendencia das tarefas do dia que passaram do horario-limite
+// sem registro e o aviso de "sem dados" quando o smartwatch para de mandar BPM
+// por 3 horas (contadas das 7h as 22h); o push sai pelo gatilho acima. Usa o
+// Cloud Scheduler (plano Blaze). Sem novas tentativas: a proxima execucao
+// confere de novo, e o id fixo de cada alerta impede aviso repetido.
 exports.verificarPendencias = onSchedule(
   {
     schedule: 'every 10 minutes',

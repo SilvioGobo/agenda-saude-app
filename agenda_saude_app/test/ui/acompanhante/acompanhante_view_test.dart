@@ -325,6 +325,8 @@ void main() {
       find.textContaining('Peça a José para abrir o Agenda Saúde'),
       findsOneWidget,
     );
+    // Quem nunca mandou medicao nao usa o relogio: nao ha aviso para esperar.
+    expect(find.textContaining('você recebe um aviso'), findsNothing);
   });
 
   testWidgets('Card mostra SEM DADOS e o horário quando a última leitura é antiga', (
@@ -340,6 +342,12 @@ void main() {
     expect(find.text('SEM DADOS'), findsOneWidget);
     expect(find.text('ESTÁVEL'), findsNothing);
     expect(find.textContaining('há mais de uma hora'), findsOneWidget);
+    // B10: o acompanhante sabe quando vai receber o aviso.
+    expect(
+      find.textContaining('Se continuar assim por 3 horas, entre 7h e 22h, '
+          'você recebe um aviso.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Card mostra a última atividade da rotina do paciente', (

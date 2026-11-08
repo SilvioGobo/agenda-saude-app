@@ -26,6 +26,10 @@ void main() {
         tituloDoAlerta(doTipo(Alerta.tipoPendencia), 'José'),
         'Pendência: José',
       );
+      expect(
+        tituloDoAlerta(doTipo(Alerta.tipoSemDados), 'José'),
+        'Sem dados do smartwatch: José',
+      );
     });
 
     test('Deve dar a frase do topo do painel para cada tipo de alerta', () {
@@ -40,6 +44,10 @@ void main() {
       expect(
         mancheteDoAlerta(doTipo(Alerta.tipoPendencia), 'José'),
         'José tem uma atividade pendente',
+      );
+      expect(
+        mancheteDoAlerta(doTipo(Alerta.tipoSemDados), 'José'),
+        'José está sem dados do smartwatch',
       );
     });
   });

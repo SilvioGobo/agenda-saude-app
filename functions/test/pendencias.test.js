@@ -13,8 +13,8 @@ const {
   mensagemDaPendencia,
   pendenciasVencidas,
   tarefasDoPaciente,
-  verificarPacientes,
 } = require('../pendencias');
+const { verificarPacientes } = require('../verificacoes');
 const { criarFirestoreFalso } = require('./firestore_falso');
 
 // O paciente mora em Campo Grande (UTC-4), como o app publica.
@@ -184,7 +184,7 @@ describe('verificarPacientes (B9) Testes', () => {
       logger: loggerMudo,
     });
 
-    assert.deepEqual(totais, { pacientes: 1, pendencias: 1, falhas: 0 });
+    assert.deepEqual(totais, { pacientes: 1, pendencias: 1, semDados: 0, falhas: 0 });
     const alertas = Object.entries(firestore.daColecao('alertas'));
     assert.equal(alertas.length, 1);
     const [id, alerta] = alertas[0];
@@ -314,7 +314,7 @@ describe('verificarPacientes (B9) Testes', () => {
       logger: loggerMudo,
     });
 
-    assert.deepEqual(totais, { pacientes: 1, pendencias: 0, falhas: 0 });
+    assert.deepEqual(totais, { pacientes: 1, pendencias: 0, semDados: 0, falhas: 0 });
     assert.deepEqual(firestore.daColecao('alertas'), {});
   });
 
@@ -380,6 +380,6 @@ describe('verificarPacientes (B9) Testes', () => {
       logger: loggerMudo,
     });
 
-    assert.deepEqual(totais, { pacientes: 2, pendencias: 1, falhas: 1 });
+    assert.deepEqual(totais, { pacientes: 2, pendencias: 1, semDados: 0, falhas: 1 });
   });
 });

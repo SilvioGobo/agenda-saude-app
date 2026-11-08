@@ -36,6 +36,16 @@ class ZonaSegurancaCardiaca {
   // pode nao valer mais (app do paciente fechado, relogio fora do pulso...).
   static const Duration validadeDaLeitura = Duration(hours: 1);
 
+  // Tempo sem nenhuma leitura nova depois do qual o acompanhante recebe o aviso
+  // "sem dados do smartwatch" (B10), contado so entre [inicioDoDiaParaAviso] e
+  // [fimDoDiaParaAviso] no horario do paciente: tirar o relogio para dormir ou
+  // carregar a noite nao vira aviso de madrugada. Quem manda o aviso e a Cloud
+  // Function `verificarPendencias` (functions/sem_dados.js), com estes mesmos
+  // valores.
+  static const Duration prazoAvisoSemDados = Duration(hours: 3);
+  static const int inicioDoDiaParaAviso = 7;
+  static const int fimDoDiaParaAviso = 22;
+
   static int bpmMinimo({
     required bool possuiCardiopatia,
     LimitesAlerta? limites,

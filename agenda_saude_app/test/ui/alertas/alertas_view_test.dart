@@ -125,6 +125,29 @@ void main() {
     expect(find.text('BPM', findRichText: true), findsNothing);
   });
 
+  testWidgets('Aviso de sem dados do smartwatch aparece como SEM DADOS e os detalhes pedem o relógio no pulso', (
+    tester,
+  ) async {
+    await dadosRepository.gerarAlerta(Alerta(
+      id: '',
+      pacienteId: 'paciente_01',
+      tipo: Alerta.tipoSemDados,
+      mensagem: 'O smartwatch não envia medições desde as 10:15. Peça a José '
+          'para abrir o Agenda Saúde com o relógio no pulso.',
+      dataHora: DateTime.now().subtract(const Duration(minutes: 3)),
+    ));
+    await montarTela(tester);
+
+    expect(find.text('SEM DADOS'), findsOneWidget);
+    expect(find.textContaining('desde as 10:15'), findsOneWidget);
+
+    await tester.tap(find.byType(CardAlerta));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EmergenciaView), findsNothing);
+    expect(find.textContaining('colocar o relógio no pulso'), findsOneWidget);
+  });
+
   testWidgets('Tocar no alerta abre os detalhes e marca como lido', (
     tester,
   ) async {

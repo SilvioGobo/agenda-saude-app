@@ -57,6 +57,11 @@ class _DetalhesAlerta extends StatelessWidget {
           'atividade. Se já foi feita, peça para marcar em Minha Rotina, para '
           'o relatório ficar certo.';
     }
+    if (alerta.ehSemDados) {
+      return 'Sem as medições, o app não consegue avisar se os batimentos de '
+          '$nomePaciente saírem da zona de segurança. Ligue e peça para colocar '
+          'o relógio no pulso e abrir o Agenda Saúde.';
+    }
     return 'Os batimentos de $nomePaciente saíram da zona de segurança. Entre '
         'em contato para saber como está se sentindo. Se continuar assim por '
         'alguns minutos, você receberá um alerta de emergência.';

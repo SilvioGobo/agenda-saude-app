@@ -117,7 +117,8 @@ integration_test/   # fluxos completos no emulador
 ```
 
 Fora do app, na raiz do repositório: `functions/` (Cloud Functions em JavaScript:
-`index.js` com o gatilho e a função agendada, `notificacao.js` e `pendencias.js` com a
+`index.js` com o gatilho e a função agendada, `notificacao.js` (push), `pendencias.js`
+(B9), `sem_dados.js` (B10) e `verificacoes.js` (uma execução da função agendada) com a
 lógica, `test/` com `node --test` e um Firestore falso em `test/firestore_falso.js`) e
 `firestore_rules_test/` (testes do `firestore.rules` no emulador, com
 `@firebase/rules-unit-testing`; um arquivo `*.test.js` por regra).
@@ -244,9 +245,18 @@ Convenções já estabelecidas nos repositories — manter:
     A estimativa de nutrientes só aparece no relatório do dia. A lista de remédios
     (`Paciente.medicamentos`) vale igual: mudar os remédios muda a leitura dos dias
     antigos, e doses marcadas que já não estão na lista aparecem à parte.
-- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'` | `'pendencia'`),
-  `mensagem`, `bpm`, `dataHora`, `lido`. `Alerta.ehDeBatimento` = atenção ou emergência:
-  é o que o monitor de BPM e os relatórios contam (a pendência fica de fora deles).
+- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'` | `'pendencia'` |
+  `'sem_dados'`), `mensagem`, `bpm`, `dataHora`, `lido`. `Alerta.ehDeBatimento` =
+  atenção ou emergência: é o que o monitor de BPM e os relatórios contam (pendência e
+  sem dados ficam de fora deles).
+  O aviso de **sem dados do smartwatch** (B10) sai da mesma função agendada
+  (`functions/sem_dados.js`): pela última leitura de `batimentos_cardiacos` do paciente
+  (mesma consulta de `streamUltimoBatimento`), quando o tempo sem leitura nova, contado
+  só das 7h às 22h no horário dele (`ZonaSegurancaCardiaca.prazoAvisoSemDados` = 3 h,
+  `inicioDoDiaParaAviso`/`fimDoDiaParaAviso`), vence na última hora. Um aviso por
+  período sem dados (id `sem_dados_{paciente}_{ms da última leitura}`), com
+  `ultimaLeitura`; quem nunca mandou leitura não recebe aviso (não usa relógio). O card
+  já mostra SEM DADOS depois de 1 h (`validadeDaLeitura`) e explica quando o aviso chega.
   A **pendência de atividade** (RF 06.3, B9) é criada pela Cloud Function agendada
   `verificarPendencias` (`functions/pendencias.js`, a cada 10 min, Cloud Scheduler):
   para cada paciente com acompanhante, lê `tarefasDiarias` e `fusoHorarioMinutos` do
@@ -426,7 +436,10 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    aviso no aparelho pelos lembretes do A7 e o acompanhante, o push da função agendada
    `verificarPendencias` (ver `alertas` e "Tarefas do dia" acima), que vai junto no
    `firebase deploy --only functions`. A pendência aparece em laranja ("PENDÊNCIA") na
-   central de alertas e no card, com a orientação de lembrar o paciente*
+   central de alertas e no card, com a orientação de lembrar o paciente. Aviso de "sem
+   dados do smartwatch" (B10) também feito, na mesma função (ver `alertas` acima): é a
+   rede de segurança para quando a leitura com o app fechado (B7) não funciona no
+   aparelho ou o relógio ficou fora do pulso*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007) ← *configurações feitas
    (`ui/configuracoes/`, menu > Acessibilidade): liga/desliga o narrador, três velocidades

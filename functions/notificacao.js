@@ -31,11 +31,13 @@ function nomeDoPaciente(paciente) {
 
 // O nivel do alerta para o app: `atencao` e `emergencia` vem do BPM;
 // `pendencia` e a tarefa do dia que passou do horario-limite (RF 06.3, ver
-// pendencias.js). Alerta sem `tipo` conta como emergencia, como no app
+// pendencias.js) e `sem_dados`, o smartwatch que parou de mandar BPM (B10, ver
+// sem_dados.js). Alerta sem `tipo` conta como emergencia, como no app
 // (`Alerta.fromJson`).
 function nivelDoAlerta(alerta) {
   if (alerta?.tipo === 'atencao') return 'atencao';
   if (alerta?.tipo === 'pendencia') return 'pendencia';
+  if (alerta?.tipo === 'sem_dados') return 'sem_dados';
   return 'emergencia';
 }
 
@@ -48,18 +50,23 @@ function tituloDoAlerta(alerta, nomePaciente) {
       return `Atenção: ${nomePaciente}`;
     case 'pendencia':
       return `Pendência: ${nomePaciente}`;
+    case 'sem_dados':
+      return `Sem dados do smartwatch: ${nomePaciente}`;
     default:
       return `Emergência: ${nomePaciente}`;
   }
 }
 
+const TEXTO_PADRAO = {
+  pendencia: 'Atividade da rotina não registrada.',
+  sem_dados: 'O smartwatch não envia medições há algumas horas.',
+};
+
 function textoDoAlerta(alerta) {
   const mensagem =
     typeof alerta?.mensagem === 'string' ? alerta.mensagem.trim() : '';
   const padrao =
-    nivelDoAlerta(alerta) === 'pendencia'
-      ? 'Atividade da rotina não registrada.'
-      : 'Batimentos fora da zona de segurança.';
+    TEXTO_PADRAO[nivelDoAlerta(alerta)] ?? 'Batimentos fora da zona de segurança.';
   return (mensagem || padrao).slice(0, TAMANHO_MAXIMO_DO_TEXTO);
 }
 

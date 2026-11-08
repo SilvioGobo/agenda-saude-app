@@ -82,5 +82,23 @@ void main() {
       expect(doTipo(Alerta.tipoAtencao).ehDeBatimento, isTrue);
       expect(doTipo(Alerta.tipoEmergencia).ehDeBatimento, isTrue);
     });
+
+    test('Deve reconhecer o aviso de sem dados do smartwatch (B10), que não é de batimento', () {
+      final semDados = Alerta.fromJson({
+        'pacienteId': 'paciente_01',
+        'tipo': 'sem_dados',
+        'mensagem': 'O smartwatch não envia medições desde as 10:15.',
+        'bpm': null,
+        'dataHora': Timestamp.fromDate(DateTime(2026, 11, 8, 13, 15)),
+        'lido': false,
+        'ultimaLeitura': Timestamp.fromDate(DateTime(2026, 11, 8, 10, 15)),
+      }, 'sem_dados_01');
+
+      expect(semDados.tipo, Alerta.tipoSemDados);
+      expect(semDados.ehSemDados, isTrue);
+      expect(semDados.ehEmergencia, isFalse);
+      expect(semDados.ehPendencia, isFalse);
+      expect(semDados.ehDeBatimento, isFalse);
+    });
   });
 }

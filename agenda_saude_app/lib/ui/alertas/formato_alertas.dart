@@ -7,6 +7,7 @@ import '../../domain/models/alerta.dart';
 String tituloDoAlerta(Alerta alerta, String nomePaciente) {
   if (alerta.ehEmergencia) return 'Emergência: $nomePaciente';
   if (alerta.ehPendencia) return 'Pendência: $nomePaciente';
+  if (alerta.ehSemDados) return 'Sem dados do smartwatch: $nomePaciente';
   return 'Atenção: $nomePaciente';
 }
 
@@ -14,5 +15,6 @@ String tituloDoAlerta(Alerta alerta, String nomePaciente) {
 String mancheteDoAlerta(Alerta alerta, String nomePaciente) {
   if (alerta.ehEmergencia) return 'Emergência com $nomePaciente';
   if (alerta.ehPendencia) return '$nomePaciente tem uma atividade pendente';
+  if (alerta.ehSemDados) return '$nomePaciente está sem dados do smartwatch';
   return '$nomePaciente precisa de atenção';
 }

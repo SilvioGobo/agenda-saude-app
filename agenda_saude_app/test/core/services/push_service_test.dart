@@ -60,6 +60,12 @@ void main() {
       expect(alerta.ehEmergencia, false);
     });
 
+    test('Não deve tratar o push de sem dados do smartwatch como emergência', () {
+      final alerta = AlertaPush.daMensagem(dadosDoPush(nivel: 'sem_dados'))!;
+
+      expect(alerta.ehEmergencia, false);
+    });
+
     test('Deve ignorar mensagem que não é de alerta', () {
       expect(AlertaPush.daMensagem(dadosDoPush(tipo: 'outra_coisa')), isNull);
       expect(AlertaPush.daMensagem({}), isNull);

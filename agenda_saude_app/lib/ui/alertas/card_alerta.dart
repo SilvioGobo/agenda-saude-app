@@ -24,6 +24,14 @@ import '../../domain/models/alerta.dart';
       cor: AppCores.aviso,
     );
   }
+  // Mesmo selo do card do paciente quando o relogio para de mandar BPM (B10).
+  if (alerta.ehSemDados) {
+    return (
+      rotulo: 'SEM DADOS',
+      icone: Icons.watch_off_rounded,
+      cor: AppCores.aviso,
+    );
+  }
   return (
     rotulo: 'ATENÇÃO',
     icone: Icons.warning_rounded,

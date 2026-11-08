@@ -302,11 +302,18 @@ class _SaudeDoPaciente extends StatelessWidget {
         return '$direcao da zona de segurança ($bpmMinimo a $bpmMaximo '
             'batimentos por minuto).';
       case StatusSaude.semDados:
-        final situacao = batimento == null
-            ? 'O smartwatch ainda não enviou medições.'
-            : 'O smartwatch não envia medições há mais de uma hora.';
-        return '$situacao Peça a $primeiroNome para abrir o Agenda Saúde '
-            'com o relógio no pulso.';
+        if (batimento == null) {
+          return 'O smartwatch ainda não enviou medições. Peça a '
+              '$primeiroNome para abrir o Agenda Saúde com o relógio no pulso.';
+        }
+        // B10: o aviso "sem dados" sai pelo push depois do prazo, contado so
+        // durante o dia.
+        final horas = ZonaSegurancaCardiaca.prazoAvisoSemDados.inHours;
+        return 'O smartwatch não envia medições há mais de uma hora. Peça a '
+            '$primeiroNome para abrir o Agenda Saúde com o relógio no pulso. '
+            'Se continuar assim por $horas horas, entre '
+            '${ZonaSegurancaCardiaca.inicioDoDiaParaAviso}h e '
+            '${ZonaSegurancaCardiaca.fimDoDiaParaAviso}h, você recebe um aviso.';
     }
   }
 
