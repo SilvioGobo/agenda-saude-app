@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart'; // ajuste o import
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
@@ -482,6 +483,38 @@ void main() {
         Paciente.fromJson({'telefone': '   '}, 'id-123').temTelefone,
         isFalse,
       );
+    });
+
+    test('Deve guardar e ler os limites de alerta pelo JSON e trocá-los no copyWith', () {
+      final semLimites = Paciente(
+        id: 'id-123',
+        nome: 'João Silva',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: true,
+        codigoVinculo: '12345',
+      );
+      expect(semLimites.limitesAlerta, isNull);
+      expect(semLimites.toJson()['limitesAlerta'], isNull);
+      // Documento antigo, sem o campo.
+      expect(Paciente.fromJson({'nome': 'João'}, 'id-1').limitesAlerta, isNull);
+
+      final comLimites = semLimites.copyWith(
+        limitesAlerta: const LimitesAlerta(
+          bpmMinimo: 50,
+          bpmMaximo: 110,
+          atualizadoPor: 'cuidador_01',
+        ),
+      );
+      final lido = Paciente.fromJson(comLimites.toJson(), 'id-123');
+      expect(lido.limitesAlerta?.bpmMinimo, 50);
+      expect(lido.limitesAlerta?.bpmMaximo, 110);
+      expect(lido.limitesAlerta?.atualizadoPor, 'cuidador_01');
+
+      // Os outros copyWith mantem os limites; `semLimitesAlerta` os tira.
+      expect(comLimites.copyWith(pesoKg: 70).limitesAlerta, isNotNull);
+      expect(comLimites.copyWith(semLimitesAlerta: true).limitesAlerta, isNull);
     });
   });
 }

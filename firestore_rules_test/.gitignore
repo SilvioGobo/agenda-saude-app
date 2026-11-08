@@ -1,0 +1,4 @@
+node_modules/
+# Logs do emulador do Firestore
+firestore-debug.log
+firebase-debug.log

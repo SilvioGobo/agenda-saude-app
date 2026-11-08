@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
@@ -545,6 +546,25 @@ void main() {
 
         expect(batimentos.leituras, 1);
         expect(batimentos.serie, isNull);
+      });
+
+      test('Deve contar fora da zona pelos limites que o acompanhante definiu (RF 06.1)', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente().copyWith(
+            limitesAlerta: const LimitesAlerta(bpmMinimo: 50, bpmMaximo: 120),
+          ),
+          dia: dia,
+          batimentos: [
+            _bpm(55, DateTime(2026, 11, 1, 6)),
+            _bpm(110, DateTime(2026, 11, 1, 9)),
+            _bpm(125, DateTime(2026, 11, 1, 10)),
+          ],
+        );
+
+        expect(resumo.batimentos.zonaMinima, 50);
+        expect(resumo.batimentos.zonaMaxima, 120);
+        // So o 125 sai da zona do paciente; na padrao (60 a 100) seriam tres.
+        expect(resumo.batimentos.foraDaZona, 1);
       });
 
       test('Deve ordenar os alertas do mais recente para o mais antigo e contá-los por tipo', () {

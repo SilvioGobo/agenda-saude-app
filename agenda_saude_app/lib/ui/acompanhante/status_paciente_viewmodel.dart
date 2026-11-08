@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/zona_seguranca_cardiaca.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/batimento_cardiaco.dart';
+import '../../domain/models/limites_alerta.dart';
 import '../../domain/models/paciente.dart';
 import '../../domain/models/registro_base.dart';
 
@@ -17,7 +18,8 @@ enum StatusSaude { estavel, atencao, semDados }
 // mais recente do paciente em tempo real, ha quanto tempo foi medido, o
 // status consolidado pela zona de seguranca (UC04.4) e a ultima atividade da
 // rotina. Cada card tem o seu ViewModel, que nasce e morre com o card junto
-// com as escutas do Firestore.
+// com as escutas do Firestore. A zona segue os limites de alerta do paciente
+// em tempo real (RF 06.1), inclusive os que outro acompanhante salvar.
 class StatusPacienteViewModel extends ChangeNotifier {
   final Paciente paciente;
   final DadosMedicosRepository _dadosRepository;
@@ -37,6 +39,7 @@ class StatusPacienteViewModel extends ChangeNotifier {
 
   StreamSubscription<BatimentoCardiaco?>? _assinaturaBatimento;
   StreamSubscription<RegistroBase?>? _assinaturaAtividade;
+  StreamSubscription<LimitesAlerta?>? _assinaturaLimites;
   Timer? _relogio;
   bool _descartado = false;
 
@@ -52,13 +55,37 @@ class StatusPacienteViewModel extends ChangeNotifier {
 
   DateTime get agora => _agora();
 
+  // Limites de BPM do paciente (RF 06.1); null = zona padrao.
+  late LimitesAlerta? _limitesAlerta = paciente.limitesAlerta;
+  LimitesAlerta? get limitesAlerta => _limitesAlerta;
+
   int get bpmMinimo => ZonaSegurancaCardiaca.bpmMinimo(
         possuiCardiopatia: paciente.possuiCardiopatia,
+        limites: _limitesAlerta,
       );
 
   int get bpmMaximo => ZonaSegurancaCardiaca.bpmMaximo(
         possuiCardiopatia: paciente.possuiCardiopatia,
+        limites: _limitesAlerta,
       );
+
+  // O paciente do card com os limites de agora, para as telas abertas por ele
+  // (relatorios, ajuste dos limites) usarem a mesma zona do card.
+  Paciente get pacienteAtual {
+    final limites = _limitesAlerta;
+    if (limites == paciente.limitesAlerta) return paciente;
+    return limites == null
+        ? paciente.copyWith(semLimitesAlerta: true)
+        : paciente.copyWith(limitesAlerta: limites);
+  }
+
+  // O acompanhante acabou de salvar limites novos: o card ja muda, sem esperar
+  // a escuta do Firestore confirmar.
+  void usarLimites(LimitesAlerta? limites) {
+    if (_descartado || limites == _limitesAlerta) return;
+    _limitesAlerta = limites;
+    notifyListeners();
+  }
 
   // A leitura mais recente ainda vale para dizer como o paciente esta agora.
   bool get leituraRecente {
@@ -74,6 +101,7 @@ class StatusPacienteViewModel extends ChangeNotifier {
     final dentro = ZonaSegurancaCardiaca.estaDentroDaZona(
       batimento.bpm,
       possuiCardiopatia: paciente.possuiCardiopatia,
+      limites: _limitesAlerta,
     );
     return dentro ? StatusSaude.estavel : StatusSaude.atencao;
   }
@@ -109,6 +137,15 @@ class StatusPacienteViewModel extends ChangeNotifier {
       ),
     );
 
+    _assinaturaLimites =
+        _dadosRepository.streamLimitesAlerta(paciente.id).listen(
+      usarLimites,
+      // O card segue com os limites que vieram na lista de pacientes.
+      onError: (Object erro) => debugPrint(
+        'Stream dos limites de alerta do paciente ${paciente.id} falhou: $erro',
+      ),
+    );
+
     _relogio = Timer.periodic(intervaloRelogio, (_) {
       if (!_descartado) notifyListeners();
     });
@@ -119,6 +156,7 @@ class StatusPacienteViewModel extends ChangeNotifier {
     _descartado = true;
     _assinaturaBatimento?.cancel();
     _assinaturaAtividade?.cancel();
+    _assinaturaLimites?.cancel();
     _relogio?.cancel();
     super.dispose();
   }

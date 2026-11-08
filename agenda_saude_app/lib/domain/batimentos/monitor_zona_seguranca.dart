@@ -1,6 +1,7 @@
 import '../../core/constants/zona_seguranca_cardiaca.dart';
 import '../models/alerta.dart';
 import '../models/batimento_cardiaco.dart';
+import '../models/limites_alerta.dart';
 
 // Regras dos alertas de BPM, sem Firebase (UC04.4 -> UC06 e RF06). Usadas
 // igual pela leitura de 30 s com o app aberto (SincronizacaoBpmViewModel) e
@@ -14,9 +15,15 @@ import '../models/batimento_cardiaco.dart';
 //   recente sai da zona). So a passagem avisa, no maximo uma vez a cada
 //   `intervaloMinimoEntreAvisos`, e nao junto de uma emergencia do mesmo
 //   episodio, que ja avisou o acompanhante.
+//
+// A zona e a do paciente: os limites que o acompanhante definiu (RF 06.1) ou,
+// sem eles, a padrao pela triagem (ZonaSegurancaCardiaca). Retomar com limites
+// novos reavalia as leituras gravadas com eles, como a leitura com o app
+// fechado faz a cada execucao.
 class MonitorZonaSeguranca {
   final String pacienteId;
   final bool possuiCardiopatia;
+  final LimitesAlerta? limites;
 
   // Leitura que o painel do paciente mostra agora (a mais recente gravada).
   BatimentoCardiaco? _leituraExibida;
@@ -28,6 +35,7 @@ class MonitorZonaSeguranca {
   MonitorZonaSeguranca({
     required this.pacienteId,
     required this.possuiCardiopatia,
+    this.limites,
   });
 
   // Retoma o estado a partir das leituras ja gravadas e dos alertas ja
@@ -37,12 +45,14 @@ class MonitorZonaSeguranca {
   factory MonitorZonaSeguranca.retomar({
     required String pacienteId,
     required bool possuiCardiopatia,
+    LimitesAlerta? limites,
     required List<BatimentoCardiaco> gravados,
     required List<Alerta> alertas,
   }) {
     final monitor = MonitorZonaSeguranca(
       pacienteId: pacienteId,
       possuiCardiopatia: possuiCardiopatia,
+      limites: limites,
     );
     final ordenados = [...gravados]
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -140,6 +150,7 @@ class MonitorZonaSeguranca {
     final acima = ZonaSegurancaCardiaca.estaAcimaDaZona(
       maisRecente.bpm,
       possuiCardiopatia: possuiCardiopatia,
+      limites: limites,
     );
     return Alerta(
       id: '',
@@ -155,5 +166,6 @@ class MonitorZonaSeguranca {
   bool _dentroDaZona(int bpm) => ZonaSegurancaCardiaca.estaDentroDaZona(
         bpm,
         possuiCardiopatia: possuiCardiopatia,
+        limites: limites,
       );
 }

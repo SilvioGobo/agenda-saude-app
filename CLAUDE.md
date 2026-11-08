@@ -49,6 +49,18 @@ npm test                             # sem Firebase: Firestore e FCM falsos
 firebase deploy --only functions     # roda o npm test antes; exige o plano Blaze
 ```
 
+Security rules (pasta `firestore_rules_test/` na raiz; precisa do Java 21 para o
+`firebase emulators:exec`):
+
+```bash
+cd firestore_rules_test
+npm ci
+npm run test:emulador                # sobe o emulador (projeto demo-rules) e roda os testes
+```
+
+Com o emulador já no ar (ex.: o jar rodando com o Java 17), `npm test` com
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:<porta>` roda os mesmos testes.
+
 ## Estrutura de pastas
 
 Já existente (não reorganizar):
@@ -105,7 +117,9 @@ integration_test/   # fluxos completos no emulador
 ```
 
 Fora do app, na raiz do repositório: `functions/` (Cloud Functions em JavaScript:
-`index.js` com o gatilho, `notificacao.js` com a lógica, `test/` com `node --test`).
+`index.js` com o gatilho, `notificacao.js` com a lógica, `test/` com `node --test`) e
+`firestore_rules_test/` (testes do `firestore.rules` no emulador, com
+`@firebase/rules-unit-testing`; um arquivo `*.test.js` por regra).
 
 ## Modelo de dados (Firestore)
 
@@ -148,6 +162,21 @@ Convenções já estabelecidas nos repositories — manter:
   `PacienteRepository.salvarMedicamentos` (update só desse campo). O horário é digitado
   em números ("0800" vira 08:00): o seletor de hora do sistema sairia em inglês, porque o
   app não tem as localizações do Flutter.
+  Os **limites de alerta** (RF 06.1, B8) ficam em `limitesAlerta` (map, `LimitesAlerta`:
+  `bpmMinimo`, `bpmMaximo`, `atualizadoPor` = UID de quem ajustou, `atualizadoEm`).
+  `null`/ausente = zona padrão (60 a 100, ou 60 a 90 para cardiopatas). Quem ajusta é o
+  acompanhante, pelo botão "Limites de alerta" do card (`LimitesAlertaView`, Menos/Mais
+  de 5 em 5); salvar os mesmos valores da zona padrão apaga o campo. Faixas aceitas:
+  mínimo de 40 a 90, máximo de 80 a 150, ao menos 20 entre os dois — as mesmas no app
+  (`LimitesAlerta.saoValidos`; fora delas o app ignora o campo) e nas rules
+  (`limitesAlertaValidos`). Gravado por `DadosMedicosRepository.salvarLimitesAlerta`
+  (update só desse campo) e lido em tempo real por `streamLimitesAlerta`. Toda conta de
+  zona passa por `ZonaSegurancaCardiaca` com `limites:` (monitor de alertas com o app
+  aberto e fechado, painel do paciente, card, tela de emergência e relatórios). O app
+  aberto do paciente escuta o campo: limite novo faz a próxima leitura reler a janela e
+  retomar o episódio com a zona nova (o mesmo da leitura com o app fechado, que relê o
+  paciente a cada execução). Como o plano de refeições, os limites não têm histórico:
+  os relatórios de dias antigos usam a zona de hoje.
 - **Catálogo de alimentos**: `assets/alimentos/taco.json`, 593 alimentos da TACO 4ª
   edição (NEPA/UNICAMP, 2011; reprodução permitida citando a fonte — a tela de busca
   cita) com kcal, proteína, gordura, carboidrato, fibra e sódio por 100 g. Embutido no
@@ -163,6 +192,9 @@ Convenções já estabelecidas nos repositories — manter:
   faz `arrayUnion` nos dois lados num único batch. As rules só deixam o acompanhante
   tocar em `acompanhantesVinculadosIds` do paciente (e só para entrar/sair ele mesmo);
   um `arrayUnion` sem mudança é negado, por isso o ViewModel checa "já vinculado" antes.
+  No mesmo molde, o acompanhante vinculado (dos dois lados) só pode mexer em
+  `limitesAlerta` do paciente (`soAlteraLimitesDeAlerta`), com o próprio UID em
+  `atualizadoPor`.
   O paciente pode dar `get` (sem `list`) no doc de um Acompanhante que tem o UID dele
   em `pacientesVinculadosIds` (`ehAcompanhanteDoUsuarioLogado`): é de onde vêm o nome e
   o telefone em "Falar com Acompanhante" (`listarAcompanhantesDoPaciente`).
@@ -361,7 +393,10 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    também feito: `PushService` (`firebase_messaging` 16.2.2, a versão da mesma leva do
    `firebase_core` 4.9.0; fake nos testes), token em `usuarios/{uid}.fcmTokens` e a
    Cloud Function em `functions/` (ver `alertas` acima). Publicar com
-   `firebase deploy --only functions` (plano Blaze, decisão D2)*
+   `firebase deploy --only functions` (plano Blaze, decisão D2). Limites de alerta pelo
+   acompanhante (RF 06.1, B8) também feitos: botão "Limites de alerta" do card →
+   `LimitesAlertaView` (ver `limitesAlerta` em `usuarios/{uid}`); exige publicar as rules
+   (`firebase deploy --only firestore:rules`), com teste em `firestore_rules_test/`*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007) ← *configurações feitas
    (`ui/configuracoes/`, menu > Acessibilidade): liga/desliga o narrador, três velocidades
@@ -414,5 +449,7 @@ seguir em toda tela nova. Resumo:
 - Security rules: validar localmente antes de publicar com
   `firebase emulators:exec --only firestore --project demo-rules "<script>"` (projeto
   `demo-*` não toca no Firebase real). Publicar com `firebase deploy --only firestore:rules`.
+  Regra nova ganha teste em `firestore_rules_test/` (o que deve passar e o que deve ser
+  negado), rodado com `npm run test:emulador`.
 - Commits em português, minúsculos, prefixo convencional (`feat:`, `chore:`, `fix:`),
   sem acentos — ex.: `feat: implementacao do modulo de identidade`.

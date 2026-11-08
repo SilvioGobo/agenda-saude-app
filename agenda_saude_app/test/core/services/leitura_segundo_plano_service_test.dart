@@ -6,6 +6,7 @@ import 'package:agenda_saude_app/core/services/leitura_segundo_plano_service.dar
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 
 import 'fake_health_service.dart';
@@ -140,6 +141,25 @@ void main() {
       ];
 
       expect((await sincronizar(possuiCardiopatia: true)).alertas, 1);
+    });
+
+    test('Deve usar os limites que o acompanhante definiu (RF 06.1)', () async {
+      healthService.leituras = [
+        LeituraBpm(bpm: 95, timestamp: haMinutos(7)),
+        LeituraBpm(bpm: 96, timestamp: haMinutos(1)),
+      ];
+      // 95 BPM e normal na zona padrao, mas acima do maximo de 90 do paciente.
+      final resultado = await sincronizarComAppFechado(
+        paciente: paciente().copyWith(
+          limitesAlerta: const LimitesAlerta(bpmMinimo: 50, bpmMaximo: 90),
+        ),
+        healthService: healthService,
+        dadosRepository: dadosRepository,
+        agora: agora,
+      );
+
+      expect(resultado.alertas, 1);
+      expect((await alertasGravados()).single.tipo, Alerta.tipoEmergencia);
     });
 
     test('Não deve repetir a emergência que a execução anterior já gerou', () async {

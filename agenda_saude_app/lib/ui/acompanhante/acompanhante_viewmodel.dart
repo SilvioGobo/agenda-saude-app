@@ -48,6 +48,16 @@ class AcompanhanteViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Troca o paciente da lista pela versao nova (ex.: com os limites de alerta
+  // que o acompanhante acabou de salvar), para as telas abertas depois a
+  // partir do painel ja receberem os dados novos.
+  void atualizarPaciente(Paciente atualizado) {
+    final indice = pacientesVinculados.indexWhere((p) => p.id == atualizado.id);
+    if (indice < 0) return;
+    pacientesVinculados = [...pacientesVinculados]..[indice] = atualizado;
+    notifyListeners();
+  }
+
   Future<bool> desvincular(Paciente paciente) async {
     carregando = true;
     mensagemErro = null;

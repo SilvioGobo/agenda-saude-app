@@ -1,7 +1,15 @@
+import '../../domain/models/limites_alerta.dart';
+
 // Limites de batimentos por minuto (BPM) em repouso considerados dentro da
 // normalidade (UC04.4). Pacientes com cardiopatia usam uma margem mais
-// estreita, já que a triagem (RF02.3) determina que os alertas cardíacos
+// estreita, ja que a triagem (RF02.3) determina que os alertas cardiacos
 // tenham prioridade para eles.
+//
+// O acompanhante pode trocar esses padroes pelos limites do paciente (RF 06.1,
+// [LimitesAlerta]): todas as contas abaixo recebem os [limites] do paciente e,
+// sem eles, usam os padroes pela triagem. Assim o alerta com o app aberto, o
+// alerta com o app fechado, o painel, o card do acompanhante e os relatorios
+// usam sempre a mesma zona.
 class ZonaSegurancaCardiaca {
   ZonaSegurancaCardiaca._();
 
@@ -28,19 +36,36 @@ class ZonaSegurancaCardiaca {
   // pode nao valer mais (app do paciente fechado, relogio fora do pulso...).
   static const Duration validadeDaLeitura = Duration(hours: 1);
 
-  static int bpmMinimo({required bool possuiCardiopatia}) =>
-      possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao;
+  static int bpmMinimo({
+    required bool possuiCardiopatia,
+    LimitesAlerta? limites,
+  }) =>
+      limites?.bpmMinimo ??
+      (possuiCardiopatia ? bpmMinimoCardiopata : bpmMinimoPadrao);
 
-  static int bpmMaximo({required bool possuiCardiopatia}) =>
-      possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao;
+  static int bpmMaximo({
+    required bool possuiCardiopatia,
+    LimitesAlerta? limites,
+  }) =>
+      limites?.bpmMaximo ??
+      (possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao);
 
-  static bool estaDentroDaZona(int bpm, {required bool possuiCardiopatia}) {
-    return bpm >= bpmMinimo(possuiCardiopatia: possuiCardiopatia) &&
-        bpm <= bpmMaximo(possuiCardiopatia: possuiCardiopatia);
+  static bool estaDentroDaZona(
+    int bpm, {
+    required bool possuiCardiopatia,
+    LimitesAlerta? limites,
+  }) {
+    return bpm >=
+            bpmMinimo(possuiCardiopatia: possuiCardiopatia, limites: limites) &&
+        bpm <= bpmMaximo(possuiCardiopatia: possuiCardiopatia, limites: limites);
   }
 
-  static bool estaAcimaDaZona(int bpm, {required bool possuiCardiopatia}) {
-    final maximo = possuiCardiopatia ? bpmMaximoCardiopata : bpmMaximoPadrao;
-    return bpm > maximo;
+  static bool estaAcimaDaZona(
+    int bpm, {
+    required bool possuiCardiopatia,
+    LimitesAlerta? limites,
+  }) {
+    return bpm >
+        bpmMaximo(possuiCardiopatia: possuiCardiopatia, limites: limites);
   }
 }

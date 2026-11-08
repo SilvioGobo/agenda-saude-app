@@ -8,6 +8,7 @@ import '../../domain/models/registro_exercicio.dart';
 import '../../domain/models/registro_diabete.dart';
 import '../../domain/models/batimento_cardiaco.dart';
 import '../../domain/models/alerta.dart';
+import '../../domain/models/limites_alerta.dart';
 import '../../domain/models/registro_base.dart';
 
 class DadosMedicosRepository {
@@ -293,6 +294,36 @@ class DadosMedicosRepository {
                   .toList(),
               doServidor: !snapshot.metadata.isFromCache,
             ));
+  }
+
+  // Limites de BPM do paciente (RF 06.1) em tempo real, a partir do doc dele
+  // em `usuarios`. Null = sem limites definidos (vale a zona padrao). O app do
+  // paciente usa para o alerta e o painel mudarem assim que o acompanhante
+  // salva; o card do acompanhante, para o status seguir a zona nova. So emite
+  // quando os limites mudam, e nao a cada gravacao no doc do paciente. Um doc
+  // que nao veio (ex.: o cache do aparelho ainda vazio, sem internet) nao diz
+  // nada sobre os limites e nao emite: fica valendo o que ja se sabia.
+  Stream<LimitesAlerta?> streamLimitesAlerta(String pacienteId) {
+    return _firestore
+        .collection('usuarios')
+        .doc(pacienteId)
+        .snapshots()
+        .where((doc) => doc.exists)
+        .map((doc) => LimitesAlerta.fromJson(doc.data()?['limitesAlerta']))
+        .distinct();
+  }
+
+  // O acompanhante grava os limites de BPM do paciente; null apaga o campo e
+  // o paciente volta a zona padrao. As security rules so deixam o
+  // acompanhante vinculado mexer neste campo, com valores nas faixas de
+  // LimitesAlerta e com o proprio UID em `atualizadoPor`.
+  Future<void> salvarLimitesAlerta(
+    String pacienteId,
+    LimitesAlerta? limites,
+  ) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'limitesAlerta': limites == null ? FieldValue.delete() : limites.toJson(),
+    });
   }
 
   // As security rules so deixam o acompanhante (ou o paciente) mudar o campo

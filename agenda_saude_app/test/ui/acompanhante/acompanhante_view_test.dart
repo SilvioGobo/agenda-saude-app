@@ -134,9 +134,11 @@ void main() {
     expect(find.text('Diabetes'), findsOneWidget);
     expect(find.text('Maria Souza'), findsOneWidget);
     expect(find.text('Triagem pendente'), findsOneWidget);
-    // Cada card tem os atalhos para os relatorios e para a localizacao.
+    // Cada card tem os atalhos para os relatorios, para a localizacao e para
+    // os limites de alerta (RF 06.1).
     expect(find.text('Ver relatórios'), findsNWidgets(2));
     expect(find.text('Ver localização'), findsNWidgets(2));
+    expect(find.text('Limites de alerta'), findsNWidgets(2));
   });
 
   testWidgets('Botão "Ver relatórios" abre os relatórios do paciente, com o nome dele, e volta ao painel', (
@@ -261,6 +263,54 @@ void main() {
       find.text('Acima da zona de segurança (60 a 100 batimentos por minuto).'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('"Limites de alerta" no card ajusta a zona do paciente e o card muda na hora (RF 06.1)', (
+    tester,
+  ) async {
+    await vincularJose();
+    await salvarBatimento(110, DateTime.now().subtract(const Duration(minutes: 3)));
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await montarPainel(tester);
+    expect(find.text('ATENÇÃO'), findsOneWidget);
+
+    await tester.tap(find.text('Limites de alerta'));
+    await tester.pumpAndSettle();
+    expect(find.text('ZONA PADRÃO: 60 A 100 BPM'), findsOneWidget);
+
+    // Maximo de 100 para 120: 110 BPM passa a ser normal para o paciente.
+    for (var toque = 0; toque < 4; toque++) {
+      await tester.tap(find.text('Mais').last);
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('120 BPM'), findsOneWidget);
+    await tester.tap(find.text('SALVAR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monitoramento'), findsOneWidget);
+    expect(find.text('Limites de alerta de José Silva salvos.'), findsOneWidget);
+    expect(find.text('ESTÁVEL'), findsOneWidget);
+    expect(find.text('ATENÇÃO'), findsNothing);
+    final doc =
+        await fakeFirestore.collection('usuarios').doc('paciente_01').get();
+    expect(doc.data()!['limitesAlerta']['bpmMaximo'], 120);
+    expect(doc.data()!['limitesAlerta']['atualizadoPor'], 'cuidador_01');
+
+    // Reabrir mostra os limites salvos, e voltar ao padrao tira o campo.
+    await tester.tap(find.text('Limites de alerta'));
+    await tester.pumpAndSettle();
+    expect(find.text('120 BPM'), findsOneWidget);
+    await tester.tap(find.text('Voltar ao padrão'));
+    await tester.tap(find.text('SALVAR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('José Silva voltou para a zona padrão.'), findsOneWidget);
+    expect(find.text('ATENÇÃO'), findsOneWidget);
+    final semLimites =
+        await fakeFirestore.collection('usuarios').doc('paciente_01').get();
+    expect(semLimites.data()!.containsKey('limitesAlerta'), isFalse);
   });
 
   testWidgets('Card mostra SEM DADOS quando o smartwatch nunca enviou medição', (

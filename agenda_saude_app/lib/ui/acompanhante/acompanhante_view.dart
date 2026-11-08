@@ -23,6 +23,8 @@ import '../relatorios/relatorios_view.dart';
 import 'acompanhante_viewmodel.dart';
 import 'card_paciente.dart';
 import 'diabetes_acompanhante_viewmodel.dart';
+import 'limites_alerta_view.dart';
+import 'limites_alerta_viewmodel.dart';
 import 'status_paciente_viewmodel.dart';
 import 'vincular_paciente_view.dart';
 
@@ -30,8 +32,9 @@ import 'vincular_paciente_view.dart';
 // pacientes vinculados, atalho para vincular um novo paciente (RF05.4), os
 // alertas desses pacientes recebidos em tempo real (RF06), em cada card o BPM
 // e o status de saude em tempo real (RF05.1) com a ultima atividade da
-// rotina, para os diabeticos a ultima glicemia e dose de insulina (RF008) e
-// o atalho para os relatorios do paciente (dia anterior e mes).
+// rotina, para os diabeticos a ultima glicemia e dose de insulina (RF008), o
+// atalho para os relatorios do paciente (dia anterior e mes) e o ajuste dos
+// limites de BPM que disparam o alerta (RF 06.1).
 class AcompanhanteView extends StatefulWidget {
   // Permitem aos testes abrir os relatorios e montar o status de cada card
   // com repositories falsos.
@@ -175,6 +178,44 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
         builder: (_) => LocalizacaoPacienteView.comProviders(paciente),
       ),
     );
+  }
+
+  // RF 06.1: abre o ajuste com os limites que o card mostra agora. Salvos, o
+  // card muda na hora e o paciente da lista passa a ter os limites novos (as
+  // telas abertas depois, como os relatorios e a de emergencia, usam a mesma
+  // zona). O app do paciente recebe a mudanca pela escuta do Firestore.
+  Future<void> _ajustarLimites(StatusPacienteViewModel status) async {
+    final viewModel = context.read<AcompanhanteViewModel>();
+    final paciente = status.pacienteAtual;
+    final formulario = LimitesAlertaViewModel(
+      paciente: paciente,
+      acompanhanteId: viewModel.acompanhante.id,
+      limitesAtuais: status.limitesAlerta,
+      dadosRepository: widget.dadosRepository,
+    );
+    final salvou =
+        await Navigator.of(context).push(LimitesAlertaView.rota(formulario));
+    if (!mounted || salvou != true) return;
+
+    final limites = formulario.limitesSalvos;
+    status.usarLimites(limites);
+    viewModel.atualizarPaciente(
+      limites == null
+          ? paciente.copyWith(semLimitesAlerta: true)
+          : paciente.copyWith(limitesAlerta: limites),
+    );
+    // Um aviso anterior (ex.: de outro ajuste) sai, para o de agora aparecer.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            limites == null
+                ? '${paciente.nome} voltou para a zona padrão.'
+                : 'Limites de alerta de ${paciente.nome} salvos.',
+          ),
+        ),
+      );
   }
 
   Future<void> _confirmarDesvinculo(Paciente paciente) async {
@@ -328,12 +369,15 @@ class _AcompanhanteViewState extends State<AcompanhanteView> {
                           statusSaude: status.carregando ? null : status.status,
                           ultimoBatimento: status.ultimoBatimento,
                           ultimaAtividade: status.ultimaAtividade,
+                          limitesAlerta: status.limitesAlerta,
                           agora: status.agora,
                           onDesvincular: viewModel.carregando
                               ? null
                               : () => _confirmarDesvinculo(paciente),
-                          onVerRelatorios: () => _verRelatorios(paciente),
+                          onVerRelatorios: () =>
+                              _verRelatorios(status.pacienteAtual),
                           onVerLocalizacao: () => _verLocalizacao(paciente),
+                          onAjustarLimites: () => _ajustarLimites(status),
                         ),
                       ),
                     ),

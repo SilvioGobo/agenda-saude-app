@@ -232,6 +232,7 @@ class TriagemViewModel extends ChangeNotifier {
         // gravado por cima do documento, entao nao pode se perder aqui.
         telefone: _pacienteOriginal.telefone,
         medicamentos: _pacienteOriginal.medicamentos,
+        limitesAlerta: _pacienteOriginal.limitesAlerta,
         possuiDiabetes: possuiDiabetes!,
         tipoDiabetes: possuiDiabetes! ? tipoDiabetes : null,
         usaInsulina: possuiDiabetes! ? usaInsulina : null,
