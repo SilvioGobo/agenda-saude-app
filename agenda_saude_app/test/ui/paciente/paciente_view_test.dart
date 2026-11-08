@@ -2,17 +2,22 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:agenda_saude_app/data/repositories/acompanhante_repository.dart';
 import 'package:agenda_saude_app/data/repositories/auth_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/data/repositories/localizacao_repository.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
+import 'package:agenda_saude_app/data/repositories/preferencias_repository.dart';
 import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
 import 'package:agenda_saude_app/domain/models/acompanhante.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
+import 'package:agenda_saude_app/ui/auth/login_viewmodel.dart';
+import 'package:agenda_saude_app/ui/configuracoes/configuracoes_viewmodel.dart';
+import 'package:agenda_saude_app/ui/lembretes/lembretes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/localizacao/compartilhamento_localizacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_view.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_viewmodel.dart';
@@ -21,13 +26,18 @@ import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.da
 import '../../core/services/fake_health_service.dart';
 import '../../core/services/fake_leitura_segundo_plano_service.dart';
 import '../../core/services/fake_localizacao_service.dart';
+import '../../core/services/fake_notification_service.dart';
 import '../../core/services/fake_telefone_service.dart';
+import '../../core/services/fake_tts_service.dart';
 
 class _AuthRepositoryFalso extends AuthRepository {
   int saidas = 0;
+  // Simula um logout que falha (ex.: sem internet).
+  bool falharAoSair = false;
 
   @override
   Future<void> sair() async {
+    if (falharAoSair) throw Exception('sem conexao');
     saidas++;
   }
 }
@@ -38,6 +48,8 @@ void main() {
     late DadosMedicosRepository dadosRepository;
     late _AuthRepositoryFalso authRepository;
     late FakeTelefoneService telefoneService;
+    late FakeNotificationService notificationService;
+    late FakeTtsService ttsService;
 
     final paciente = Paciente(
       id: 'paciente_01',
@@ -54,6 +66,9 @@ void main() {
       dadosRepository = DadosMedicosRepository(firestore: fakeFirestore);
       authRepository = _AuthRepositoryFalso();
       telefoneService = FakeTelefoneService();
+      notificationService = FakeNotificationService();
+      ttsService = FakeTtsService();
+      SharedPreferences.setMockInitialValues({});
     });
 
     // `smartwatchSuportado: false` simula celular sem Health Connect; com
@@ -63,6 +78,9 @@ void main() {
       WidgetTester tester, {
       bool smartwatchSuportado = true,
       double escalaTexto = 1,
+      // Os lembretes dependem dos remedios e do perfil; o paciente padrao do
+      // teste nao tem nenhum dos dois.
+      Paciente? pacienteDosLembretes,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -101,6 +119,24 @@ void main() {
                   intervalo: const Duration(hours: 1),
                 )..iniciar(),
               ),
+              // `lazy: false`, como em `PacienteView.comProviders`: os avisos
+              // sao agendados ao abrir o painel, sem esperar o menu.
+              ChangeNotifierProvider(
+                lazy: false,
+                create: (_) => LembretesViewModel(
+                  paciente: pacienteDosLembretes ?? paciente,
+                  dadosRepository: dadosRepository,
+                  preferencias: PreferenciasRepository(),
+                  notificationService: notificationService,
+                )..iniciar(),
+              ),
+              ChangeNotifierProvider(
+                lazy: false,
+                create: (_) => ConfiguracoesViewModel(
+                  preferencias: PreferenciasRepository(),
+                  ttsService: ttsService,
+                )..carregar(),
+              ),
             ],
             child: PacienteView(
               relatoriosRepository:
@@ -108,6 +144,14 @@ void main() {
               acompanhanteRepository:
                   AcompanhanteRepository(firestore: fakeFirestore),
               telefoneService: telefoneService,
+              // A tela de login, para onde "Sair da conta" volta, sem Firebase.
+              criarLoginViewModel: () => LoginViewModel(
+                authRepository: authRepository,
+                pacienteRepository: PacienteRepository(firestore: fakeFirestore),
+                acompanhanteRepository:
+                    AcompanhanteRepository(firestore: fakeFirestore),
+                firestore: fakeFirestore,
+              ),
             ),
           ),
         ),
@@ -115,8 +159,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    // O menu lateral tem 5 itens (metas, codigo, smartwatch, localizacao e
-    // sair) e rola. Numa tela mais alta o "Sair da conta" ja fica construido.
+    // O menu lateral tem 7 itens (metas, codigo, smartwatch, localizacao,
+    // lembretes, acessibilidade e sair) e rola. Numa tela mais alta o "Sair da
+    // conta" ja fica construido.
     void menuAlto(WidgetTester tester) {
       tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1;
@@ -373,6 +418,106 @@ void main() {
       await desmontar(tester);
     });
 
+    testWidgets('Deve mostrar os lembretes no menu e abrir a tela deles',
+        (tester) async {
+      menuAlto(tester);
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Meus lembretes'), findsOneWidget);
+      // O paciente do teste não tem remédios nem diabetes: nada a lembrar.
+      expect(find.text('Remédios e horários da glicemia'), findsOneWidget);
+
+      await tester.tap(find.text('Meus lembretes'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Meus lembretes'), findsOneWidget);
+      expect(find.text('Lembretes ligados'), findsOneWidget);
+      expect(find.textContaining('Você ainda não tem lembretes'), findsOneWidget);
+
+      // Voltar cai direto no painel.
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Olá, José'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve mostrar no menu que os lembretes estão ligados e agendá-los',
+        (tester) async {
+      menuAlto(tester);
+      await montar(
+        tester,
+        pacienteDosLembretes: Paciente(
+          id: 'paciente_01',
+          nome: 'José Silva',
+          email: 'jose@email.com',
+          perfil: 'Paciente',
+          possuiDiabetes: true,
+          usaInsulina: false,
+          possuiCardiopatia: false,
+          codigoVinculo: 'ABC123',
+        ),
+      );
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ligados'), findsOneWidget);
+      // As quatro medições de glicemia dos próximos dias foram agendadas.
+      expect(notificationService.agendadas, isNotEmpty);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve mostrar a acessibilidade no menu e abrir a tela do narrador',
+        (tester) async {
+      menuAlto(tester);
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Acessibilidade'), findsOneWidget);
+      expect(find.text('Narrador desligado'), findsOneWidget);
+
+      await tester.tap(find.text('Acessibilidade'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Acessibilidade'), findsOneWidget);
+      expect(find.text('Ligar narrador'), findsOneWidget);
+
+      // Ligar na tela e voltar: o menu passa a dizer que esta ligado.
+      await tester.tap(find.text('Ligar narrador'));
+      await tester.pumpAndSettle();
+      expect(ttsService.faladas, ['Narrador ligado.']);
+
+      await tester.tap(find.text('Voltar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Narrador ligado'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve mostrar no menu quando o celular não tem voz do sistema',
+        (tester) async {
+      menuAlto(tester);
+      ttsService = FakeTtsService(disponivel: false);
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Acessibilidade'), findsOneWidget);
+      expect(find.text('Indisponível neste celular'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
     testWidgets('Deve pedir confirmação antes de sair e não sair ao cancelar',
         (tester) async {
       menuAlto(tester);
@@ -391,6 +536,71 @@ void main() {
       expect(find.text('Sair da conta?'), findsNothing);
       expect(find.text('Olá, José'), findsOneWidget);
       expect(authRepository.saidas, 0);
+
+      await desmontar(tester);
+    });
+
+    // Um diabetico sempre tem avisos agendados nos proximos dias.
+    final diabetico = Paciente(
+      id: 'paciente_01',
+      nome: 'José Silva',
+      email: 'jose@email.com',
+      perfil: 'Paciente',
+      possuiDiabetes: true,
+      usaInsulina: false,
+      possuiCardiopatia: false,
+      codigoVinculo: 'ABC123',
+    );
+
+    // O ViewModel dos lembretes agenda depois de ler as preferencias e os
+    // registros de hoje (async de verdade): da um tempo para ele terminar.
+    Future<void> aguardarOsLembretes(WidgetTester tester) async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> sairDaContaPeloMenu(WidgetTester tester) async {
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sair da conta'));
+      await tester.pumpAndSettle();
+      // O botao "Sair" do dialogo de confirmacao (o texto e exatamente "Sair":
+      // o item do menu e o titulo do dialogo dizem "Sair da conta").
+      await tester.tap(find.text('Sair'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Deve cancelar os lembretes agendados ao sair da conta', (tester) async {
+      menuAlto(tester);
+      await montar(tester, pacienteDosLembretes: diabetico);
+      await aguardarOsLembretes(tester);
+      expect(notificationService.agendadas, isNotEmpty);
+
+      await sairDaContaPeloMenu(tester);
+
+      expect(authRepository.saidas, 1);
+      // Quem entrar depois neste celular nao recebe os avisos de quem saiu.
+      expect(notificationService.agendadas, isEmpty);
+      // E o app voltou para a tela de login.
+      expect(find.text('Olá, José'), findsNothing);
+    });
+
+    testWidgets('Deve manter os lembretes se não conseguir sair da conta', (tester) async {
+      menuAlto(tester);
+      authRepository.falharAoSair = true;
+      await montar(tester, pacienteDosLembretes: diabetico);
+      await aguardarOsLembretes(tester);
+      final agendadas = notificationService.agendadas.length;
+      expect(agendadas, greaterThan(0));
+
+      await sairDaContaPeloMenu(tester);
+
+      // Continua logado, no painel, e continua sendo avisado.
+      expect(find.text('Não foi possível sair. Tente de novo.'), findsOneWidget);
+      expect(find.text('Olá, José'), findsOneWidget);
+      expect(notificationService.agendadas, hasLength(agendadas));
 
       await desmontar(tester);
     });

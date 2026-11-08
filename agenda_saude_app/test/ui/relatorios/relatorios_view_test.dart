@@ -20,6 +20,7 @@ import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 import 'package:agenda_saude_app/ui/relatorios/calendario_mensal.dart';
+import 'package:agenda_saude_app/ui/relatorios/grafico_batimentos.dart';
 import 'package:agenda_saude_app/ui/relatorios/relatorios_view.dart';
 
 import '../../helpers/catalogo_de_teste.dart';
@@ -355,6 +356,45 @@ void main() {
           find.text('15:03 · Emergência: BPM fora da zona'),
           findsOneWidget,
         );
+      });
+
+      testWidgets('Deve mostrar o gráfico dos batimentos do dia, com a zona e o alerta', (tester) async {
+        final semantica = tester.ensureSemantics();
+        await semearOntemDeDiabetico();
+        await montar(tester, paciente: criarPaciente(diabetes: true));
+
+        // O grafico e a legenda ficam no cartao de batimentos.
+        expect(find.byType(GraficoBatimentos), findsOneWidget);
+        expect(find.text('Média a cada 10 minutos'), findsOneWidget);
+        expect(find.text('Zona de segurança (60 a 100 BPM)'), findsOneWidget);
+        // O unico alerta do dia e de emergencia: so ele entra na legenda.
+        expect(find.text('Alerta de emergência'), findsOneWidget);
+        expect(find.text('Alerta de atenção'), findsNothing);
+
+        // O leitor de tela ouve o grafico em frases, com o alerta e o horario.
+        expect(
+          find.bySemanticsLabel(RegExp(
+            r'Gráfico dos batimentos do dia.*variaram de 55 a 120 BPM.*'
+            r'Alerta de emergência às 15:03, com 120 BPM\.',
+          )),
+          findsOneWidget,
+        );
+        semantica.dispose();
+      });
+
+      testWidgets('Não deve mostrar o gráfico quando o smartwatch não mediu', (tester) async {
+        await agua(ontem, 8);
+        await montar(tester);
+
+        expect(find.text('O smartwatch não registrou batimentos neste dia.'), findsOneWidget);
+        expect(find.byType(GraficoBatimentos), findsNothing);
+      });
+
+      testWidgets('Deve usar a zona estreita do cardiopata no gráfico', (tester) async {
+        await batimento(ontem, 9, 70);
+        await montar(tester, paciente: criarPaciente(cardiopatia: true));
+
+        expect(find.text('Zona de segurança (60 a 90 BPM)'), findsOneWidget);
       });
 
       testWidgets('Deve mostrar dia completo quando tudo foi cumprido, sem pontos de atenção', (tester) async {

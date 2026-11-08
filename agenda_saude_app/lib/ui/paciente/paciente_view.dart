@@ -7,6 +7,11 @@ import '../../data/repositories/acompanhante_repository.dart';
 import '../../data/repositories/relatorios_repository.dart';
 import '../../domain/models/paciente.dart';
 import '../auth/botao_sair.dart';
+import '../auth/login_viewmodel.dart';
+import '../configuracoes/configuracoes_view.dart';
+import '../configuracoes/configuracoes_viewmodel.dart';
+import '../lembretes/lembretes_view.dart';
+import '../lembretes/lembretes_viewmodel.dart';
 import '../localizacao/compartilhamento_localizacao_viewmodel.dart';
 import '../localizacao/minha_localizacao_view.dart';
 import '../metas/metas_view.dart';
@@ -38,17 +43,23 @@ class PacienteView extends StatelessWidget {
   final RelatoriosRepository? relatoriosRepository;
   final AcompanhanteRepository? acompanhanteRepository;
   final TelefoneService? telefoneService;
+  // Permite aos testes montar a tela de login, para onde "Sair da conta" volta,
+  // com repositories falsos.
+  final LoginViewModel Function()? criarLoginViewModel;
 
   const PacienteView({
     super.key,
     this.relatoriosRepository,
     this.acompanhanteRepository,
     this.telefoneService,
+    this.criarLoginViewModel,
   });
 
   // Monta o painel com os ViewModels de que ele depende: o do painel em si, o
-  // da sincronizacao com o smartwatch (que ja comeca a ler ao abrir) e o do
-  // compartilhamento da localizacao (que retoma o envio se estiver ligado).
+  // da sincronizacao com o smartwatch (que ja comeca a ler ao abrir), o do
+  // compartilhamento da localizacao (que retoma o envio se estiver ligado), o
+  // dos lembretes (que deixa os avisos de remedio e glicemia agendados) e o das
+  // configuracoes de acessibilidade (que carrega a escolha do narrador).
   static Widget comProviders(
     Paciente paciente, {
     RelatoriosRepository? relatoriosRepository,
@@ -64,6 +75,24 @@ class PacienteView extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) =>
               CompartilhamentoLocalizacaoViewModel(paciente: paciente)..iniciar(),
+        ),
+        // Acompanha o paciente do painel: quando os remedios mudam na Minha
+        // Rotina, os avisos agendados mudam junto. `lazy: false`: os providers
+        // so criam o ViewModel na primeira leitura, e nada no painel le este
+        // aqui ate o paciente abrir o menu - os avisos so seriam agendados
+        // depois disso. Precisa nascer junto com o painel.
+        ChangeNotifierProxyProvider<PacienteViewModel, LembretesViewModel>(
+          lazy: false,
+          create: (_) => LembretesViewModel(paciente: paciente)..iniciar(),
+          update: (_, pacienteViewModel, lembretes) {
+            lembretes!.atualizarPaciente(pacienteViewModel.paciente);
+            return lembretes;
+          },
+        ),
+        // Tambem nasce com o painel: a escolha do narrador vale para o app todo.
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => ConfiguracoesViewModel()..carregar(),
         ),
       ],
       child: PacienteView(relatoriosRepository: relatoriosRepository),
@@ -117,6 +146,20 @@ class PacienteView extends StatelessWidget {
     );
   }
 
+  void _abrirMeusLembretes(BuildContext context) {
+    _abrir(
+      context,
+      LembretesView.comViewModel(context.read<LembretesViewModel>()),
+    );
+  }
+
+  void _abrirAcessibilidade(BuildContext context) {
+    _abrir(
+      context,
+      ConfiguracoesView.comViewModel(context.read<ConfiguracoesViewModel>()),
+    );
+  }
+
   Future<void> _confirmarSaida(BuildContext context) async {
     final confirmou = await mostrarDialogoConfirmacao(
       context,
@@ -127,16 +170,22 @@ class PacienteView extends StatelessWidget {
       iconeConfirmar: Icons.logout_rounded,
     );
     if (!context.mounted || !confirmou) return;
+    final pacienteViewModel = context.read<PacienteViewModel>();
+    final lembretes = context.read<LembretesViewModel>();
     final sincronizacao = context.read<SincronizacaoBpmViewModel>();
-    final painel = context.read<PacienteViewModel>();
     await sairDaConta(
       context,
       sair: () async {
         // Sem ninguem logado, a leitura com o app fechado (B7) nao tem para
         // quem gravar: para neste aparelho.
         await sincronizacao.desligarLeituraComAppFechado();
-        await painel.sair();
+        await pacienteViewModel.sair();
+        // Os avisos agendados sao deste celular: sem isto, quem entrar depois
+        // receberia os lembretes de quem saiu. So depois de sair de fato: se o
+        // logout falhar, o paciente continua logado e continua sendo avisado.
+        await lembretes.cancelarTodos();
       },
+      criarLoginViewModel: criarLoginViewModel,
     );
   }
 
@@ -233,6 +282,8 @@ class PacienteView extends StatelessWidget {
             _abrir(context, SmartwatchView.comViewModel(sincronizacao)),
         aoAbrirLocalizacao: () =>
             _abrir(context, MinhaLocalizacaoView.comViewModel(localizacao)),
+        aoAbrirLembretes: () => _abrirMeusLembretes(context),
+        aoAbrirAcessibilidade: () => _abrirAcessibilidade(context),
         aoSair: () => _confirmarSaida(context),
       ),
       appBar: AppBar(

@@ -10,6 +10,7 @@ import '../models/registro_exercicio.dart';
 import '../models/registro_medicacao.dart';
 import '../models/registro_refeicao.dart';
 import '../models/registro_sono.dart';
+import 'serie_de_batimentos.dart';
 
 // Como foi um dia da rotina do paciente (RF05). "Completo": todos os itens da
 // rotina dele foram cumpridos (meta de agua, todas as refeicoes, todas as doses
@@ -432,6 +433,9 @@ class BatimentosDoDia {
   final int foraDaZona;
   final int zonaMinima;
   final int zonaMaxima;
+  // A curva do dia para o grafico (RF 04.3): as leituras resumidas em um ponto a
+  // cada 10 minutos. Null quando so se contaram as leituras, sem o dia.
+  final SerieDeBatimentos? serie;
 
   const BatimentosDoDia({
     required this.leituras,
@@ -441,9 +445,13 @@ class BatimentosDoDia {
     this.foraDaZona = 0,
     required this.zonaMinima,
     required this.zonaMaxima,
+    this.serie,
   });
 
   bool get temLeituras => leituras > 0;
+
+  // Ha curva para desenhar.
+  bool get temSerie => serie != null && !serie!.vazia;
 }
 
 // Resumo de um dia da rotina do paciente: o que o relatorio mostra para o

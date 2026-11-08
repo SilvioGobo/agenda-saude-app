@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 // Id da notificacao de um alerta. O plugin identifica cada notificacao por um
 // int, e o mesmo alerta pode chegar duas vezes: pela escuta do app e pelo push
@@ -46,7 +47,33 @@ abstract class NotificationService {
     String? payload,
   });
 
+  // Tira a notificacao da bandeja e, se ela estava agendada, cancela o
+  // agendamento tambem.
   Future<void> cancelar(int id);
+
+  // Agenda um lembrete (RF 07.3) para [dataHora], no horario do aparelho. Ele
+  // toca mesmo com o app fechado e volta a ser agendado sozinho quando o
+  // celular reinicia. Agendar de novo o mesmo [id] troca o agendamento
+  // anterior; [dataHora] precisa estar no futuro.
+  Future<void> agendarLembrete({
+    required int id,
+    required String titulo,
+    required String texto,
+    required DateTime dataHora,
+    String? payload,
+  });
+
+  // Ids das notificacoes agendadas que ainda nao tocaram e cujo payload comeca
+  // com [prefixoDoPayload].
+  Future<List<int>> idsAgendados({required String prefixoDoPayload});
+
+  // No Android 12 ou mais novo o aviso so toca na hora exata se o usuario
+  // permitir "Alarmes e lembretes" para o app; sem isso ele pode atrasar alguns
+  // minutos. Nas demais plataformas nao ha essa restricao.
+  Future<bool> alarmesExatosPermitidos();
+
+  // Abre a tela do sistema em que o usuario permite os alarmes exatos.
+  Future<void> solicitarAlarmesExatos();
 
   // Payload de cada notificacao tocada pelo usuario com o app aberto ou em
   // segundo plano.
@@ -71,6 +98,17 @@ class NotificationServiceImpl implements NotificationService {
       'acompanha.';
 
   static const _vermelho = Color(0xFFD32F2F);
+
+  // Canal dos lembretes da rotina, separado do dos alertas: quem quiser pode
+  // silenciar um sem desligar o outro.
+  static const _idCanalLembretes = 'lembretes_rotina';
+  static const _nomeCanalLembretes = 'Lembretes da rotina';
+  static const _descricaoCanalLembretes =
+      'Avisos para tomar os remédios e, para quem tem diabetes, medir a '
+      'glicemia e aplicar a insulina nos horários combinados.';
+
+  // Cor principal do tema (primary), para o icone da notificacao.
+  static const _verdeAgua = Color(0xFF006B5F);
 
   final FlutterLocalNotificationsPlugin _plugin;
   final _toques = StreamController<String>.broadcast();
@@ -186,6 +224,72 @@ class NotificationServiceImpl implements NotificationService {
   Future<void> cancelar(int id) async {
     if (!disponivel) return;
     await _plugin.cancel(id: id);
+  }
+
+  @override
+  Future<void> agendarLembrete({
+    required int id,
+    required String titulo,
+    required String texto,
+    required DateTime dataHora,
+    String? payload,
+  }) async {
+    if (!disponivel) return;
+    await _plugin.zonedSchedule(
+      id: id,
+      title: titulo,
+      body: texto,
+      payload: payload,
+      // O instante exato, em UTC: nao depende de o banco de fusos do pacote
+      // `timezone` ter sido carregado nem de qual e o fuso do aparelho. O Dart
+      // ja converteu "08:00 de hoje" no horario do aparelho para este instante.
+      scheduledDate: tz.TZDateTime.fromMillisecondsSinceEpoch(
+        tz.UTC,
+        dataHora.millisecondsSinceEpoch,
+      ),
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _idCanalLembretes,
+          _nomeCanalLembretes,
+          channelDescription: _descricaoCanalLembretes,
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.reminder,
+          color: _verdeAgua,
+          styleInformation: BigTextStyleInformation(texto),
+          ticker: titulo,
+        ),
+      ),
+      // Sem a permissao de alarme exato o Android recusaria o agendamento
+      // exato: o aviso cai no modo aproximado, que ainda toca, so pode atrasar.
+      androidScheduleMode: await alarmesExatosPermitidos()
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+
+  @override
+  Future<List<int>> idsAgendados({required String prefixoDoPayload}) async {
+    if (!disponivel) return const [];
+    final agendadas = await _plugin.pendingNotificationRequests();
+    return [
+      for (final agendada in agendadas)
+        if (agendada.payload?.startsWith(prefixoDoPayload) ?? false) agendada.id,
+    ];
+  }
+
+  @override
+  Future<bool> alarmesExatosPermitidos() async {
+    if (!disponivel) return false;
+    final android = _android;
+    if (android == null) return true;
+    return await android.canScheduleExactNotifications() ?? false;
+  }
+
+  @override
+  Future<void> solicitarAlarmesExatos() async {
+    if (!disponivel) return;
+    await _android?.requestExactAlarmsPermission();
   }
 
   @override

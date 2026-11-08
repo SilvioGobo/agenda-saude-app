@@ -491,6 +491,62 @@ void main() {
         expect(resumo.batimentos.zonaMinima, 60);
       });
 
+      test('Deve montar a curva do dia com as leituras resumidas em pontos', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          batimentos: [
+            // Do mais recente para o mais antigo, como a consulta devolve.
+            _bpm(90, DateTime(2026, 11, 1, 15, 4)),
+            _bpm(80, DateTime(2026, 11, 1, 9, 8)),
+            _bpm(70, DateTime(2026, 11, 1, 9, 2)),
+          ],
+        );
+
+        final serie = resumo.batimentos.serie!;
+        expect(resumo.batimentos.temSerie, isTrue);
+        expect(serie.inicio, DateTime(2026, 11, 1));
+        expect(serie.fim, DateTime(2026, 11, 2));
+        expect(serie.pontos.map((p) => p.inicio), [
+          DateTime(2026, 11, 1, 9, 0),
+          DateTime(2026, 11, 1, 15, 0),
+        ]);
+        expect(serie.pontos.map((p) => p.media), [75, 90]);
+      });
+
+      test('Deve montar a curva só com o que é do dia do relatório', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+          batimentos: [
+            _bpm(70, DateTime(2026, 11, 1, 9)),
+            _bpm(99, DateTime(2026, 11, 2, 9)),
+          ],
+        );
+
+        expect(resumo.batimentos.serie!.pontos, hasLength(1));
+      });
+
+      test('Não deve ter curva quando o smartwatch não mediu', () {
+        final resumo = CalculadoraRelatorios.resumirDia(
+          paciente: _paciente(),
+          dia: dia,
+        );
+
+        expect(resumo.batimentos.serie, isNull);
+        expect(resumo.batimentos.temSerie, isFalse);
+      });
+
+      test('Não deve montar a curva quando só se contam as leituras, sem o dia', () {
+        final batimentos = CalculadoraRelatorios.resumirBatimentos(
+          [_bpm(70, DateTime(2026, 11, 1, 9))],
+          possuiCardiopatia: false,
+        );
+
+        expect(batimentos.leituras, 1);
+        expect(batimentos.serie, isNull);
+      });
+
       test('Deve ordenar os alertas do mais recente para o mais antigo e contá-los por tipo', () {
         final resumo = CalculadoraRelatorios.resumirDia(
           paciente: _paciente(),

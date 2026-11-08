@@ -77,6 +77,8 @@ lib/
   domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
   domain/relatorios/ # ResumoDoDia, ResumoDoMes e CalculadoraRelatorios: as contas dos relatórios
   domain/medicacao/ # DosePlanejada e normalizarHorario: as doses do dia a partir dos remédios do paciente
+  domain/lembretes/ # Lembrete e PlanejadorDeLembretes: o que lembrar, quando, e o que já foi cumprido hoje (RF 07.3)
+  domain/acessibilidade/ # ConfiguracaoNarrador e VelocidadeNarracao (RF 07 e RF 08)
   domain/batimentos/ # MonitorZonaSeguranca: as regras dos alertas de BPM (app aberto e fechado)
   data/repositories/
     auth_repository.dart          # existente: wrapper do FirebaseAuth (RF001)
@@ -84,6 +86,7 @@ lib/
     acompanhante_repository.dart  # existente (vincular/desvincular paciente)
     dados_repository.dart         # existente: DadosMedicosRepository (registros, BPM, alertas)
     relatorios_repository.dart    # existente: RelatoriosRepository (só lê, por período)
+    preferencias_repository.dart  # existente: PreferenciasRepository (shared_preferences: só no aparelho)
   ui/
     auth/           # abertura, login, cadastro, recuperar senha, seleção de perfil (RF001)
     triagem/        # questionário adaptativo de comorbidades (RF002)
@@ -94,6 +97,7 @@ lib/
     relatorios/     # relatório do dia anterior e relatório mensal, para paciente e acompanhante (RF05)
     alertas/        # tela de emergência (overlay vermelho) + lista de notificações (RF006)
     configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007)
+    lembretes/      # "Meus lembretes": ligar/desligar os avisos, permissões e horários da glicemia (RF 07.3)
     metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
     shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, etc.)
 test/               # espelha lib/ (test/domain/models, test/data/repositories, test/ui)
@@ -197,7 +201,11 @@ Convenções já estabelecidas nos repositories — manter:
     abre no mês anterior no dia 1. Ele **não lê as leituras de BPM** (podem ser
     dezenas de milhares por mês): só conta os alertas. O BPM detalhado (menor,
     maior, média, leituras fora da zona) é do relatório do dia, que lê as leituras
-    de um dia só.
+    de um dia só. Dessas leituras sai também a **curva do dia** (RF 04.3, Figura 17):
+    `SerieDeBatimentos` reduz o dia (até ~2.900 leituras) a um ponto a cada 10 min (média,
+    menor e maior) e `GraficoBatimentos` a desenha com a zona de segurança e um marcador
+    por alerta; onde o relógio ficou mais de 1 h sem medir a linha para (buraco, não
+    reta inventada).
   - As refeições e os nutrientes usam o plano **de hoje** (`Paciente.planoDeRefeicoes`):
     o plano não tem histórico, então mudar o plano muda a leitura dos dias antigos.
     A estimativa de nutrientes só aparece no relatório do dia. A lista de remédios
@@ -238,6 +246,12 @@ Convenções já estabelecidas nos repositories — manter:
   acompanhante abre pelo botão "Ver localização" do card ou dos detalhes de um alerta de
   emergência (`ui/localizacao/`): endereço
   via `geocoding` e "Abrir no mapa" via `url_launcher` (link do Google Maps, sem chave).
+- **Preferências do aparelho** não vão para o Firestore: `PreferenciasRepository`
+  (`shared_preferences`, com `SharedPreferences.setMockInitialValues` nos testes) guarda,
+  **por paciente**, se os lembretes estão ligados e os horários que ele escolheu para as
+  medições de glicemia e a insulina lenta (a notificação agendada é daquele celular) e,
+  **do aparelho todo**, o narrador de voz (ligado e velocidade). Os horários dos remédios,
+  esses sim, ficam em `Paciente.medicamentos`.
 
 Padrões dos models: classe abstrata (`Usuario`, `RegistroBase`) + subclasses;
 `fromJson(Map, documentId)` factory + `toJson()`; campos com fallback (`?? ''`, `?? 0`).
@@ -296,9 +310,24 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    intensidade em botões, sem digitar). Medicação: `CardMedicacao` (uma linha por dose, com
    caixa de seleção grande) + `MeusRemediosView` (nome, dose e horários, no molde de
    "Minhas refeições"). As telas de registro usam os widgets de `ui/shared/`
-   (`PerguntaFormulario`, `ErroFormulario`, `BotaoSalvar`, `ContadorGrande`). Faltam os
-   lembretes de glicemia/insulina e de remédio (RF 07.3) e sugerir/gerar os alimentos das
-   refeições automaticamente a partir das metas. Cada atividade nova também precisa entrar
+   (`PerguntaFormulario`, `ErroFormulario`, `BotaoSalvar`, `ContadorGrande`). Lembretes
+   (RF 07.3) também feitos (`domain/lembretes/`, `ui/lembretes/`, menu > Meus lembretes):
+   o `LembretesViewModel` (criado em `PacienteView.comProviders`, que o atualiza quando os
+   remédios mudam) mantém **agendadas no aparelho** as notificações dos próximos 7 dias (no
+   máximo 60, o limite do iOS é 64) de cada dose de remédio e, para diabéticos, das 4
+   medições da E6 (07:00, 11:30, 18:00 e 21:30, que o paciente pode mudar) e da insulina
+   lenta (22:00). Cada dia é uma notificação própria, e não uma repetição diária, porque o
+   plugin no Android **ignora a data** de um agendamento repetido: assim o aviso de hoje
+   some quando o paciente registra (do agendamento e da bandeja) sem apagar o de amanhã.
+   Os ids vêm de um hash estável (`idDaNotificacao`) e o payload começa com `lembrete:`; os
+   dias seguintes entram a cada abertura, registro ou mudança nos remédios e o plugin
+   reagenda sozinho ao reiniciar o celular. O horário vira um instante em UTC (`tz.UTC`),
+   então não depende do fuso do aparelho. O Android 12+ pede `SCHEDULE_EXACT_ALARM`: sem
+   ele o aviso cai no modo aproximado (ainda toca, pode atrasar) e a tela oferece o botão.
+   Sair da conta cancela os avisos. Conferido num emulador Android 16: toca com o processo
+   morto, não toca o que já foi registrado e some da bandeja ao registrar (lido de
+   `adb shell dumpsys alarm` e `dumpsys notification`). Falta sugerir/gerar os alimentos
+   das refeições automaticamente a partir das metas. Cada atividade nova também precisa entrar
    nos relatórios: um tipo a mais em `RelatoriosRepository.registrosDoPeriodo`, um campo
    em `ResumoDoDia` (e no cálculo de "dia completo") e um cartão em
    `relatorio_dia_conteudo.dart`.
@@ -309,7 +338,8 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    pacientes em cards e central de alertas em tempo real com notificação local
    (`ui/acompanhante/`, `ui/alertas/`) já feitos. Relatórios (`ui/relatorios/`) também
    feitos: "Ontem" (resumo da rotina do dia anterior) e "Mês" (calendário da rotina
-   que abre o relatório de cada dia, com gráficos de água e glicemia), a mesma tela
+   que abre o relatório de cada dia, com gráficos de água e glicemia; o do dia tem o
+   gráfico de linha do BPM das 24 h, RF 04.3), a mesma tela
    para os dois perfis — o paciente abre pelo botão "Meus Relatórios" do painel e o
    acompanhante pelo botão "Ver relatórios" do card do paciente (só muda o título).
    BPM e status por card (RF05.1) também feitos: cada card tem o seu
@@ -333,7 +363,15 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    Cloud Function em `functions/` (ver `alertas` acima). Publicar com
    `firebase deploy --only functions` (plano Blaze, decisão D2)*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
-   global, narrar conteúdo, ajustar velocidade (RF007)
+   global, narrar conteúdo, ajustar velocidade (RF007) ← *configurações feitas
+   (`ui/configuracoes/`, menu > Acessibilidade): liga/desliga o narrador, três velocidades
+   em botões (`VelocidadeNarracao`: devagar, normal, rápido) e "Testar voz"; escolher a
+   velocidade já fala um exemplo. A escolha vale para o aparelho todo
+   (`PreferenciasRepository`) e a voz fica atrás do `TtsService` (`flutter_tts`, `pt-BR`),
+   com fake nos testes; o Android 11+ exige `TTS_SERVICE` em `<queries>` no manifesto, e a
+   tela avisa quando falta a voz em português. Falta "Ouvir esta tela" (narrar o conteúdo,
+   RF 08.2) e testar com o TalkBack ligado, para o narrador e o leitor de tela não falarem
+   juntos*
 
 Nota prática: o módulo IoT depende de hardware físico (smartwatch pareado). Se o
 dispositivo não estiver disponível quando chegar a vez dele, é aceitável adiantar o
@@ -348,7 +386,9 @@ Regras de negócio importantes do documento:
   paciente ou para o 192.
 - Atividade não confirmada até o horário-limite → notificação de pendência para ambos.
 - Horários de glicemia/insulina (entrevista E6): ao acordar, antes do almoço, antes do
-  jantar e antes de dormir; insulina lenta tem horário fixo (22h).
+  jantar e antes de dormir; insulina lenta tem horário fixo (22h). A entrevista só dá o
+  "22h": os lembretes usam 07:00, 11:30, 18:00 e 21:30 para as medições
+  (`MomentoGlicemia.horarioPadrao`) e o paciente muda em "Meus lembretes".
 
 ## Identidade visual
 

@@ -52,6 +52,9 @@ dependencies:
   # com a workmanager_platform_interface 0.9.4 (parametro novo que ele nao
   # implementa). Fica fixa na 0.9.3 enquanto o Flutter for o 3.32.
   workmanager_platform_interface: 0.9.3
+  timezone: ^0.10.1
+  shared_preferences: ^2.5.3
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
