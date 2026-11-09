@@ -187,9 +187,26 @@ void main() {
     String hhmm(DateTime d) =>
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
+    // So os lembretes agendados, sem os avisos de pendencia (RF 06.3), que tem
+    // os testes deles no grupo "aviso de pendência".
+    Map<int, AgendamentoFalso> lembretesAgendados() => Map.fromEntries(
+          servico.agendadas.entries.where(
+            (agendada) => !(agendada.value.payload ?? '')
+                .endsWith(OcorrenciaDeLembrete.sufixoDaPendencia),
+          ),
+        );
+
+    // Os avisos de pendencia agendados, por payload.
+    Map<String, AgendamentoFalso> pendenciasAgendadas() => {
+          for (final agendada in servico.agendadas.values)
+            if ((agendada.payload ?? '')
+                .endsWith(OcorrenciaDeLembrete.sufixoDaPendencia))
+              agendada.payload!: agendada,
+        };
+
     // Os horarios agendados em um dia, em ordem.
     List<String> horariosDe(int dia, {int mes = 11}) {
-      return servico.agendadas.values
+      return lembretesAgendados().values
           .where((a) => a.dataHora.month == mes && a.dataHora.day == dia)
           .map((a) => hhmm(a.dataHora))
           .toList()
@@ -218,7 +235,7 @@ void main() {
         await iniciar();
 
         // Três doses por dia, em sete dias.
-        expect(servico.agendadas, hasLength(21));
+        expect(lembretesAgendados(), hasLength(21));
         expect(horariosDe(5), ['08:00', '12:00', '20:00']);
         expect(horariosDe(11), ['08:00', '12:00', '20:00']);
         expect(horariosDe(12), isEmpty);
@@ -262,8 +279,8 @@ void main() {
         await iniciar();
 
         // Dois planos seguidos deixam a mesma quantidade agendada.
-        expect(servico.agendadas, hasLength(21));
-        final ids = servico.agendadas.keys.toSet();
+        expect(lembretesAgendados(), hasLength(21));
+        final ids = lembretesAgendados().keys.toSet();
         expect(ids, hasLength(21));
       });
     });
@@ -375,7 +392,7 @@ void main() {
         await aguardar();
 
         expect(horariosDe(5), ['09:30', '12:00', '20:00']);
-        expect(servico.agendadas, hasLength(21));
+        expect(lembretesAgendados(), hasLength(21));
       });
 
       test('Deve agendar o remédio que o paciente acabou de cadastrar', () async {
@@ -436,7 +453,7 @@ void main() {
         await aguardar();
 
         expect(viewModel.ligados, isTrue);
-        expect(servico.agendadas, hasLength(21));
+        expect(lembretesAgendados(), hasLength(21));
       });
 
       test('Deve começar desligado se o paciente já tinha desligado', () async {
@@ -483,7 +500,7 @@ void main() {
         expect(mudou, isTrue);
         expect(viewModel.horarioFoiAlterado('Ao acordar'), isTrue);
         expect(horariosDe(5), ['06:30', '11:30', '18:00', '21:30', '22:00']);
-        expect(servico.agendadas, hasLength(5 * 7));
+        expect(lembretesAgendados(), hasLength(5 * 7));
       });
 
       test('Deve mudar também a hora da insulina lenta', () async {
@@ -616,7 +633,7 @@ void main() {
 
         expect(viewModel.situacao, SituacaoLembretes.semAlarmeExato);
         // Mesmo assim os avisos ficam agendados.
-        expect(servico.agendadas, hasLength(21));
+        expect(lembretesAgendados(), hasLength(21));
       });
 
       test('Deve abrir a tela do sistema para permitir os alarmes exatos', () async {
@@ -651,7 +668,7 @@ void main() {
         viewModel.didChangeAppLifecycleState(AppLifecycleState.resumed);
         await aguardar();
 
-        expect(servico.agendadas, hasLength(21));
+        expect(lembretesAgendados(), hasLength(21));
       });
     });
 
@@ -717,7 +734,7 @@ void main() {
         await iniciar(criar(repositorio: _RepositorioSemLeitura(fakeFirestore)));
 
         // Sem saber o que foi cumprido, e melhor avisar a mais do que a menos.
-        expect(servico.agendadas, hasLength(21));
+        expect(lembretesAgendados(), hasLength(21));
       });
 
       test('Um aviso que falha ao agendar não impede os outros', () async {
@@ -729,7 +746,7 @@ void main() {
 
         // Os outros 20 foram agendados; so o recusado ficou de fora.
         expect(falho.tentativas, greaterThanOrEqualTo(21));
-        expect(servico.agendadas, hasLength(20));
+        expect(lembretesAgendados(), hasLength(20));
         expect(
           servico.agendadas.values.any((a) => a.payload == recusado),
           isFalse,
@@ -751,5 +768,187 @@ void main() {
         expect(horariosDe(12), ['08:00', '12:00', '20:00']);
       });
     });
+
+    group('aviso de pendência (RF 06.3)', () {
+      test('Deve agendar a pendência no horário-limite de cada dose, hoje e amanhã', () async {
+        await iniciar();
+
+        final pendencias = pendenciasAgendadas();
+        expect(
+          pendencias.values.map((a) => a.dataHora).toList()..sort(),
+          [
+            DateTime(2026, 11, 5, 9),
+            DateTime(2026, 11, 5, 13),
+            DateTime(2026, 11, 5, 21),
+            DateTime(2026, 11, 6, 9),
+            DateTime(2026, 11, 6, 13),
+            DateTime(2026, 11, 6, 21),
+          ],
+        );
+        final losartana = pendencias[
+            'lembrete:remedio|m1|08:00@2026-11-05${OcorrenciaDeLembrete.sufixoDaPendencia}']!;
+        expect(losartana.titulo, 'Remédio ainda não marcado');
+        expect(
+          losartana.texto,
+          'Losartana 50 mg, das 08:00. Se já tomou, marque em Minha Rotina.',
+        );
+      });
+
+      test('Deve tirar a pendência de hoje quando a dose é marcada', () async {
+        await iniciar();
+
+        await marcarDose(medicamentoId: 'm1', horario: '08:00');
+        await aguardar();
+
+        final pendencias = pendenciasAgendadas().values.map((a) => a.dataHora);
+        expect(pendencias, isNot(contains(DateTime(2026, 11, 5, 9))));
+        expect(pendencias, contains(DateTime(2026, 11, 6, 9)));
+        final idDeHoje = OcorrenciaDeLembrete.pendencia(
+          Lembrete.doPaciente(_paciente()).first,
+          DateTime(2026, 11, 5, 8),
+        ).id;
+        expect(servico.canceladas, contains(idDeHoje));
+      });
+
+      test('Deve tirar da bandeja também as pendências de hoje ao sair da conta', () async {
+        final viewModel = await iniciar();
+
+        await viewModel.cancelarTodos();
+
+        expect(servico.agendadas, isEmpty);
+        final idDaPendencia = OcorrenciaDeLembrete.pendencia(
+          Lembrete.doPaciente(_paciente()).first,
+          DateTime(2026, 11, 5, 8),
+        ).id;
+        expect(servico.canceladas, contains(idDaPendencia));
+      });
+    });
+
+    group('lista de tarefas do dia para o acompanhante (RF 06.3)', () {
+      setUp(() async {
+        await fakeFirestore
+            .collection('usuarios')
+            .doc('paciente_01')
+            .set({'nome': 'José Silva', 'perfil': 'Paciente'});
+      });
+
+      Future<Map<String, dynamic>> docDoPaciente() async {
+        final doc =
+            await fakeFirestore.collection('usuarios').doc('paciente_01').get();
+        return doc.data()!;
+      }
+
+      test('Deve publicar as tarefas com horário e o fuso do aparelho ao iniciar', () async {
+        await iniciar();
+
+        final doc = await docDoPaciente();
+        expect(doc['fusoHorarioMinutos'], agora.timeZoneOffset.inMinutes);
+        expect(doc['tarefasDiarias'], [
+          {
+            'chave': 'remedio|m1|08:00',
+            'tipo': 'remedio',
+            'descricao': 'Losartana 50 mg',
+            'horario': '08:00',
+          },
+          {
+            'chave': 'remedio|m2|12:00',
+            'tipo': 'remedio',
+            'descricao': 'Metformina 500 mg',
+            'horario': '12:00',
+          },
+          {
+            'chave': 'remedio|m2|20:00',
+            'tipo': 'remedio',
+            'descricao': 'Metformina 500 mg',
+            'horario': '20:00',
+          },
+        ]);
+      });
+
+      test('Deve publicar as tarefas mesmo com os lembretes desligados', () async {
+        final viewModel = await iniciar();
+        await viewModel.alternarLembretes(false);
+        await fakeFirestore
+            .collection('usuarios')
+            .doc('paciente_01')
+            .update({'tarefasDiarias': []});
+
+        viewModel.atualizarPaciente(_paciente(medicamentos: const [_losartana]));
+        await aguardar();
+
+        expect((await docDoPaciente())['tarefasDiarias'], hasLength(1));
+      });
+
+      test('Deve publicar de novo quando os remédios mudam', () async {
+        final viewModel = await iniciar();
+
+        viewModel.atualizarPaciente(_paciente(medicamentos: const [_losartana]));
+        await aguardar();
+
+        final tarefas = (await docDoPaciente())['tarefasDiarias'] as List;
+        expect(tarefas.map((t) => t['chave']), ['remedio|m1|08:00']);
+      });
+
+      test('Deve publicar o horário da glicemia que o paciente escolheu', () async {
+        final viewModel = await iniciar(
+          criar(
+            paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
+          ),
+        );
+
+        await viewModel.definirHorarioDoMomento('Ao acordar', '0615');
+        await aguardar();
+
+        final tarefas = (await docDoPaciente())['tarefasDiarias'] as List;
+        final aoAcordar =
+            tarefas.firstWhere((t) => t['chave'] == 'glicemia|Ao acordar');
+        expect(aoAcordar['horario'], '06:15');
+        expect(aoAcordar['tipo'], 'glicemia');
+        expect(aoAcordar['descricao'], 'Ao acordar');
+      });
+
+      test('Não deve gravar de novo a mesma lista na mesma sessão', () async {
+        final contador = _RepositorioQueContaTarefas(fakeFirestore);
+        final viewModel = await iniciar(criar(repositorio: contador));
+        expect(contador.publicacoes, 1);
+
+        // Uma mudanca que nao muda as tarefas e a volta ao app.
+        viewModel.atualizarPaciente(_paciente().copyWith(pesoKg: 70));
+        viewModel.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await aguardar();
+
+        expect(contador.publicacoes, 1);
+      });
+
+      test('Não deve deixar a falha da publicação parar os lembretes', () async {
+        await fakeFirestore.collection('usuarios').doc('paciente_01').delete();
+
+        await iniciar();
+
+        expect(lembretesAgendados(), hasLength(21));
+      });
+    });
   });
+}
+
+// Conta as publicacoes da lista de tarefas do dia.
+class _RepositorioQueContaTarefas extends DadosMedicosRepository {
+  int publicacoes = 0;
+
+  _RepositorioQueContaTarefas(FakeFirebaseFirestore firestore)
+      : super(firestore: firestore);
+
+  @override
+  Future<void> salvarTarefasDiarias(
+    String pacienteId,
+    List<Lembrete> tarefas, {
+    required int fusoHorarioMinutos,
+  }) {
+    publicacoes++;
+    return super.salvarTarefasDiarias(
+      pacienteId,
+      tarefas,
+      fusoHorarioMinutos: fusoHorarioMinutos,
+    );
+  }
 }

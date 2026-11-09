@@ -3,6 +3,7 @@ import '../../core/constants/meta_hidratacao.dart';
 import '../../core/constants/meta_sono.dart';
 import '../metas/metas_personalizadas.dart';
 import '../refeicoes/refeicoes_padrao.dart';
+import 'limites_alerta.dart';
 import 'medicamento.dart';
 import 'refeicao_planejada.dart';
 import 'usuario.dart';
@@ -49,6 +50,10 @@ class Paciente extends Usuario {
   // (remedio + horario) para marcar como tomada.
   final List<Medicamento> medicamentos;
 
+  // Limites de BPM definidos pelo acompanhante (RF 06.1). Null = nunca
+  // definidos: vale a zona padrao de ZonaSegurancaCardiaca.
+  final LimitesAlerta? limitesAlerta;
+
   Paciente({
     required super.id,
     required super.nome,
@@ -76,6 +81,7 @@ class Paciente extends Usuario {
     this.metas,
     this.refeicoes,
     this.medicamentos = const [],
+    this.limitesAlerta,
   });
 
   // Refeicoes que aparecem na rotina: as do paciente ou, enquanto ele nao
@@ -155,18 +161,22 @@ class Paciente extends Usuario {
                   Map<String, dynamic>.from(medicamento as Map)))
               .toList()
           : const [],
+      limitesAlerta: LimitesAlerta.fromJson(json['limitesAlerta']),
     );
   }
 
   // Copia com os campos que mudam depois da triagem: o peso e o nivel de
-  // atividade (atualizados ao recalcular), as metas, o plano de refeicoes e os
-  // remedios.
+  // atividade (atualizados ao recalcular), as metas, o plano de refeicoes, os
+  // remedios e os limites de alerta. [semLimitesAlerta] volta a zona padrao
+  // (null em [limitesAlerta] mantem os limites atuais).
   Paciente copyWith({
     double? pesoKg,
     String? nivelAtividadeFisica,
     MetasPersonalizadas? metas,
     List<RefeicaoPlanejada>? refeicoes,
     List<Medicamento>? medicamentos,
+    LimitesAlerta? limitesAlerta,
+    bool semLimitesAlerta = false,
   }) {
     return Paciente(
       id: id,
@@ -195,6 +205,8 @@ class Paciente extends Usuario {
       metas: metas ?? this.metas,
       refeicoes: refeicoes ?? this.refeicoes,
       medicamentos: medicamentos ?? this.medicamentos,
+      limitesAlerta:
+          semLimitesAlerta ? null : (limitesAlerta ?? this.limitesAlerta),
     );
   }
 
@@ -228,6 +240,7 @@ class Paciente extends Usuario {
       'refeicoes': refeicoes?.map((refeicao) => refeicao.toJson()).toList(),
       'medicamentos':
           medicamentos.map((medicamento) => medicamento.toJson()).toList(),
+      'limitesAlerta': limitesAlerta?.toJson(),
     };
   }
 }

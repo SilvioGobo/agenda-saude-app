@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/alerta.dart';
 import 'card_alerta.dart';
+import 'formato_alertas.dart';
 
 // Faixa no topo do painel do acompanhante enquanto houver alertas nao lidos:
 // destaca o mais recente no mesmo padrao do selo "ATENÇÃO" do paciente e
@@ -42,9 +43,7 @@ class AvisoAlertasNaoLidos extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  alerta.ehEmergencia
-                      ? 'Emergência com $nomePaciente'
-                      : '$nomePaciente precisa de atenção',
+                  mancheteDoAlerta(alerta, nomePaciente),
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,

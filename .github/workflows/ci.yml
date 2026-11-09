@@ -64,3 +64,34 @@ jobs:
 
       - name: Testes
         run: npm test
+
+  # Security rules (firestore.rules) no emulador do Firestore, num projeto
+  # demo-* que nao toca no Firebase real (B8 em diante).
+  rules:
+    name: Testes das security rules
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firestore_rules_test
+    steps:
+      - uses: actions/checkout@v4
+
+      # O emulador roda em Java; o firebase-tools 15 pede o 21.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Mesma versao minima do "engines" de firestore_rules_test/package.json.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: firestore_rules_test/package-lock.json
+
+      - run: npm ci
+
+      - name: Testes
+        run: >-
+          npx --yes firebase-tools@15.32.1 emulators:exec --only firestore
+          --project demo-rules "npm test"

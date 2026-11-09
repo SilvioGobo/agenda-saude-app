@@ -6,6 +6,7 @@ import 'package:agenda_saude_app/core/services/health_service.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
 
@@ -500,6 +501,61 @@ void main() {
       final emergencias = await alertasDoTipo(Alerta.tipoEmergencia);
       expect(emergencias, hasLength(1));
       expect(emergencias.single['mensagem'], contains('há 8 minutos'));
+      viewModel.dispose();
+    });
+
+    test('Deve usar os limites que o acompanhante definiu (RF 06.1)', () async {
+      // 110 BPM: fora da zona padrao (ate 100), dentro da zona do paciente.
+      healthService.leituras = [
+        LeituraBpm(bpm: 110, timestamp: agora.subtract(const Duration(minutes: 7))),
+        LeituraBpm(bpm: 112, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      final viewModel = criarViewModel(
+        outroPaciente: paciente.copyWith(
+          limitesAlerta: const LimitesAlerta(bpmMinimo: 50, bpmMaximo: 120),
+        ),
+      );
+
+      await viewModel.iniciar();
+
+      expect(await totalAlertas(), 0);
+      viewModel.dispose();
+    });
+
+    test('Deve passar a usar os limites novos assim que o acompanhante salva', () async {
+      await fakeFirestore
+          .collection('usuarios')
+          .doc('paciente_01')
+          .set({'perfil': 'Paciente'});
+      // 95 e 96 BPM: dentro da zona padrao (ate 100).
+      healthService.leituras = [
+        LeituraBpm(bpm: 95, timestamp: agora.subtract(const Duration(minutes: 8))),
+        LeituraBpm(bpm: 96, timestamp: agora.subtract(const Duration(minutes: 2))),
+      ];
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+      expect(await totalAlertas(), 0);
+
+      // Com o app do paciente aberto, o acompanhante baixa o maximo para 90.
+      await dadosRepository.salvarLimitesAlerta(
+        'paciente_01',
+        const LimitesAlerta(
+          bpmMinimo: 50,
+          bpmMaximo: 90,
+          atualizadoPor: 'cuidador_01',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      healthService.leituras = [
+        ...healthService.leituras,
+        LeituraBpm(bpm: 97, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      await viewModel.sincronizarAgora();
+
+      // Pela zona nova o paciente esta fora dela ha 7 minutos.
+      final emergencias = await alertasDoTipo(Alerta.tipoEmergencia);
+      expect(emergencias, hasLength(1));
+      expect(emergencias.single['mensagem'], contains('há 7 minutos'));
       viewModel.dispose();
     });
   });

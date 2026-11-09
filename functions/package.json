@@ -1,6 +1,6 @@
 {
   "name": "agenda-saude-functions",
-  "description": "Cloud Functions do Agenda Saude: push dos alertas para o acompanhante (RF06.2)",
+  "description": "Cloud Functions do Agenda Saude: push dos alertas para o acompanhante (RF06.2) e aviso de pendencia de atividade (RF06.3)",
   "private": true,
   "main": "index.js",
   "engines": {

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/meta_exercicio.dart';
+import '../../domain/lembretes/lembrete.dart';
 import '../../domain/models/registro_agua.dart';
 import '../../domain/models/registro_medicacao.dart';
 import '../../domain/models/registro_refeicao.dart';
@@ -8,6 +9,7 @@ import '../../domain/models/registro_exercicio.dart';
 import '../../domain/models/registro_diabete.dart';
 import '../../domain/models/batimento_cardiaco.dart';
 import '../../domain/models/alerta.dart';
+import '../../domain/models/limites_alerta.dart';
 import '../../domain/models/registro_base.dart';
 
 class DadosMedicosRepository {
@@ -293,6 +295,53 @@ class DadosMedicosRepository {
                   .toList(),
               doServidor: !snapshot.metadata.isFromCache,
             ));
+  }
+
+  // Limites de BPM do paciente (RF 06.1) em tempo real, a partir do doc dele
+  // em `usuarios`. Null = sem limites definidos (vale a zona padrao). O app do
+  // paciente usa para o alerta e o painel mudarem assim que o acompanhante
+  // salva; o card do acompanhante, para o status seguir a zona nova. So emite
+  // quando os limites mudam, e nao a cada gravacao no doc do paciente. Um doc
+  // que nao veio (ex.: o cache do aparelho ainda vazio, sem internet) nao diz
+  // nada sobre os limites e nao emite: fica valendo o que ja se sabia.
+  Stream<LimitesAlerta?> streamLimitesAlerta(String pacienteId) {
+    return _firestore
+        .collection('usuarios')
+        .doc(pacienteId)
+        .snapshots()
+        .where((doc) => doc.exists)
+        .map((doc) => LimitesAlerta.fromJson(doc.data()?['limitesAlerta']))
+        .distinct();
+  }
+
+  // O acompanhante grava os limites de BPM do paciente; null apaga o campo e
+  // o paciente volta a zona padrao. As security rules so deixam o
+  // acompanhante vinculado mexer neste campo, com valores nas faixas de
+  // LimitesAlerta e com o proprio UID em `atualizadoPor`.
+  Future<void> salvarLimitesAlerta(
+    String pacienteId,
+    LimitesAlerta? limites,
+  ) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'limitesAlerta': limites == null ? FieldValue.delete() : limites.toJson(),
+    });
+  }
+
+  // RF 06.3: a lista de tarefas do dia com horario (as dos lembretes: remedios,
+  // glicemia e insulina) e o fuso do aparelho, em minutos a partir do UTC, no
+  // doc do paciente. A Cloud Function `verificarPendencias` le daqui o que
+  // conferir e a que horas, e avisa o acompanhante quando uma tarefa passa do
+  // horario-limite sem registro. So o paciente grava: as rules nao deixam o
+  // acompanhante mexer nesses campos.
+  Future<void> salvarTarefasDiarias(
+    String pacienteId,
+    List<Lembrete> tarefas, {
+    required int fusoHorarioMinutos,
+  }) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'tarefasDiarias': tarefas.map((tarefa) => tarefa.toJsonTarefa()).toList(),
+      'fusoHorarioMinutos': fusoHorarioMinutos,
+    });
   }
 
   // As security rules so deixam o acompanhante (ou o paciente) mudar o campo

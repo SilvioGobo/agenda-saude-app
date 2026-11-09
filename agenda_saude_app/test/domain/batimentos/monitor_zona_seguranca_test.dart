@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/domain/batimentos/monitor_zona_seguranca.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 
 void main() {
   group('MonitorZonaSeguranca Testes', () {
@@ -27,10 +28,12 @@ void main() {
       List<BatimentoCardiaco> gravados = const [],
       List<Alerta> alertas = const [],
       bool possuiCardiopatia = false,
+      LimitesAlerta? limites,
     }) {
       return MonitorZonaSeguranca.retomar(
         pacienteId: 'paciente_01',
         possuiCardiopatia: possuiCardiopatia,
+        limites: limites,
         gravados: gravados,
         alertas: alertas,
       );
@@ -158,6 +161,54 @@ void main() {
 
     test('Não deve gerar nada sem leituras novas', () {
       expect(retomar().avaliar([]), isEmpty);
+    });
+
+    group('com os limites do acompanhante (RF 06.1)', () {
+      const limites = LimitesAlerta(bpmMinimo: 50, bpmMaximo: 120);
+
+      test('Não deve alertar dentro dos limites do paciente, mesmo fora da zona padrão', () {
+        final alertas = retomar(limites: limites).avaliar([
+          leitura(110, 7),
+          leitura(115, 3),
+          leitura(52, 1),
+        ]);
+
+        expect(alertas, isEmpty);
+      });
+
+      test('Deve alertar acima do máximo do paciente', () {
+        final alertas = retomar(limites: limites).avaliar([
+          leitura(125, 6),
+          leitura(130, 1),
+        ]);
+
+        expect(tipos(alertas), [Alerta.tipoEmergencia]);
+      });
+
+      test('Deve dizer "abaixo" pela zona do paciente', () {
+        final alertas = retomar(limites: limites).avaliar([leitura(48, 1)]);
+
+        expect(tipos(alertas), [Alerta.tipoAtencao]);
+        expect(alertas.single.mensagem, contains('abaixo'));
+      });
+
+      test('Os limites valem também para o cardiopata', () {
+        final alertas = retomar(possuiCardiopatia: true, limites: limites)
+            .avaliar([leitura(95, 7), leitura(96, 1)]);
+
+        expect(alertas, isEmpty);
+      });
+
+      test('Retomar com limites novos reavalia as leituras gravadas com eles', () {
+        // Com a zona padrao (ate 100), 95 BPM e normal; o acompanhante baixou
+        // o maximo para 90 e o paciente esta acima dele ha 10 minutos.
+        final monitor = retomar(
+          gravados: [leitura(95, 10), leitura(96, 6)],
+          limites: const LimitesAlerta(bpmMinimo: 50, bpmMaximo: 90),
+        );
+
+        expect(tipos(monitor.avaliar([leitura(97, 1)])), [Alerta.tipoEmergencia]);
+      });
     });
   });
 }

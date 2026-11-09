@@ -49,6 +49,18 @@ npm test                             # sem Firebase: Firestore e FCM falsos
 firebase deploy --only functions     # roda o npm test antes; exige o plano Blaze
 ```
 
+Security rules (pasta `firestore_rules_test/` na raiz; precisa do Java 21 para o
+`firebase emulators:exec`):
+
+```bash
+cd firestore_rules_test
+npm ci
+npm run test:emulador                # sobe o emulador (projeto demo-rules) e roda os testes
+```
+
+Com o emulador já no ar (ex.: o jar rodando com o Java 17), `npm test` com
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:<porta>` roda os mesmos testes.
+
 ## Estrutura de pastas
 
 Já existente (não reorganizar):
@@ -105,7 +117,11 @@ integration_test/   # fluxos completos no emulador
 ```
 
 Fora do app, na raiz do repositório: `functions/` (Cloud Functions em JavaScript:
-`index.js` com o gatilho, `notificacao.js` com a lógica, `test/` com `node --test`).
+`index.js` com o gatilho e a função agendada, `notificacao.js` (push), `pendencias.js`
+(B9), `sem_dados.js` (B10) e `verificacoes.js` (uma execução da função agendada) com a
+lógica, `test/` com `node --test` e um Firestore falso em `test/firestore_falso.js`) e
+`firestore_rules_test/` (testes do `firestore.rules` no emulador, com
+`@firebase/rules-unit-testing`; um arquivo `*.test.js` por regra).
 
 ## Modelo de dados (Firestore)
 
@@ -148,6 +164,21 @@ Convenções já estabelecidas nos repositories — manter:
   `PacienteRepository.salvarMedicamentos` (update só desse campo). O horário é digitado
   em números ("0800" vira 08:00): o seletor de hora do sistema sairia em inglês, porque o
   app não tem as localizações do Flutter.
+  Os **limites de alerta** (RF 06.1, B8) ficam em `limitesAlerta` (map, `LimitesAlerta`:
+  `bpmMinimo`, `bpmMaximo`, `atualizadoPor` = UID de quem ajustou, `atualizadoEm`).
+  `null`/ausente = zona padrão (60 a 100, ou 60 a 90 para cardiopatas). Quem ajusta é o
+  acompanhante, pelo botão "Limites de alerta" do card (`LimitesAlertaView`, Menos/Mais
+  de 5 em 5); salvar os mesmos valores da zona padrão apaga o campo. Faixas aceitas:
+  mínimo de 40 a 90, máximo de 80 a 150, ao menos 20 entre os dois — as mesmas no app
+  (`LimitesAlerta.saoValidos`; fora delas o app ignora o campo) e nas rules
+  (`limitesAlertaValidos`). Gravado por `DadosMedicosRepository.salvarLimitesAlerta`
+  (update só desse campo) e lido em tempo real por `streamLimitesAlerta`. Toda conta de
+  zona passa por `ZonaSegurancaCardiaca` com `limites:` (monitor de alertas com o app
+  aberto e fechado, painel do paciente, card, tela de emergência e relatórios). O app
+  aberto do paciente escuta o campo: limite novo faz a próxima leitura reler a janela e
+  retomar o episódio com a zona nova (o mesmo da leitura com o app fechado, que relê o
+  paciente a cada execução). Como o plano de refeições, os limites não têm histórico:
+  os relatórios de dias antigos usam a zona de hoje.
 - **Catálogo de alimentos**: `assets/alimentos/taco.json`, 593 alimentos da TACO 4ª
   edição (NEPA/UNICAMP, 2011; reprodução permitida citando a fonte — a tela de busca
   cita) com kcal, proteína, gordura, carboidrato, fibra e sódio por 100 g. Embutido no
@@ -163,6 +194,9 @@ Convenções já estabelecidas nos repositories — manter:
   faz `arrayUnion` nos dois lados num único batch. As rules só deixam o acompanhante
   tocar em `acompanhantesVinculadosIds` do paciente (e só para entrar/sair ele mesmo);
   um `arrayUnion` sem mudança é negado, por isso o ViewModel checa "já vinculado" antes.
+  No mesmo molde, o acompanhante vinculado (dos dois lados) só pode mexer em
+  `limitesAlerta` do paciente (`soAlteraLimitesDeAlerta`), com o próprio UID em
+  `atualizadoPor`.
   O paciente pode dar `get` (sem `list`) no doc de um Acompanhante que tem o UID dele
   em `pacientesVinculadosIds` (`ehAcompanhanteDoUsuarioLogado`): é de onde vêm o nome e
   o telefone em "Falar com Acompanhante" (`listarAcompanhantesDoPaciente`).
@@ -211,8 +245,28 @@ Convenções já estabelecidas nos repositories — manter:
     A estimativa de nutrientes só aparece no relatório do dia. A lista de remédios
     (`Paciente.medicamentos`) vale igual: mudar os remédios muda a leitura dos dias
     antigos, e doses marcadas que já não estão na lista aparecem à parte.
-- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'`), `mensagem`, `bpm`,
-  `dataHora`, `lido`. Gerados pelo app do paciente na sincronização de BPM, com o app
+- `alertas` — `pacienteId`, `tipo` (`'atencao'` | `'emergencia'` | `'pendencia'` |
+  `'sem_dados'`), `mensagem`, `bpm`, `dataHora`, `lido`. `Alerta.ehDeBatimento` =
+  atenção ou emergência: é o que o monitor de BPM e os relatórios contam (pendência e
+  sem dados ficam de fora deles).
+  O aviso de **sem dados do smartwatch** (B10) sai da mesma função agendada
+  (`functions/sem_dados.js`): pela última leitura de `batimentos_cardiacos` do paciente
+  (mesma consulta de `streamUltimoBatimento`), quando o tempo sem leitura nova, contado
+  só das 7h às 22h no horário dele (`ZonaSegurancaCardiaca.prazoAvisoSemDados` = 3 h,
+  `inicioDoDiaParaAviso`/`fimDoDiaParaAviso`), vence na última hora. Um aviso por
+  período sem dados (id `sem_dados_{paciente}_{ms da última leitura}`), com
+  `ultimaLeitura`; quem nunca mandou leitura não recebe aviso (não usa relógio). O card
+  já mostra SEM DADOS depois de 1 h (`validadeDaLeitura`) e explica quando o aviso chega.
+  A **pendência de atividade** (RF 06.3, B9) é criada pela Cloud Function agendada
+  `verificarPendencias` (`functions/pendencias.js`, a cada 10 min, Cloud Scheduler):
+  para cada paciente com acompanhante, lê `tarefasDiarias` e `fusoHorarioMinutos` do
+  doc dele e, quando o horário-limite de uma tarefa (horário + 1 h,
+  `PendenciaAtividade.tolerancia`) passou na última hora sem o registro do dia
+  (`medicacao` com `medicamentoId` + `horario`, ou `diabete` do momento), cria o alerta
+  com id fixo (`pendencia_{paciente}_{dia}_{hash da chave}`, então nunca repete), o
+  horário-limite em `dataHora`, `bpm: null` e a tarefa em `tarefa`. O push sai pelo
+  mesmo gatilho dos alertas de BPM (`nivel: 'pendencia'`, título "Pendência: [nome]",
+  sem ser urgente). Os alertas de BPM são gerados pelo app do paciente na sincronização de BPM, com o app
   aberto (a cada 30 s) e com ele fechado (a cada 15 min, B7), pelas mesmas regras
   (`MonitorZonaSeguranca`, em `domain/batimentos/`):
   `atencao` quando o painel passa a mostrar "ATENÇÃO" (no máximo 1 a cada 15 min),
@@ -252,6 +306,19 @@ Convenções já estabelecidas nos repositories — manter:
   medições de glicemia e a insulina lenta (a notificação agendada é daquele celular) e,
   **do aparelho todo**, o narrador de voz (ligado e velocidade). Os horários dos remédios,
   esses sim, ficam em `Paciente.medicamentos`.
+- **Tarefas do dia para a pendência (RF 06.3, B9)**: o `LembretesViewModel` do
+  paciente publica em `usuarios/{uid}` a `tarefasDiarias` (lista de `{chave, tipo,
+  descricao, horario}`, os mesmos itens dos lembretes: `Lembrete.toJsonTarefa()`, com o
+  horário da glicemia que o paciente escolheu) e o `fusoHorarioMinutos` do aparelho
+  (`DadosMedicosRepository.salvarTarefasDiarias`, update só desses campos). Publica ao
+  abrir o painel, quando os remédios ou os horários mudam e ao voltar ao app, só se a
+  lista mudou; vale com os lembretes desligados. Sem a publicação (conta que ainda não
+  abriu esta versão do app) a função não tem o que conferir; sem o fuso, usa o de
+  Brasília. No aparelho, o aviso de pendência do paciente é uma notificação a mais do
+  `PlanejadorDeLembretes` (`OcorrenciaDeLembrete.pendencia`, payload com
+  `#pendencia`), no horário-limite, só para hoje e amanhã e fora do limite de 60 dos
+  lembretes; some junto com o lembrete quando a tarefa é registrada. A que passaria da
+  meia-noite (tarefa depois das 23h) fica só com o acompanhante.
 
 Padrões dos models: classe abstrata (`Usuario`, `RegistroBase`) + subclasses;
 `fromJson(Map, documentId)` factory + `toJson()`; campos com fallback (`?? ''`, `?? 0`).
@@ -361,7 +428,18 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    também feito: `PushService` (`firebase_messaging` 16.2.2, a versão da mesma leva do
    `firebase_core` 4.9.0; fake nos testes), token em `usuarios/{uid}.fcmTokens` e a
    Cloud Function em `functions/` (ver `alertas` acima). Publicar com
-   `firebase deploy --only functions` (plano Blaze, decisão D2)*
+   `firebase deploy --only functions` (plano Blaze, decisão D2). Limites de alerta pelo
+   acompanhante (RF 06.1, B8) também feitos: botão "Limites de alerta" do card →
+   `LimitesAlertaView` (ver `limitesAlerta` em `usuarios/{uid}`); exige publicar as rules
+   (`firebase deploy --only firestore:rules`), com teste em `firestore_rules_test/`.
+   Aviso de pendência de atividade (RF 06.3, B9) também feito: o paciente recebe o
+   aviso no aparelho pelos lembretes do A7 e o acompanhante, o push da função agendada
+   `verificarPendencias` (ver `alertas` e "Tarefas do dia" acima), que vai junto no
+   `firebase deploy --only functions`. A pendência aparece em laranja ("PENDÊNCIA") na
+   central de alertas e no card, com a orientação de lembrar o paciente. Aviso de "sem
+   dados do smartwatch" (B10) também feito, na mesma função (ver `alertas` acima): é a
+   rede de segurança para quando a leitura com o app fechado (B7) não funciona no
+   aparelho ou o relógio ficou fora do pulso*
 5. **Módulo de Acessibilidade** — narrador de texto com `flutter_tts`: ativar/desativar
    global, narrar conteúdo, ajustar velocidade (RF007) ← *configurações feitas
    (`ui/configuracoes/`, menu > Acessibilidade): liga/desliga o narrador, três velocidades
@@ -414,5 +492,7 @@ seguir em toda tela nova. Resumo:
 - Security rules: validar localmente antes de publicar com
   `firebase emulators:exec --only firestore --project demo-rules "<script>"` (projeto
   `demo-*` não toca no Firebase real). Publicar com `firebase deploy --only firestore:rules`.
+  Regra nova ganha teste em `firestore_rules_test/` (o que deve passar e o que deve ser
+  negado), rodado com `npm run test:emulador`.
 - Commits em português, minúsculos, prefixo convencional (`feat:`, `chore:`, `fix:`),
   sem acentos — ex.: `feat: implementacao do modulo de identidade`.

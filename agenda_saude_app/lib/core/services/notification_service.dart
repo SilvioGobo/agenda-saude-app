@@ -94,8 +94,8 @@ class NotificationServiceImpl implements NotificationService {
   static const _idCanalAndroid = 'alertas_pacientes';
   static const _nomeCanalAndroid = 'Alertas dos pacientes';
   static const _descricaoCanalAndroid =
-      'Avisos de batimentos fora da zona de segurança dos pacientes que você '
-      'acompanha.';
+      'Avisos dos pacientes que você acompanha: batimentos fora da zona de '
+      'segurança e atividades da rotina que passaram do horário.';
 
   static const _vermelho = Color(0xFFD32F2F);
 

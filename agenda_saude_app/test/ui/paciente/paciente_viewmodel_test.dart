@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_saude_app/data/repositories/auth_repository.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/paciente/paciente_viewmodel.dart';
 
@@ -186,6 +187,67 @@ void main() {
 
       expect(viewModel.paciente.pesoKg, 72);
       expect(avisos, 1);
+    });
+
+    group('Limites de alerta (RF 06.1)', () {
+      const limites = LimitesAlerta(
+        bpmMinimo: 50,
+        bpmMaximo: 120,
+        atualizadoPor: 'cuidador_01',
+      );
+
+      setUp(() async {
+        await fakeFirestore
+            .collection('usuarios')
+            .doc('paciente_01')
+            .set({'perfil': 'Paciente'});
+      });
+
+      Future<void> aguardar() => Future<void>.delayed(Duration.zero);
+
+      test('Deve mudar a zona do painel quando o acompanhante salva os limites', () async {
+        final viewModel = PacienteViewModel(
+          paciente: paciente,
+          dadosRepository: dadosRepository,
+        );
+        await dadosRepository.salvarBatimento(BatimentoCardiaco(
+          id: '',
+          pacienteId: 'paciente_01',
+          bpm: 110,
+          timestamp: DateTime.now(),
+        ));
+        await aguardar();
+        expect(viewModel.statusCardiaco, StatusCardiaco.alto);
+
+        await dadosRepository.salvarLimitesAlerta('paciente_01', limites);
+        await aguardar();
+        expect(viewModel.bpmMinimo, 50);
+        expect(viewModel.bpmMaximo, 120);
+        expect(viewModel.statusCardiaco, StatusCardiaco.estavel);
+        expect(viewModel.paciente.limitesAlerta, limites);
+
+        await dadosRepository.salvarLimitesAlerta('paciente_01', null);
+        await aguardar();
+        expect(viewModel.bpmMaximo, 100);
+        expect(viewModel.statusCardiaco, StatusCardiaco.alto);
+        viewModel.dispose();
+      });
+
+      test('Não deve voltar aos limites antigos quando outra tela devolve o paciente', () async {
+        final viewModel = PacienteViewModel(
+          paciente: paciente,
+          dadosRepository: dadosRepository,
+        );
+        await dadosRepository.salvarLimitesAlerta('paciente_01', limites);
+        await aguardar();
+
+        // Minha Rotina recebeu o paciente antes da mudanca dos limites.
+        viewModel.atualizarPaciente(paciente.copyWith(pesoKg: 72));
+
+        expect(viewModel.paciente.pesoKg, 72);
+        expect(viewModel.paciente.limitesAlerta, limites);
+        viewModel.dispose();
+      });
     });
   });
 }

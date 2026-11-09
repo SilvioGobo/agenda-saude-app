@@ -49,6 +49,41 @@ service cloud.firestore {
         );
     }
 
+    // Limites de alerta (RF 06.1): o Acompanhante vinculado define os limites
+    // de BPM que disparam o alerta do paciente. No mesmo molde do vinculo, ele
+    // so pode mexer no campo `limitesAlerta` do doc do paciente - gravar ou
+    // apagar (o paciente volta a zona padrao) - e so se o vinculo existe dos
+    // dois lados: ele tem o paciente em `pacientesVinculadosIds` e o paciente
+    // o tem em `acompanhantesVinculadosIds`.
+    function soAlteraLimitesDeAlerta(pacienteId) {
+      return logado()
+        && request.auth.uid != pacienteId
+        && resource.data.perfil == 'Paciente'
+        && request.auth.uid in resource.data.get('acompanhantesVinculadosIds', [])
+        && ehAcompanhanteVinculado(pacienteId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['limitesAlerta'])
+        && (request.resource.data.get('limitesAlerta', null) == null
+            || limitesAlertaValidos(request.resource.data.limitesAlerta));
+    }
+
+    // As mesmas faixas de LimitesAlerta (lib/domain/models/limites_alerta.dart):
+    // minimo de 40 a 90, maximo de 80 a 150, ao menos 20 entre os dois, e quem
+    // grava assina em `atualizadoPor`.
+    function limitesAlertaValidos(limites) {
+      return limites is map
+        && limites.keys().hasAll(['bpmMinimo', 'bpmMaximo', 'atualizadoPor'])
+        && limites.keys().hasOnly(
+             ['bpmMinimo', 'bpmMaximo', 'atualizadoPor', 'atualizadoEm'])
+        && limites.bpmMinimo is int
+        && limites.bpmMaximo is int
+        && limites.bpmMinimo >= 40 && limites.bpmMinimo <= 90
+        && limites.bpmMaximo >= 80 && limites.bpmMaximo <= 150
+        && limites.bpmMaximo - limites.bpmMinimo >= 20
+        && limites.atualizadoPor == request.auth.uid
+        && (!('atualizadoEm' in limites) || limites.atualizadoEm is timestamp);
+    }
+
     // O Paciente pode ler o doc dos seus acompanhantes (nome e telefone, para
     // "Falar com Acompanhante" - Figura 13): o doc lido e de um Acompanhante
     // que tem o UID do paciente logado em `pacientesVinculadosIds`, isto e,
@@ -67,7 +102,9 @@ service cloud.firestore {
       allow read: if podeVerDadosDe(uid);
       allow get: if ehAcompanhanteDoUsuarioLogado();
       allow create: if ehDono(uid);
-      allow update: if ehDono(uid) || soEntraOuSaiDaListaDeAcompanhantes(uid);
+      allow update: if ehDono(uid)
+        || soEntraOuSaiDaListaDeAcompanhantes(uid)
+        || soAlteraLimitesDeAlerta(uid);
       allow delete: if false;
     }
 

@@ -127,6 +127,24 @@ void main() {
       viewModel.dispose();
     });
 
+    test('Deve notificar a pendência de atividade (RF 06.3) sem ser urgente', () async {
+      final viewModel = criarViewModel()..acompanharPacientes([jose]);
+      await aguardarEscuta();
+
+      await gerarAlerta(
+        'paciente_01',
+        tipo: Alerta.tipoPendencia,
+        mensagem: 'Não marcou como tomado o remédio das 08:00 (Losartana 50 mg).',
+      );
+
+      final notificacao = notificationService.mostradas.single;
+      expect(notificacao.titulo, 'Pendência: José Silva');
+      expect(notificacao.texto, contains('Losartana 50 mg'));
+      expect(notificacao.urgente, false);
+      expect(viewModel.naoLidosDoPaciente('paciente_01'), 1);
+      viewModel.dispose();
+    });
+
     test('Deve encontrar o paciente de cada alerta para abrir a localização', () async {
       await gerarAlerta('paciente_01', tipo: Alerta.tipoEmergencia);
       await gerarAlerta('paciente_02');

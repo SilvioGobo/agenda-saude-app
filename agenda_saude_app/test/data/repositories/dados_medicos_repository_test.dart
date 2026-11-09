@@ -9,7 +9,11 @@ import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/registro_sono.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/lembretes/lembrete.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
+import 'package:agenda_saude_app/domain/models/medicamento.dart';
+import 'package:agenda_saude_app/domain/models/paciente.dart';
 
 void main() {
   group('DadosMedicosRepository Testes', () {
@@ -794,6 +798,111 @@ void main() {
 
         expect(emissoes.first, isNull);
         expect(emissoes.last, isA<RegistroAgua>());
+      });
+    });
+
+    group('Limites de alerta (RF 06.1)', () {
+      const limites = LimitesAlerta(
+        bpmMinimo: 50,
+        bpmMaximo: 110,
+        atualizadoPor: 'cuidador_01',
+      );
+
+      setUp(() async {
+        await fakeFirestore.collection('usuarios').doc('paciente_99').set({
+          'nome': 'José Silva',
+          'perfil': 'Paciente',
+          'possuiCardiopatia': false,
+        });
+      });
+
+      test('Deve gravar só o campo limitesAlerta no doc do paciente', () async {
+        await repository.salvarLimitesAlerta('paciente_99', limites);
+
+        final doc =
+            await fakeFirestore.collection('usuarios').doc('paciente_99').get();
+        expect(doc.data()!['limitesAlerta'], {
+          'bpmMinimo': 50,
+          'bpmMaximo': 110,
+          'atualizadoPor': 'cuidador_01',
+        });
+        expect(doc.data()!['nome'], 'José Silva');
+      });
+
+      test('Deve apagar o campo ao voltar para a zona padrão', () async {
+        await repository.salvarLimitesAlerta('paciente_99', limites);
+        await repository.salvarLimitesAlerta('paciente_99', null);
+
+        final doc =
+            await fakeFirestore.collection('usuarios').doc('paciente_99').get();
+        expect(doc.data()!.containsKey('limitesAlerta'), isFalse);
+      });
+
+      test('Deve emitir os limites quando mudam, e não a cada gravação no doc', () async {
+        final emissoes = <LimitesAlerta?>[];
+        final assinatura = repository
+            .streamLimitesAlerta('paciente_99')
+            .listen(emissoes.add);
+
+        await Future<void>.delayed(Duration.zero);
+        await repository.salvarLimitesAlerta('paciente_99', limites);
+        await Future<void>.delayed(Duration.zero);
+        // Outro campo do paciente muda: os limites continuam os mesmos.
+        await fakeFirestore
+            .collection('usuarios')
+            .doc('paciente_99')
+            .update({'pesoKg': 70});
+        await Future<void>.delayed(Duration.zero);
+        await repository.salvarLimitesAlerta('paciente_99', null);
+        await Future<void>.delayed(Duration.zero);
+        await assinatura.cancel();
+
+        expect(emissoes, [null, limites, null]);
+      });
+    });
+
+    group('Lista de tarefas do dia (RF 06.3)', () {
+      test('Deve gravar as tarefas e o fuso no doc do paciente, sem mexer no resto', () async {
+        await fakeFirestore.collection('usuarios').doc('paciente_99').set({
+          'nome': 'José Silva',
+          'perfil': 'Paciente',
+        });
+        final tarefas = Lembrete.doPaciente(Paciente(
+          id: 'paciente_99',
+          nome: 'José Silva',
+          email: 'jose@email.com',
+          perfil: 'Paciente',
+          possuiDiabetes: false,
+          possuiCardiopatia: false,
+          codigoVinculo: 'ABC123',
+          medicamentos: const [
+            Medicamento(
+              id: 'm1',
+              nome: 'Losartana',
+              dose: '50 mg',
+              horarios: ['08:00'],
+            ),
+          ],
+        ));
+
+        await repository.salvarTarefasDiarias(
+          'paciente_99',
+          tarefas,
+          fusoHorarioMinutos: -240,
+        );
+
+        final doc =
+            await fakeFirestore.collection('usuarios').doc('paciente_99').get();
+        expect(doc.data()!['fusoHorarioMinutos'], -240);
+        expect(doc.data()!['tarefasDiarias'], [
+          {
+            'chave': 'remedio|m1|08:00',
+            'tipo': 'remedio',
+            'descricao': 'Losartana 50 mg',
+            'horario': '08:00',
+          },
+        ]);
+        expect(doc.data()!['nome'], 'José Silva');
       });
     });
   });
