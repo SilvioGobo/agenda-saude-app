@@ -12,9 +12,18 @@ Lembrete _remedio(String horario, {String id = 'm1'}) {
     titulo: 'Hora do remédio',
     texto: 'Losartana 50 mg',
     resumo: 'Tomar Losartana 50 mg',
+    descricao: 'Losartana 50 mg',
     horario: horario,
   );
 }
+
+// So os lembretes do plano, sem os avisos de pendencia (RF 06.3), que tem os
+// testes deles no fim do arquivo.
+List<OcorrenciaDeLembrete> _lembretes(PlanoDeLembretes plano) =>
+    plano.agendar.where((ocorrencia) => !ocorrencia.pendencia).toList();
+
+List<OcorrenciaDeLembrete> _pendencias(PlanoDeLembretes plano) =>
+    plano.agendar.where((ocorrencia) => ocorrencia.pendencia).toList();
 
 void main() {
   group('idDaNotificacao Testes', () {
@@ -110,7 +119,7 @@ void main() {
         dias: 2,
       );
 
-      expect(plano.agendar.map((o) => o.dataHora), [
+      expect(_lembretes(plano).map((o) => o.dataHora), [
         DateTime(2026, 11, 5, 8),
         DateTime(2026, 11, 5, 20),
         DateTime(2026, 11, 6, 8),
@@ -126,7 +135,7 @@ void main() {
         dias: 2,
       );
 
-      expect(plano.agendar.map((o) => o.dataHora), [
+      expect(_lembretes(plano).map((o) => o.dataHora), [
         DateTime(2026, 11, 5, 20),
         DateTime(2026, 11, 6, 8),
         DateTime(2026, 11, 6, 20),
@@ -141,7 +150,7 @@ void main() {
         dias: 1,
       );
 
-      expect(plano.agendar, isEmpty);
+      expect(_lembretes(plano), isEmpty);
     });
 
     test('Deve tirar só o de hoje quando a dose já foi cumprida', () {
@@ -152,7 +161,7 @@ void main() {
         dias: 2,
       );
 
-      expect(plano.agendar.map((o) => o.dataHora), [
+      expect(_lembretes(plano).map((o) => o.dataHora), [
         DateTime(2026, 11, 5, 20),
         DateTime(2026, 11, 6, 8),
         DateTime(2026, 11, 6, 20),
@@ -169,9 +178,12 @@ void main() {
 
       final idDeHoje =
           OcorrenciaDeLembrete(manha, DateTime(2026, 11, 5, 8)).id;
-      expect(plano.cumpridosHoje, [idDeHoje]);
+      final pendenciaDeHoje =
+          OcorrenciaDeLembrete.pendencia(manha, DateTime(2026, 11, 5, 8)).id;
+      // O lembrete e o aviso de pendencia dele saem da bandeja.
+      expect(plano.cumpridosHoje, [idDeHoje, pendenciaDeHoje]);
       // E o de amanhã segue agendado.
-      expect(plano.agendar.map((o) => o.dataHora), [DateTime(2026, 11, 6, 8)]);
+      expect(_lembretes(plano).map((o) => o.dataHora), [DateTime(2026, 11, 6, 8)]);
     });
 
     test('Deve respeitar o limite de agendamentos, ficando com os mais próximos', () {
@@ -183,7 +195,7 @@ void main() {
         limite: 3,
       );
 
-      expect(plano.agendar.map((o) => o.dataHora), [
+      expect(_lembretes(plano).map((o) => o.dataHora), [
         DateTime(2026, 11, 5, 8),
         DateTime(2026, 11, 5, 20),
         DateTime(2026, 11, 6, 8),
@@ -202,8 +214,8 @@ void main() {
       );
 
       // 12 por dia em 7 dias seriam 84.
-      expect(plano.agendar, hasLength(PlanejadorDeLembretes.limiteDeAgendamentos));
-      expect(plano.agendar.last.dataHora.isBefore(DateTime(2026, 11, 12)), isTrue);
+      expect(_lembretes(plano), hasLength(PlanejadorDeLembretes.limiteDeAgendamentos));
+      expect(_lembretes(plano).last.dataHora.isBefore(DateTime(2026, 11, 12)), isTrue);
     });
 
     test('Deve desempatar o mesmo horário pela chave, sempre na mesma ordem', () {
@@ -217,7 +229,7 @@ void main() {
         dias: 1,
       );
 
-      expect(plano.agendar.map((o) => o.lembrete.chave), [a.chave, b.chave]);
+      expect(_lembretes(plano).map((o) => o.lembrete.chave), [a.chave, b.chave]);
     });
 
     test('Deve passar do fim do mês para o seguinte', () {
@@ -228,7 +240,7 @@ void main() {
         dias: 3,
       );
 
-      expect(plano.agendar.map((o) => o.dataHora), [
+      expect(_lembretes(plano).map((o) => o.dataHora), [
         DateTime(2026, 11, 29, 8),
         DateTime(2026, 11, 30, 8),
         DateTime(2026, 12, 1, 8),
@@ -244,6 +256,98 @@ void main() {
 
       expect(plano.agendar, isEmpty);
       expect(plano.cumpridosHoje, isEmpty);
+    });
+  });
+
+  group('Aviso de pendência (RF 06.3) Testes', () {
+    final manha = _remedio('08:00');
+    final noite = _remedio('20:00', id: 'm2');
+
+    test('Deve agendar a pendência uma hora depois de cada lembrete, só para hoje e amanhã', () {
+      final plano = PlanejadorDeLembretes.planejar(
+        lembretes: [manha, noite],
+        cumpridosHoje: {},
+        agora: DateTime(2026, 11, 5, 7, 0),
+      );
+
+      expect(_pendencias(plano).map((o) => o.dataHora), [
+        DateTime(2026, 11, 5, 9),
+        DateTime(2026, 11, 5, 21),
+        DateTime(2026, 11, 6, 9),
+        DateTime(2026, 11, 6, 21),
+      ]);
+      // Os lembretes continuam nos sete dias.
+      expect(_lembretes(plano), hasLength(14));
+    });
+
+    test('Deve manter a pendência de hoje depois do horário do lembrete, até o horário-limite', () {
+      final plano = PlanejadorDeLembretes.planejar(
+        lembretes: [manha],
+        cumpridosHoje: {},
+        agora: DateTime(2026, 11, 5, 8, 30),
+        dias: 1,
+      );
+
+      expect(_lembretes(plano), isEmpty);
+      expect(_pendencias(plano).single.dataHora, DateTime(2026, 11, 5, 9));
+    });
+
+    test('Deve tirar a pendência de hoje junto com o lembrete cumprido', () {
+      final plano = PlanejadorDeLembretes.planejar(
+        lembretes: [manha],
+        cumpridosHoje: {manha.chave},
+        agora: DateTime(2026, 11, 5, 7, 0),
+      );
+
+      expect(_pendencias(plano).map((o) => o.dataHora), [DateTime(2026, 11, 6, 9)]);
+      expect(
+        plano.cumpridosHoje,
+        contains(
+          OcorrenciaDeLembrete.pendencia(manha, DateTime(2026, 11, 5, 8)).id,
+        ),
+      );
+    });
+
+    test('Não deve agendar no aparelho a pendência que passaria da meia-noite', () {
+      final tarde = _remedio('23:30', id: 'm3');
+
+      final plano = PlanejadorDeLembretes.planejar(
+        lembretes: [tarde],
+        cumpridosHoje: {},
+        agora: DateTime(2026, 11, 5, 7, 0),
+      );
+
+      expect(_pendencias(plano), isEmpty);
+      expect(_lembretes(plano), isNotEmpty);
+    });
+
+    test('A pendência não conta no limite dos lembretes', () {
+      final plano = PlanejadorDeLembretes.planejar(
+        lembretes: [manha, noite],
+        cumpridosHoje: {},
+        agora: DateTime(2026, 11, 5, 7, 0),
+        limite: 3,
+      );
+
+      expect(_lembretes(plano), hasLength(3));
+      expect(_pendencias(plano), hasLength(4));
+    });
+
+    test('Deve ter id e payload próprios, no dia da tarefa, e os textos da pendência', () {
+      final lembrete = OcorrenciaDeLembrete(manha, DateTime(2026, 11, 5, 8));
+      final pendencia =
+          OcorrenciaDeLembrete.pendencia(manha, DateTime(2026, 11, 5, 8));
+
+      expect(pendencia.pendencia, isTrue);
+      expect(pendencia.dataHora, DateTime(2026, 11, 5, 9));
+      expect(pendencia.id, isNot(lembrete.id));
+      expect(
+        pendencia.payload,
+        'lembrete:remedio|m1|08:00@2026-11-05${OcorrenciaDeLembrete.sufixoDaPendencia}',
+      );
+      expect(pendencia.titulo, 'Remédio ainda não marcado');
+      expect(pendencia.texto, startsWith('Losartana 50 mg, das 08:00.'));
+      expect(lembrete.titulo, 'Hora do remédio');
     });
   });
 }

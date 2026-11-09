@@ -51,12 +51,22 @@ class EmergenciaView extends StatelessWidget {
   String get _motivo {
     final bpm = alerta.bpm;
     final cardiopata = paciente?.possuiCardiopatia ?? false;
+    // Os limites que o acompanhante definiu (RF 06.1), se houver.
+    final limites = paciente?.limitesAlerta;
     if (bpm != null &&
-        bpm > ZonaSegurancaCardiaca.bpmMaximo(possuiCardiopatia: cardiopata)) {
+        bpm >
+            ZonaSegurancaCardiaca.bpmMaximo(
+              possuiCardiopatia: cardiopata,
+              limites: limites,
+            )) {
       return 'BATIMENTOS CARDÍACOS ELEVADOS';
     }
     if (bpm != null &&
-        bpm < ZonaSegurancaCardiaca.bpmMinimo(possuiCardiopatia: cardiopata)) {
+        bpm <
+            ZonaSegurancaCardiaca.bpmMinimo(
+              possuiCardiopatia: cardiopata,
+              limites: limites,
+            )) {
       return 'BATIMENTOS CARDÍACOS BAIXOS';
     }
     return 'BATIMENTOS FORA DA ZONA DE SEGURANÇA';

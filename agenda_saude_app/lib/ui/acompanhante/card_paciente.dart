@@ -5,6 +5,7 @@ import '../../core/constants/momentos_glicemia.dart';
 import '../../core/constants/zona_seguranca_cardiaca.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/batimento_cardiaco.dart';
+import '../../domain/models/limites_alerta.dart';
 import '../../domain/models/paciente.dart';
 import '../../domain/models/registro_base.dart';
 import '../../domain/models/registro_diabete.dart';
@@ -20,8 +21,9 @@ import 'status_paciente_viewmodel.dart';
 // do paciente ainda nao foram lidos (RF06), o BPM mais recente com ha quanto
 // tempo foi medido e o status consolidado (RF05.1), a ultima atividade da
 // rotina, a ultima glicemia e a ultima dose de insulina dos diabeticos
-// (RF008) e os atalhos para os relatorios (dia anterior e mes) e para ver
-// onde ele esta.
+// (RF008) e os atalhos para os relatorios (dia anterior e mes), para ver
+// onde ele esta e para ajustar os limites de BPM que disparam o alerta
+// (RF 06.1).
 class CardPaciente extends StatelessWidget {
   final Paciente paciente;
   final int alertasNaoLidos;
@@ -32,11 +34,15 @@ class CardPaciente extends StatelessWidget {
   final StatusSaude? statusSaude;
   final BatimentoCardiaco? ultimoBatimento;
   final RegistroBase? ultimaAtividade;
+  // Limites de BPM do paciente, tambem do ViewModel do card (seguem o
+  // Firestore em tempo real); null = zona padrao.
+  final LimitesAlerta? limitesAlerta;
   // Referencia para o "ha X minutos"; null usa o relogio do aparelho.
   final DateTime? agora;
   final VoidCallback? onDesvincular;
   final VoidCallback? onVerRelatorios;
   final VoidCallback? onVerLocalizacao;
+  final VoidCallback? onAjustarLimites;
 
   const CardPaciente({
     super.key,
@@ -46,10 +52,12 @@ class CardPaciente extends StatelessWidget {
     this.statusSaude,
     this.ultimoBatimento,
     this.ultimaAtividade,
+    this.limitesAlerta,
     this.agora,
     this.onDesvincular,
     this.onVerRelatorios,
     this.onVerLocalizacao,
+    this.onAjustarLimites,
   });
 
   String get _primeiroNome {
@@ -193,9 +201,11 @@ class CardPaciente extends StatelessWidget {
                   primeiroNome: _primeiroNome,
                   bpmMinimo: ZonaSegurancaCardiaca.bpmMinimo(
                     possuiCardiopatia: paciente.possuiCardiopatia,
+                    limites: limitesAlerta,
                   ),
                   bpmMaximo: ZonaSegurancaCardiaca.bpmMaximo(
                     possuiCardiopatia: paciente.possuiCardiopatia,
+                    limites: limitesAlerta,
                   ),
                 ),
               ),
@@ -244,6 +254,17 @@ class CardPaciente extends StatelessWidget {
                 ),
               ),
             ],
+            if (onAjustarLimites != null) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton.icon(
+                  onPressed: onAjustarLimites,
+                  icon: const Icon(Icons.tune_rounded),
+                  label: const Text('Limites de alerta'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -281,11 +302,18 @@ class _SaudeDoPaciente extends StatelessWidget {
         return '$direcao da zona de segurança ($bpmMinimo a $bpmMaximo '
             'batimentos por minuto).';
       case StatusSaude.semDados:
-        final situacao = batimento == null
-            ? 'O smartwatch ainda não enviou medições.'
-            : 'O smartwatch não envia medições há mais de uma hora.';
-        return '$situacao Peça a $primeiroNome para abrir o Agenda Saúde '
-            'com o relógio no pulso.';
+        if (batimento == null) {
+          return 'O smartwatch ainda não enviou medições. Peça a '
+              '$primeiroNome para abrir o Agenda Saúde com o relógio no pulso.';
+        }
+        // B10: o aviso "sem dados" sai pelo push depois do prazo, contado so
+        // durante o dia.
+        final horas = ZonaSegurancaCardiaca.prazoAvisoSemDados.inHours;
+        return 'O smartwatch não envia medições há mais de uma hora. Peça a '
+            '$primeiroNome para abrir o Agenda Saúde com o relógio no pulso. '
+            'Se continuar assim por $horas horas, entre '
+            '${ZonaSegurancaCardiaca.inicioDoDiaParaAviso}h e '
+            '${ZonaSegurancaCardiaca.fimDoDiaParaAviso}h, você recebe um aviso.';
     }
   }
 

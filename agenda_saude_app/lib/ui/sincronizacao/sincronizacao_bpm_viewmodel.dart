@@ -8,6 +8,7 @@ import '../../core/services/leitura_segundo_plano_service.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../domain/batimentos/monitor_zona_seguranca.dart';
 import '../../domain/models/batimento_cardiaco.dart';
+import '../../domain/models/limites_alerta.dart';
 import '../../domain/models/paciente.dart';
 
 enum EstadoSincronizacao {
@@ -110,6 +111,11 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
   // episodio, e a leitura com o app fechado pode ter gerado alertas.
   MonitorZonaSeguranca? _monitor;
 
+  // Limites de BPM do paciente (RF 06.1): os do login e, depois, os que o
+  // acompanhante salvar, em tempo real.
+  late LimitesAlerta? _limites = paciente.limitesAlerta;
+  StreamSubscription<LimitesAlerta?>? _assinaturaLimites;
+
   // Verifica Health Connect + permissao e, se tudo ok, comeca a sincronizar.
   Future<void> iniciar() async {
     if (!_plataformaSuportada) {
@@ -192,10 +198,28 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
       _observandoCicloDeVida = true;
     }
     _leituraComAppFechado.avisarAppAberto(true);
+    _observarLimites();
 
     await sincronizarAgora();
     _reiniciarTimer();
     await _atualizarLeituraComAppFechado();
+  }
+
+  // Quando o acompanhante muda os limites (RF 06.1), a proxima leitura rele a
+  // janela do Firestore e retoma o episodio com a zona nova - o mesmo que a
+  // leitura com o app fechado faz a cada execucao, ao ler o paciente de novo.
+  void _observarLimites() {
+    if (_assinaturaLimites != null) return;
+    _assinaturaLimites =
+        _dadosRepository.streamLimitesAlerta(paciente.id).listen(
+      (limites) {
+        if (_descartado || limites == _limites) return;
+        _limites = limites;
+        _carregouGravados = false;
+      },
+      onError: (Object erro) =>
+          debugPrint('Stream dos limites de alerta falhou: $erro'),
+    );
   }
 
   void _reiniciarTimer() {
@@ -249,6 +273,7 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
         _monitor = MonitorZonaSeguranca.retomar(
           pacienteId: paciente.id,
           possuiCardiopatia: paciente.possuiCardiopatia,
+          limites: _limites,
           gravados: gravados,
           alertas: alertas,
         );
@@ -362,6 +387,7 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
   void dispose() {
     _descartado = true;
     _timer?.cancel();
+    _assinaturaLimites?.cancel();
     if (_observandoCicloDeVida) {
       WidgetsBinding.instance.removeObserver(this);
       _leituraComAppFechado.avisarAppAberto(false);

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
+import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/registro_agua.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
@@ -186,6 +187,64 @@ void main() {
       await aguardar();
 
       expect(notificacoes, 0);
+    });
+
+    group('Limites de alerta (RF 06.1)', () {
+      setUp(() async {
+        await fakeFirestore.collection('usuarios').doc('paciente_01').set({
+          'nome': 'José Silva',
+          'perfil': 'Paciente',
+        });
+      });
+
+      test('Deve usar os limites do paciente no status e na zona do card', () async {
+        await dadosRepository.salvarLimitesAlerta(
+          'paciente_01',
+          const LimitesAlerta(bpmMinimo: 50, bpmMaximo: 120),
+        );
+        await salvarBatimento(110, agora.subtract(const Duration(minutes: 2)));
+        final vm = criar();
+        await aguardar();
+
+        expect(vm.bpmMinimo, 50);
+        expect(vm.bpmMaximo, 120);
+        // 110 esta fora da zona padrao (ate 100), mas dentro da do paciente.
+        expect(vm.status, StatusSaude.estavel);
+      });
+
+      test('Deve mudar o status quando os limites mudam no Firestore', () async {
+        await salvarBatimento(110, agora.subtract(const Duration(minutes: 2)));
+        final vm = criar();
+        await aguardar();
+        expect(vm.status, StatusSaude.atencao);
+
+        // Outro acompanhante (ou este, por outro celular) salva os limites.
+        await dadosRepository.salvarLimitesAlerta(
+          'paciente_01',
+          const LimitesAlerta(bpmMinimo: 50, bpmMaximo: 120),
+        );
+        await aguardar();
+        expect(vm.status, StatusSaude.estavel);
+        expect(vm.pacienteAtual.limitesAlerta?.bpmMaximo, 120);
+
+        await dadosRepository.salvarLimitesAlerta('paciente_01', null);
+        await aguardar();
+        expect(vm.status, StatusSaude.atencao);
+        expect(vm.pacienteAtual.limitesAlerta, isNull);
+      });
+
+      test('Deve trocar os limites na hora quando o acompanhante acabou de salvar', () async {
+        final vm = criar();
+        await aguardar();
+        var notificacoes = 0;
+        vm.addListener(() => notificacoes++);
+
+        vm.usarLimites(const LimitesAlerta(bpmMinimo: 45, bpmMaximo: 130));
+
+        expect(vm.bpmMinimo, 45);
+        expect(vm.bpmMaximo, 130);
+        expect(notificacoes, 1);
+      });
     });
   });
 }

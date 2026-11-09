@@ -68,9 +68,12 @@ Future<({int leiturasNovas, int alertas})> sincronizarComAppFechado({
       await dadosRepository.getAlertasDesde(paciente.id, inicio);
   await dadosRepository.salvarBatimentos(novas);
 
+  // O paciente e lido do Firestore a cada execucao, entao os limites que o
+  // acompanhante mudou (RF 06.1) ja valem na proxima leitura.
   final monitor = MonitorZonaSeguranca.retomar(
     pacienteId: paciente.id,
     possuiCardiopatia: paciente.possuiCardiopatia,
+    limites: paciente.limitesAlerta,
     gravados: gravados,
     alertas: alertasDaJanela,
   );

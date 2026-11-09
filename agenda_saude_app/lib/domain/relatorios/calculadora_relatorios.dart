@@ -1,6 +1,7 @@
 import '../../core/constants/zona_seguranca_cardiaca.dart';
 import '../models/alerta.dart';
 import '../models/batimento_cardiaco.dart';
+import '../models/limites_alerta.dart';
 import '../models/paciente.dart';
 import '../models/registro_agua.dart';
 import '../models/registro_diabete.dart';
@@ -79,10 +80,16 @@ class CalculadoraRelatorios {
       batimentos: resumirBatimentos(
         batimentos,
         possuiCardiopatia: paciente.possuiCardiopatia,
+        // Como o plano de refeicoes, os limites (RF 06.1) nao tem historico:
+        // vale a zona de hoje tambem para os dias antigos.
+        limites: paciente.limitesAlerta,
         dia: dia,
       ),
-      // Do mais recente para o mais antigo, como a tela mostra.
-      alertas: [...alertas]..sort((a, b) => b.dataHora.compareTo(a.dataHora)),
+      // Do mais recente para o mais antigo, como a tela mostra. So os alertas
+      // dos batimentos: a pendencia de uma tarefa (RF 06.3) ja aparece no
+      // cartao da propria tarefa, como "nao feita".
+      alertas: alertas.where((alerta) => alerta.ehDeBatimento).toList()
+        ..sort((a, b) => b.dataHora.compareTo(a.dataHora)),
     );
   }
 
@@ -91,12 +98,17 @@ class CalculadoraRelatorios {
   static BatimentosDoDia resumirBatimentos(
     List<BatimentoCardiaco> leituras, {
     required bool possuiCardiopatia,
+    LimitesAlerta? limites,
     DateTime? dia,
   }) {
-    final minimoDaZona =
-        ZonaSegurancaCardiaca.bpmMinimo(possuiCardiopatia: possuiCardiopatia);
-    final maximoDaZona =
-        ZonaSegurancaCardiaca.bpmMaximo(possuiCardiopatia: possuiCardiopatia);
+    final minimoDaZona = ZonaSegurancaCardiaca.bpmMinimo(
+      possuiCardiopatia: possuiCardiopatia,
+      limites: limites,
+    );
+    final maximoDaZona = ZonaSegurancaCardiaca.bpmMaximo(
+      possuiCardiopatia: possuiCardiopatia,
+      limites: limites,
+    );
     if (leituras.isEmpty) {
       return BatimentosDoDia(
         leituras: 0,

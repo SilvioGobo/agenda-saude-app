@@ -55,5 +55,50 @@ void main() {
       expect(alerta.bpm, isNull);
       expect(alerta.lido, false);
     });
+
+    test('Deve separar os alertas de batimento da pendência de atividade (RF 06.3)', () {
+      Alerta doTipo(String tipo) => Alerta(
+            id: tipo,
+            pacienteId: 'paciente_01',
+            tipo: tipo,
+            mensagem: '',
+            dataHora: DateTime(2026, 11, 8, 9),
+          );
+
+      final pendencia = Alerta.fromJson({
+        'pacienteId': 'paciente_01',
+        'tipo': 'pendencia',
+        'mensagem': 'Não marcou como tomado o remédio das 08:00 (Losartana 50 mg).',
+        'bpm': null,
+        'dataHora': Timestamp.fromDate(DateTime(2026, 11, 8, 9)),
+        'lido': false,
+        'tarefa': {'chave': 'remedio|m1|08:00', 'tipo': 'remedio'},
+      }, 'pendencia_01');
+
+      expect(pendencia.tipo, Alerta.tipoPendencia);
+      expect(pendencia.ehPendencia, isTrue);
+      expect(pendencia.ehEmergencia, isFalse);
+      expect(pendencia.ehDeBatimento, isFalse);
+      expect(doTipo(Alerta.tipoAtencao).ehDeBatimento, isTrue);
+      expect(doTipo(Alerta.tipoEmergencia).ehDeBatimento, isTrue);
+    });
+
+    test('Deve reconhecer o aviso de sem dados do smartwatch (B10), que não é de batimento', () {
+      final semDados = Alerta.fromJson({
+        'pacienteId': 'paciente_01',
+        'tipo': 'sem_dados',
+        'mensagem': 'O smartwatch não envia medições desde as 10:15.',
+        'bpm': null,
+        'dataHora': Timestamp.fromDate(DateTime(2026, 11, 8, 13, 15)),
+        'lido': false,
+        'ultimaLeitura': Timestamp.fromDate(DateTime(2026, 11, 8, 10, 15)),
+      }, 'sem_dados_01');
+
+      expect(semDados.tipo, Alerta.tipoSemDados);
+      expect(semDados.ehSemDados, isTrue);
+      expect(semDados.ehEmergencia, isFalse);
+      expect(semDados.ehPendencia, isFalse);
+      expect(semDados.ehDeBatimento, isFalse);
+    });
   });
 }

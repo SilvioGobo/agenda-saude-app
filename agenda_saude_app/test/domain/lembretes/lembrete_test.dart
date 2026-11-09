@@ -237,5 +237,59 @@ void main() {
         ]);
       });
     });
+
+    group('pendência (RF 06.3)', () {
+      List<Lembrete> doDiabetico() => Lembrete.doPaciente(
+            _paciente(
+              possuiDiabetes: true,
+              usaInsulina: true,
+              medicamentos: [losartana],
+            ),
+          );
+
+      Lembrete doTipo(TipoLembrete tipo) =>
+          doDiabetico().firstWhere((lembrete) => lembrete.tipo == tipo);
+
+      test('Deve descrever cada tarefa sem o verbo', () {
+        expect(doTipo(TipoLembrete.remedio).descricao, 'Losartana 50 mg');
+        expect(doTipo(TipoLembrete.glicemia).descricao, 'Ao acordar');
+        expect(doTipo(TipoLembrete.insulina).descricao, 'Insulina lenta');
+      });
+
+      test('Deve dizer no aviso de pendência o que ficou faltando e o que fazer', () {
+        final remedio = doTipo(TipoLembrete.remedio);
+        expect(remedio.tituloDaPendencia, 'Remédio ainda não marcado');
+        expect(
+          remedio.textoDaPendencia,
+          'Losartana 50 mg, das 08:00. Se já tomou, marque em Minha Rotina.',
+        );
+
+        final glicemia = doTipo(TipoLembrete.glicemia);
+        expect(glicemia.tituloDaPendencia, 'Glicemia ainda não anotada');
+        expect(glicemia.textoDaPendencia, contains('Se já mediu'));
+
+        final insulina = doTipo(TipoLembrete.insulina);
+        expect(insulina.tituloDaPendencia, 'Insulina ainda não anotada');
+        expect(
+          insulina.textoDaPendencia,
+          'Insulina lenta, das 22:00. Se já aplicou, anote em Minha Rotina.',
+        );
+      });
+
+      test('Deve virar a tarefa que vai para o doc do paciente', () {
+        expect(doTipo(TipoLembrete.remedio).toJsonTarefa(), {
+          'chave': 'remedio|m1|08:00',
+          'tipo': 'remedio',
+          'descricao': 'Losartana 50 mg',
+          'horario': '08:00',
+        });
+        expect(doTipo(TipoLembrete.insulina).toJsonTarefa(), {
+          'chave': Lembrete.chaveDaInsulina(MomentoGlicemia.insulinaLenta.nome),
+          'tipo': 'insulina',
+          'descricao': 'Insulina lenta',
+          'horario': '22:00',
+        });
+      });
+    });
   });
 }
