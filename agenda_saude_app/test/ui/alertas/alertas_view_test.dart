@@ -301,8 +301,8 @@ void main() {
       expect(
         tts.faladas.single,
         'Você tem 2 notificações não lidas. '
-        'Emergência de José: 125 batimentos por minuto, há 3 minutos. '
-        'Atenção de José: 118 batimentos por minuto, há 4 minutos.',
+        'Emergência com José: 125 batimentos por minuto, há 3 minutos. '
+        'José precisa de atenção: 118 batimentos por minuto, há 4 minutos.',
       );
     });
 

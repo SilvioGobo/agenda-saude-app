@@ -454,7 +454,11 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    `narracao_da_rotina.dart`, `narracao_dos_relatorios.dart`, `narracao_dos_alertas.dart`:
    funções puras, com teste que limita o tamanho do texto): o que importa agora e, na
    rotina, o que FALTA, e não a árvore de widgets nem o que já foi feito. Fala sem siglas
-   ("batimentos por minuto", "miligramas por decilitro", o 192 como "um, nove, dois"). Só
+   ("batimentos por minuto", "miligramas por decilitro", o 192 como "um, nove, dois"). Na
+   lista de notificações cada alerta fala a sua manchete (`mancheteDoAlerta`, a mesma da
+   faixa do painel do acompanhante), e os batimentos só entram nos alertas de BPM
+   (`Alerta.ehDeBatimento`): pendência de atividade e sem dados do smartwatch não são
+   lidos como "atenção". Só
    aparece com o narrador ligado e **sem leitor de tela**: com o TalkBack ligado
    (`MediaQuery.accessibleNavigation`) o botão some e o narrador não fala, para as duas
    vozes não falarem juntas (`SemanticsService.announce` é obsoleto no Android, então

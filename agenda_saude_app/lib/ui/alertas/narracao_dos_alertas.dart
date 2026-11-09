@@ -2,6 +2,7 @@ import '../../domain/models/alerta.dart';
 import '../relatorios/formato_relatorios.dart'
     show capitalizar, primeiroNomeDe;
 import '../shared/texto_narrado.dart';
+import 'formato_alertas.dart' show mancheteDoAlerta;
 
 // O que o narrador le nas telas de alerta ("Ouvir esta tela", RF 08.2).
 
@@ -14,7 +15,8 @@ const String notificacoesCarregandoNarradas =
     'As notificações ainda estão carregando. Tente ouvir de novo em instantes.';
 
 // A tela de Notificacoes: quantas ha para ler e as mais recentes, com quem e o
-// paciente, o nivel, os batimentos e ha quanto tempo. Sao lidas primeiro as
+// paciente, o que aconteceu, os batimentos (so nos alertas de BPM) e ha quanto
+// tempo. Sao lidas primeiro as
 // nao lidas; se todas ja foram lidas, so a ultima. [alertas] vem do mais
 // recente para o mais antigo, como na tela.
 String narrarNotificacoes({
@@ -32,11 +34,15 @@ String narrarNotificacoes({
 
   String ler(Alerta alerta) {
     final paciente = primeiroNomeDe(nomeDoPaciente(alerta.pacienteId));
-    final nivel = alerta.ehEmergencia ? 'Emergência' : 'Atenção';
-    final bpm = alerta.bpm == null
-        ? ''
-        : ': ${alerta.bpm} batimentos por minuto';
-    return '$nivel de $paciente$bpm, ${falarQuando(alerta.dataHora, agora)}';
+    // A manchete e a da faixa do topo do painel do acompanhante, uma por tipo de
+    // alerta: emergencia e atencao (batimentos), pendencia de atividade e sem
+    // dados do smartwatch. Dizer "atencao" para todos os que nao sao emergencia
+    // enganaria: a pendencia e o "sem dados" nao tem a ver com os batimentos.
+    final manchete = mancheteDoAlerta(alerta, paciente);
+    final bpm = alerta.ehDeBatimento && alerta.bpm != null
+        ? ': ${alerta.bpm} batimentos por minuto'
+        : '';
+    return '$manchete$bpm, ${falarQuando(alerta.dataHora, agora)}';
   }
 
   final naoLidos = alertas.where((alerta) => !alerta.lido).toList();

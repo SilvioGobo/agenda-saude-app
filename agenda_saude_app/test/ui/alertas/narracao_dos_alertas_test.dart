@@ -60,9 +60,9 @@ void main() {
       expect(
         texto,
         'Você tem 2 notificações não lidas. '
-        'Emergência de Maria: 130 batimentos por minuto, há 5 minutos. '
-        'Atenção de José: 112 batimentos por minuto, hoje, às 9 horas e 10 '
-        'minutos.',
+        'Emergência com Maria: 130 batimentos por minuto, há 5 minutos. '
+        'José precisa de atenção: 112 batimentos por minuto, hoje, às 9 horas '
+        'e 10 minutos.',
       );
     });
 
@@ -78,7 +78,7 @@ void main() {
       ]);
 
       expect(texto, startsWith('Você tem 5 notificações não lidas.'));
-      expect('Emergência de Maria'.allMatches(texto), hasLength(3));
+      expect('Emergência com Maria'.allMatches(texto), hasLength(3));
       expect(texto, endsWith('E mais 2 notificações.'));
     });
 
@@ -95,7 +95,7 @@ void main() {
       ]);
 
       expect(texto, startsWith('Você tem 1 notificação não lida.'));
-      expect(texto, contains('Emergência de José'));
+      expect(texto, contains('Emergência com José'));
       expect(texto, isNot(contains('Maria')));
     });
 
@@ -107,7 +107,7 @@ void main() {
 
       expect(
         texto,
-        'Nenhuma notificação nova. A última foi: Emergência de Maria: 130 '
+        'Nenhuma notificação nova. A última foi: Emergência com Maria: 130 '
         'batimentos por minuto, há 5 minutos.',
       );
     });
@@ -115,7 +115,55 @@ void main() {
     test('Deve ler o alerta que não tem batimentos', () {
       final texto = narrar([alerta('a1', bpm: null)]);
 
-      expect(texto, contains('Emergência de Maria, há 5 minutos.'));
+      expect(texto, contains('Emergência com Maria, há 5 minutos.'));
+    });
+
+    test('Deve ler a pendência de atividade como pendência, e não como atenção', () {
+      final texto = narrar([alerta('a1', tipo: Alerta.tipoPendencia, bpm: null)]);
+
+      expect(texto, contains('Maria tem uma atividade pendente, há 5 minutos.'));
+      expect(texto, isNot(contains('atenção')));
+      expect(texto, isNot(contains('batimentos')));
+    });
+
+    test('Deve ler o aviso de que o smartwatch está sem dados', () {
+      final texto = narrar([alerta('a1', tipo: Alerta.tipoSemDados, bpm: null)]);
+
+      expect(texto, contains('Maria está sem dados do smartwatch, há 5 minutos.'));
+      expect(texto, isNot(contains('atenção')));
+    });
+
+    test('Não deve falar batimentos num alerta que não é de batimentos, mesmo com um valor gravado', () {
+      final texto = narrar([alerta('a1', tipo: Alerta.tipoPendencia, bpm: 80)]);
+
+      expect(texto, isNot(contains('batimentos')));
+    });
+
+    test('Deve ler cada tipo de alerta com a sua própria manchete na mesma lista', () {
+      final texto = narrar([
+        alerta('a1', dataHora: DateTime(2026, 11, 7, 14, 32)),
+        alerta(
+          'a2',
+          tipo: Alerta.tipoPendencia,
+          pacienteId: 'p2',
+          bpm: null,
+          dataHora: DateTime(2026, 11, 7, 14, 20),
+        ),
+        alerta(
+          'a3',
+          tipo: Alerta.tipoSemDados,
+          bpm: null,
+          dataHora: DateTime(2026, 11, 7, 12, 0),
+        ),
+      ]);
+
+      expect(
+        texto,
+        'Você tem 3 notificações não lidas. '
+        'Emergência com Maria: 130 batimentos por minuto, há 3 minutos. '
+        'José tem uma atividade pendente, há 15 minutos. '
+        'Maria está sem dados do smartwatch, hoje, às 12 horas.',
+      );
     });
 
     test('Deve usar só o primeiro nome do paciente', () {
