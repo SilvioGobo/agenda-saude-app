@@ -19,9 +19,11 @@ import '../relatorios/relatorios_view.dart';
 import '../rotina/rotina_view.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
+import '../shared/botao_ouvir_tela.dart';
 import '../shared/caixa_alerta.dart';
 import '../shared/card_status.dart';
 import '../shared/dialogo_confirmacao.dart';
+import '../shared/rota_com_narrador.dart';
 import '../shared/titulo_tela.dart';
 import '../sincronizacao/card_smartwatch.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
@@ -30,6 +32,7 @@ import 'card_batimentos.dart';
 import 'codigo_vinculo_view.dart';
 import 'falar_com_acompanhante_view.dart';
 import 'menu_paciente.dart';
+import 'narracao_do_painel.dart';
 import 'paciente_viewmodel.dart';
 
 // Painel principal do paciente (RF05, Figura 13 do TCC): saudacao, destaque
@@ -99,8 +102,10 @@ class PacienteView extends StatelessWidget {
     );
   }
 
+  // As telas abertas por cima do painel nao herdam os providers dele: o
+  // narrador (de onde vem o botao "Ouvir esta tela") vai junto para todas.
   void _abrir(BuildContext context, Widget tela) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => tela));
+    Navigator.of(context).push(rotaComNarrador(context, tela));
   }
 
   void _abrirMinhaRotina(BuildContext context) {
@@ -186,6 +191,43 @@ class PacienteView extends StatelessWidget {
         await lembretes.cancelarTodos();
       },
       criarLoginViewModel: criarLoginViewModel,
+    );
+  }
+
+  // O texto do botao "Ouvir esta tela" (RF 08.2): os mesmos casos do destaque
+  // abaixo - problema do smartwatch, espera pela primeira medicao ou o BPM com
+  // o status - em frases curtas.
+  String _textoParaOuvir(BuildContext context) {
+    final viewModel = context.read<PacienteViewModel>();
+    final sincronizacao = context.read<SincronizacaoBpmViewModel>();
+    final smartwatch = InfoSmartwatch.de(context, sincronizacao);
+    final batimento = viewModel.ultimoBatimento;
+
+    if (smartwatch.temProblema) {
+      return narrarPainel(
+        primeiroNome: viewModel.primeiroNome,
+        status: StatusCardiaco.semLeitura,
+        semLeituraTitulo: smartwatch.titulo,
+        semLeituraDescricao: smartwatch.descricao,
+      );
+    }
+
+    if (batimento == null) {
+      final procurando =
+          sincronizacao.estado == EstadoSincronizacao.verificando;
+      return narrarPainel(
+        primeiroNome: viewModel.primeiroNome,
+        status: StatusCardiaco.semLeitura,
+        semLeituraTitulo:
+            procurando ? 'Procurando seu smartwatch' : 'Aguardando medição',
+      );
+    }
+
+    return narrarPainel(
+      primeiroNome: viewModel.primeiroNome,
+      status: viewModel.statusCardiaco,
+      bpm: batimento.bpm,
+      medidoEm: batimento.timestamp,
     );
   }
 
@@ -301,6 +343,7 @@ class PacienteView extends StatelessWidget {
           children: [
             TituloTela('Olá, ${viewModel.primeiroNome}'),
             const SizedBox(height: 24),
+            BotaoOuvirTela(texto: () => _textoParaOuvir(context)),
             ..._destaque(context),
             const SizedBox(height: 32),
             BotaoGrande(

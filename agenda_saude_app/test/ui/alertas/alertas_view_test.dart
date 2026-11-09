@@ -2,16 +2,20 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/data/repositories/preferencias_repository.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/alertas/alertas_view.dart';
 import 'package:agenda_saude_app/ui/alertas/alertas_viewmodel.dart';
 import 'package:agenda_saude_app/ui/alertas/card_alerta.dart';
 import 'package:agenda_saude_app/ui/alertas/emergencia_view.dart';
+import 'package:agenda_saude_app/ui/configuracoes/configuracoes_viewmodel.dart';
 
 import '../../core/services/fake_notification_service.dart';
+import '../../core/services/fake_tts_service.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
@@ -36,6 +40,7 @@ void main() {
     String tipo = Alerta.tipoAtencao,
     String mensagem = 'Batimentos acima da zona de segurança (118 BPM).',
     int bpm = 118,
+    int minutosAtras = 3,
   }) {
     return dadosRepository.gerarAlerta(Alerta(
       id: '',
@@ -43,7 +48,7 @@ void main() {
       tipo: tipo,
       mensagem: mensagem,
       bpm: bpm,
-      dataHora: DateTime.now().subtract(const Duration(minutes: 3)),
+      dataHora: DateTime.now().subtract(Duration(minutes: minutosAtras)),
     ));
   }
 
@@ -161,6 +166,136 @@ void main() {
     expect(find.text('Marcar todas como lidas'), findsNothing);
     final salvos = await dadosRepository.getAlertas('paciente_01');
     expect(salvos.every((a) => a.lido), true);
+  });
+
+  group('Ouvir esta tela', () {
+    late FakeTtsService tts;
+    final ouvir = find.text('Ouvir esta tela');
+
+    setUp(() => tts = FakeTtsService());
+
+    // O narrador como o app o entrega: carregado e ligado.
+    Future<ConfiguracoesViewModel> narradorLigado() async {
+      SharedPreferences.setMockInitialValues({'narrador.ligado': true});
+      final viewModel = ConfiguracoesViewModel(
+        preferencias: PreferenciasRepository(),
+        ttsService: tts,
+      );
+      await viewModel.carregar();
+      return viewModel;
+    }
+
+    // Abre a tela como o painel a abre - empurrando a rota, que leva o
+    // narrador junto - e devolve o ViewModel dos alertas.
+    Future<AlertasViewModel> abrirComNarrador(
+      WidgetTester tester,
+      ConfiguracoesViewModel narrador,
+    ) async {
+      final viewModel = AlertasViewModel(
+        dadosRepository: dadosRepository,
+        notificationService: FakeNotificationService(),
+      )..acompanharPacientes([jose]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    AlertasView.rota(viewModel, narrador: narrador),
+                  ),
+                  child: const Text('Abrir'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Abrir'));
+      await tester.pumpAndSettle();
+      return viewModel;
+    }
+
+    testWidgets('Não deve aparecer sem narrador, como no painel do acompanhante hoje', (tester) async {
+      await gerarAlerta();
+      await montarTela(tester);
+
+      expect(ouvir, findsNothing);
+      expect(find.text('Notificações'), findsOneWidget);
+    });
+
+    testWidgets('Deve aparecer no topo da lista quando a rota leva o narrador', (tester) async {
+      await gerarAlerta();
+      await abrirComNarrador(tester, await narradorLigado());
+
+      expect(ouvir, findsOneWidget);
+      expect(
+        tester.getTopLeft(ouvir).dy,
+        lessThan(tester.getTopLeft(find.text('Você tem 1 notificação não lida.')).dy),
+      );
+    });
+
+    testWidgets('Deve ler as não lidas, a mais nova primeiro', (tester) async {
+      await gerarAlerta(minutosAtras: 4);
+      await gerarAlerta(
+        tipo: Alerta.tipoEmergencia,
+        mensagem: 'Batimentos fora da zona de segurança há 6 minutos.',
+        bpm: 125,
+      );
+      await abrirComNarrador(tester, await narradorLigado());
+
+      await tester.tap(ouvir);
+      await tester.pump();
+
+      expect(
+        tts.faladas.single,
+        'Você tem 2 notificações não lidas. '
+        'Emergência de José: 125 batimentos por minuto, há 3 minutos. '
+        'Atenção de José: 118 batimentos por minuto, há 4 minutos.',
+      );
+    });
+
+    testWidgets('Deve explicar quando ainda não há notificações', (tester) async {
+      await abrirComNarrador(tester, await narradorLigado());
+
+      await tester.tap(ouvir);
+      await tester.pump();
+
+      expect(tts.faladas.single, startsWith('Nenhuma notificação por enquanto.'));
+    });
+
+    testWidgets('Deve falar a emergência sozinha ao abri-la pela lista, com o narrador que veio junto', (tester) async {
+      await gerarAlerta(
+        tipo: Alerta.tipoEmergencia,
+        mensagem: 'Batimentos fora da zona de segurança há 6 minutos.',
+        bpm: 132,
+      );
+      await abrirComNarrador(tester, await narradorLigado());
+      // A lista nao fala sozinha: so a emergencia.
+      expect(tts.faladas, isEmpty);
+
+      await tester.tap(find.byType(CardAlerta));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EmergenciaView), findsOneWidget);
+      expect(
+        tts.faladas.single,
+        startsWith('Alerta crítico! José está com batimentos cardíacos elevados: 132'),
+      );
+    });
+
+    testWidgets('Deve calar a leitura da lista ao abrir os detalhes de um alerta', (tester) async {
+      await gerarAlerta();
+      await abrirComNarrador(tester, await narradorLigado());
+      await tester.tap(ouvir);
+      await tester.pump();
+      expect(find.text('Parar de ouvir'), findsOneWidget);
+
+      await tester.tap(find.byType(CardAlerta));
+      await tester.pumpAndSettle();
+
+      expect(tts.paradas, 1);
+    });
   });
 
   group('descreverHorario Testes', () {

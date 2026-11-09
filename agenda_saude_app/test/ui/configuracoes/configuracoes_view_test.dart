@@ -22,6 +22,8 @@ void main() {
     Future<ConfiguracoesViewModel> montar(
       WidgetTester tester, {
       double escalaTexto = 1,
+      // Simula o TalkBack ligado.
+      bool leitorDeTela = false,
     }) async {
       tester.view.physicalSize = const Size(800, 2400);
       tester.view.devicePixelRatio = 1;
@@ -36,8 +38,10 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(escalaTexto)),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(escalaTexto),
+              accessibleNavigation: leitorDeTela,
+            ),
             child: child!,
           ),
           home: ChangeNotifierProvider.value(
@@ -65,6 +69,27 @@ void main() {
       expect(find.text('Ligar narrador'), findsOneWidget);
       expect(find.text('Velocidade da voz'), findsOneWidget);
       expect(find.text('Testar voz'), findsOneWidget);
+    });
+
+    testWidgets('Deve explicar o botão "Ouvir esta tela" e onde ele aparece', (tester) async {
+      await montar(tester);
+
+      expect(find.textContaining('botão "Ouvir esta tela"'), findsOneWidget);
+      expect(find.textContaining('painel, na rotina e nos relatórios'), findsOneWidget);
+    });
+
+    testWidgets('Não deve falar do leitor de tela quando ele está desligado', (tester) async {
+      await montar(tester);
+
+      expect(find.text('Leitor de tela ligado'), findsNothing);
+    });
+
+    testWidgets('Deve explicar por que o botão some quando o leitor de tela está ligado', (tester) async {
+      await montar(tester, leitorDeTela: true);
+
+      expect(find.text('Leitor de tela ligado'), findsOneWidget);
+      expect(find.textContaining('TalkBack'), findsOneWidget);
+      expect(find.textContaining('as duas vozes'), findsOneWidget);
     });
 
     testWidgets('Deve ligar o narrador e confirmar falando', (tester) async {

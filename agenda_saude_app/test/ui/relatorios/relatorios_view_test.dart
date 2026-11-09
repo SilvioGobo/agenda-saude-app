@@ -1,10 +1,13 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:agenda_saude_app/core/constants/momentos_glicemia.dart';
 import 'package:agenda_saude_app/core/theme/app_theme.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/data/repositories/preferencias_repository.dart';
 import 'package:agenda_saude_app/data/repositories/relatorios_repository.dart';
 import 'package:agenda_saude_app/domain/models/alerta.dart';
 import 'package:agenda_saude_app/domain/models/batimento_cardiaco.dart';
@@ -18,11 +21,14 @@ import 'package:agenda_saude_app/domain/models/registro_exercicio.dart';
 import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/registro_sono.dart';
+import 'package:agenda_saude_app/ui/configuracoes/configuracoes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/insulina/formatacao_diabete.dart';
 import 'package:agenda_saude_app/ui/relatorios/calendario_mensal.dart';
 import 'package:agenda_saude_app/ui/relatorios/grafico_batimentos.dart';
+import 'package:agenda_saude_app/ui/relatorios/narracao_dos_relatorios.dart';
 import 'package:agenda_saude_app/ui/relatorios/relatorios_view.dart';
 
+import '../../core/services/fake_tts_service.dart';
 import '../../helpers/catalogo_de_teste.dart';
 
 // Leitura que falha enquanto `falhando` for verdadeiro (ex.: sem internet).
@@ -93,10 +99,21 @@ void main() {
       RelatoriosRepository? repositorio,
       double escalaTexto = 1,
       Size tela = const Size(800, 5000),
+      // O narrador de voz, como o painel o entrega a esta tela; sem ele nao ha
+      // botao "Ouvir esta tela".
+      ConfiguracoesViewModel? narrador,
     }) async {
       tester.view.physicalSize = tela;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+
+      final relatorios = RelatoriosView.comProviders(
+        paciente ?? criarPaciente(),
+        paraAcompanhante: paraAcompanhante,
+        relatoriosRepository: repositorio ?? relatoriosRepository,
+        alimentosRepository: alimentosRepositoryDeTeste(),
+        agora: () => agora,
+      );
 
       await tester.pumpWidget(
         MaterialApp(
@@ -107,13 +124,9 @@ void main() {
                 .copyWith(textScaler: TextScaler.linear(escalaTexto)),
             child: child!,
           ),
-          home: RelatoriosView.comProviders(
-            paciente ?? criarPaciente(),
-            paraAcompanhante: paraAcompanhante,
-            relatoriosRepository: repositorio ?? relatoriosRepository,
-            alimentosRepository: alimentosRepositoryDeTeste(),
-            agora: () => agora,
-          ),
+          home: narrador == null
+              ? relatorios
+              : ChangeNotifierProvider.value(value: narrador, child: relatorios),
         ),
       );
       await tester.pumpAndSettle();
@@ -896,6 +909,191 @@ void main() {
         await abrirMes(tester);
 
         expect(find.text('Outubro de 2026'), findsOneWidget);
+      });
+    });
+
+    group('Ouvir esta tela', () {
+      final ouvir = find.text('Ouvir esta tela');
+      late FakeTtsService tts;
+
+      setUp(() => tts = FakeTtsService());
+
+      // O narrador como o painel o entrega: carregado e ligado.
+      Future<ConfiguracoesViewModel> narradorLigado() async {
+        SharedPreferences.setMockInitialValues({'narrador.ligado': true});
+        final viewModel = ConfiguracoesViewModel(
+          preferencias: PreferenciasRepository(),
+          ttsService: tts,
+        );
+        await viewModel.carregar();
+        return viewModel;
+      }
+
+      Future<void> tocarEm(WidgetTester tester, Finder alvo) async {
+        await tester.tap(alvo);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('Não deve aparecer sem o narrador', (tester) async {
+        await montar(tester);
+
+        expect(ouvir, findsNothing);
+        expect(find.text('Meus relatórios'), findsOneWidget);
+      });
+
+      testWidgets('Deve aparecer logo abaixo do título, antes das abas', (tester) async {
+        await montar(tester, narrador: await narradorLigado());
+
+        expect(ouvir, findsOneWidget);
+        expect(
+          tester.getTopLeft(ouvir).dy,
+          greaterThan(tester.getBottomLeft(find.text('Meus relatórios')).dy),
+        );
+        expect(
+          tester.getBottomLeft(ouvir).dy,
+          lessThan(tester.getTopLeft(find.text('Ontem').first).dy),
+        );
+      });
+
+      testWidgets('Deve ler o dia de ontem: o que faltou, o que pede atenção e os batimentos', (tester) async {
+        await semearOntemDeDiabetico();
+        await montar(
+          tester,
+          paciente: criarPaciente(diabetes: true),
+          narrador: await narradorLigado(),
+        );
+
+        await tocarEm(tester, ouvir);
+
+        expect(
+          tts.faladas.single,
+          'Relatório de quinta-feira, 19 de novembro. '
+          'Rotina parcial. Faltou: meta de água, refeições, glicemia e sono. '
+          'Atenção: houve um alerta de emergência nos batimentos, às 15 horas '
+          'e 3 minutos, com 120 batimentos por minuto. '
+          'Glicemia baixa 1 vez: a menor foi 62 miligramas por decilitro. '
+          'Batimentos com média de 85 por minuto. 2 leituras ficaram fora da '
+          'zona de segurança.',
+        );
+      });
+
+      testWidgets('Deve falar do dia sem dizer "você" nem o nome, para o paciente e o acompanhante', (tester) async {
+        await semearOntemDeDiabetico();
+        await montar(
+          tester,
+          paciente: criarPaciente(diabetes: true),
+          paraAcompanhante: true,
+          narrador: await narradorLigado(),
+        );
+
+        await tocarEm(tester, ouvir);
+
+        expect(tts.faladas.single, isNot(contains('você')));
+        expect(tts.faladas.single, isNot(contains('José')));
+      });
+
+      testWidgets('Deve ler o mês quando a aba Mês está aberta', (tester) async {
+        await agua(DateTime(2026, 11, 4), 2);
+        await alerta(
+          DateTime(2026, 11, 4, 14, 30),
+          Alerta.tipoEmergencia,
+          131,
+          'BPM alto',
+        );
+        await montar(tester, narrador: await narradorLigado());
+        await tocarEm(tester, find.text('Mês'));
+
+        await tocarEm(tester, ouvir);
+
+        expect(
+          tts.faladas.single,
+          'Relatório de novembro de 2026. '
+          '19 dias encerrados neste mês: 1 com a rotina parcial e 18 sem registro. '
+          'Nenhum dia bateu a meta de água. '
+          'Batimentos: 1 alerta de emergência no dia 4.',
+        );
+      });
+
+      testWidgets('Deve calar a leitura ao trocar de aba', (tester) async {
+        await montar(tester, narrador: await narradorLigado());
+        await tocarEm(tester, ouvir);
+        expect(find.text('Parar de ouvir'), findsOneWidget);
+
+        await tocarEm(tester, find.text('Mês'));
+
+        expect(tts.paradas, 1);
+        // O botao da outra aba comeca de novo, pronto para ler o mes.
+        expect(ouvir, findsOneWidget);
+        expect(find.text('Parar de ouvir'), findsNothing);
+      });
+
+      testWidgets('Deve ler o relatório do dia tocado no calendário', (tester) async {
+        await agua(DateTime(2026, 11, 4), 2);
+        await montar(tester, narrador: await narradorLigado());
+        await tocarEm(tester, find.text('Mês'));
+        await tocarEm(
+          tester,
+          find.descendant(
+            of: find.byType(CalendarioMensal),
+            matching: find.text('4'),
+          ),
+        );
+        expect(find.text('Quarta-feira, 4 de novembro'), findsOneWidget);
+
+        await tocarEm(tester, ouvir);
+
+        expect(
+          tts.faladas.single,
+          startsWith('Relatório de quarta-feira, 4 de novembro. Rotina parcial.'),
+        );
+      });
+
+      testWidgets('Deve dizer que o relatório não carregou, em vez de falar números', (tester) async {
+        await montar(
+          tester,
+          repositorio: _RepositorioQueFalha(fakeFirestore),
+          narrador: await narradorLigado(),
+        );
+
+        await tocarEm(tester, ouvir);
+
+        expect(tts.faladas.single, relatorioComErroNarrado);
+      });
+
+      testWidgets('Deve calar a leitura ao voltar', (tester) async {
+        await montar(tester, narrador: await narradorLigado());
+        await tocarEm(tester, ouvir);
+        expect(find.text('Parar de ouvir'), findsOneWidget);
+
+        // Desmonta a tela, como acontece ao tocar em "Voltar".
+        await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+        await tester.pump();
+
+        expect(tts.paradas, 1);
+      });
+
+      testWidgets('Não deve estourar o layout com a fonte do celular em 200%', (tester) async {
+        await semearOntemDeDiabetico();
+        await montar(
+          tester,
+          paciente: criarPaciente(diabetes: true),
+          escalaTexto: 2,
+          tela: const Size(360, 640),
+          narrador: await narradorLigado(),
+        );
+
+        // Com a fonte no maximo o titulo ocupa quase a tela toda e o botao fica
+        // logo abaixo da dobra: e so rolar ate ele.
+        await tester.ensureVisible(
+          find.text('Ouvir esta tela', skipOffstage: false),
+        );
+        await tester.pump();
+        expect(ouvir, findsOneWidget);
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        expect(find.text('Parar de ouvir'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
     });
 
