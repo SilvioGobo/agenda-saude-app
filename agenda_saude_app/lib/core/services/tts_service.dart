@@ -22,6 +22,11 @@ abstract class TtsService {
 
   // Para a fala em andamento.
   Future<void> parar();
+
+  // Quem e avisado quando a fala muda: `true` quando ela comeca e `false` quando
+  // termina, e cortada ou da erro. Serve para o botao "Ouvir esta tela" saber
+  // quando voltar a dizer "Ouvir". Um ouvinte so, o do narrador; null o tira.
+  void definirOuvinteDaFala(void Function(bool falando)? ouvinte);
 }
 
 // Implementacao real em cima do plugin `flutter_tts`.
@@ -29,8 +34,21 @@ class TtsServiceImpl implements TtsService {
   static const _idioma = 'pt-BR';
 
   final FlutterTts _tts;
+  void Function(bool falando)? _ouvinteDaFala;
 
-  TtsServiceImpl({FlutterTts? tts}) : _tts = tts ?? FlutterTts();
+  TtsServiceImpl({FlutterTts? tts}) : _tts = tts ?? FlutterTts() {
+    // Os eventos do plugin. Cortar a fala, acabar o texto e dar erro viram
+    // todos "parou de falar": para a tela, a fala so esta ou nao em andamento.
+    _tts.setStartHandler(() => _ouvinteDaFala?.call(true));
+    _tts.setCompletionHandler(() => _ouvinteDaFala?.call(false));
+    _tts.setCancelHandler(() => _ouvinteDaFala?.call(false));
+    _tts.setErrorHandler((_) => _ouvinteDaFala?.call(false));
+  }
+
+  @override
+  void definirOuvinteDaFala(void Function(bool falando)? ouvinte) {
+    _ouvinteDaFala = ouvinte;
+  }
 
   @override
   bool get disponivel =>

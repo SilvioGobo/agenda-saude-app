@@ -108,10 +108,10 @@ lib/
     acompanhante/   # painel com cards dos pacientes vinculados (RF005)
     relatorios/     # relatório do dia anterior e relatório mensal, para paciente e acompanhante (RF05)
     alertas/        # tela de emergência (overlay vermelho) + lista de notificações (RF006)
-    configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007)
+    configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007) e ler as telas em voz alta (RF 08.2)
     lembretes/      # "Meus lembretes": ligar/desligar os avisos, permissões e horários da glicemia (RF 07.3)
     metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
-    shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, etc.)
+    shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, BotaoOuvirTela, etc.)
 test/               # espelha lib/ (test/domain/models, test/data/repositories, test/ui)
 integration_test/   # fluxos completos no emulador
 ```
@@ -447,9 +447,32 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    velocidade já fala um exemplo. A escolha vale para o aparelho todo
    (`PreferenciasRepository`) e a voz fica atrás do `TtsService` (`flutter_tts`, `pt-BR`),
    com fake nos testes; o Android 11+ exige `TTS_SERVICE` em `<queries>` no manifesto, e a
-   tela avisa quando falta a voz em português. Falta "Ouvir esta tela" (narrar o conteúdo,
-   RF 08.2) e testar com o TalkBack ligado, para o narrador e o leitor de tela não falarem
-   juntos*
+   tela avisa quando falta a voz em português. "Ouvir esta tela" (RF 08.2) também feito: o
+   `BotaoOuvirTela` (`ui/shared/`) fica logo abaixo do título do painel, da rotina, dos
+   relatórios (Ontem, Mês e o relatório de um dia) e da lista de notificações, e **lê um
+   resumo curto**, escrito à mão para cada tela (`narracao_do_painel.dart`,
+   `narracao_da_rotina.dart`, `narracao_dos_relatorios.dart`, `narracao_dos_alertas.dart`:
+   funções puras, com teste que limita o tamanho do texto): o que importa agora e, na
+   rotina, o que FALTA, e não a árvore de widgets nem o que já foi feito. Fala sem siglas
+   ("batimentos por minuto", "miligramas por decilitro", o 192 como "um, nove, dois"). Na
+   lista de notificações cada alerta fala a sua manchete (`mancheteDoAlerta`, a mesma da
+   faixa do painel do acompanhante), e os batimentos só entram nos alertas de BPM
+   (`Alerta.ehDeBatimento`): pendência de atividade e sem dados do smartwatch não são
+   lidos como "atenção". Só
+   aparece com o narrador ligado e **sem leitor de tela**: com o TalkBack ligado
+   (`MediaQuery.accessibleNavigation`) o botão some e o narrador não fala, para as duas
+   vozes não falarem juntas (`SemanticsService.announce` é obsoleto no Android, então
+   não serve de alternativa); a tela de Acessibilidade explica isso. Vira "Parar de
+   ouvir" enquanto fala (o `TtsService` avisa quando a fala começa e termina,
+   `definirOuvinteDaFala`) e a leitura para sozinha quando a tela sai da frente, mas só
+   se foi o próprio botão que a começou. Quem lê é o `ConfiguracoesViewModel`
+   (`ouvir`/`pararDeOuvir`/`falando`), um só para o app todo; as telas abertas por cima do
+   painel não herdam os providers dele, então `rotaComNarrador` (`ui/shared/`) leva o
+   narrador junto. A tela de emergência (`EmergenciaView`) fala sozinha ao abrir
+   (`falarAoAbrir`), com o narrador ligado. Falta testar a voz e o TalkBack num celular de
+   verdade. O acompanhante ainda não tem onde ligar o narrador (o TCC define o narrador
+   como recurso do Paciente): `AlertasView.rota(..., narrador:)` e `abrirDetalhesDoAlerta`
+   já levam o narrador junto se o painel dele passar a tê-lo*
 
 Nota prática: o módulo IoT depende de hardware físico (smartwatch pareado). Se o
 dispositivo não estiver disponível quando chegar a vez dele, é aceitável adiantar o

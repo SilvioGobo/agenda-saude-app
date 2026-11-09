@@ -13,8 +13,22 @@ class FakeTtsService implements TtsService {
   // A ultima velocidade pedida; null ate alguem pedir.
   double? velocidade;
   final List<String> faladas = [];
+  // Quem foi registrado para saber quando a fala muda; null se ninguem.
+  void Function(bool falando)? ouvinteDaFala;
 
   FakeTtsService({this.disponivel = true, this.vozEmPortugues = true});
+
+  @override
+  void definirOuvinteDaFala(void Function(bool falando)? ouvinte) {
+    ouvinteDaFala = ouvinte;
+  }
+
+  // Simula o motor de voz: a fala em andamento acabou sozinha (leu o texto
+  // inteiro).
+  void terminarDeFalar() => ouvinteDaFala?.call(false);
+
+  // Simula o motor de voz: a fala comecou de fato.
+  void comecouAFalar() => ouvinteDaFala?.call(true);
 
   @override
   Future<bool> inicializar() async {

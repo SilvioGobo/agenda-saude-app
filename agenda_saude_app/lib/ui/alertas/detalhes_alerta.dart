@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/alerta.dart';
 import '../localizacao/localizacao_paciente_view.dart';
+import '../shared/rota_com_narrador.dart';
 import 'alertas_viewmodel.dart';
 import 'card_alerta.dart';
 import 'emergencia_view.dart';
@@ -22,8 +23,10 @@ Future<void> abrirDetalhesDoAlerta(
   if (alerta.ehEmergencia) {
     final paciente = viewModel.pacienteDoAlerta(alerta);
     return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EmergenciaView(
+      // Leva junto o narrador, se houver, para a emergencia ser falada.
+      rotaComNarrador<void>(
+        context,
+        EmergenciaView(
           alerta: alerta,
           nomePaciente: nomePaciente,
           paciente: paciente,

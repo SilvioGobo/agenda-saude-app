@@ -5,8 +5,11 @@ import '../../data/repositories/alimentos_repository.dart';
 import '../../data/repositories/relatorios_repository.dart';
 import '../../domain/models/paciente.dart';
 import '../shared/botao_barra_superior.dart';
+import '../shared/botao_ouvir_tela.dart';
 import '../shared/titulo_tela.dart';
+import 'estado_relatorio.dart';
 import 'formato_relatorios.dart';
+import 'narracao_dos_relatorios.dart';
 import 'relatorio_dia_conteudo.dart';
 import 'relatorio_dia_viewmodel.dart';
 
@@ -37,6 +40,16 @@ class RelatorioDiaView extends StatelessWidget {
     );
   }
 
+  // O texto do botao "Ouvir esta tela" (RF 08.2), lido no instante do toque.
+  String _textoParaOuvir(BuildContext context) {
+    final viewModel = context.read<RelatorioDiaViewModel>();
+    return switch (viewModel.estado) {
+      EstadoRelatorio.carregando => relatorioCarregandoNarrado,
+      EstadoRelatorio.erro => relatorioComErroNarrado,
+      EstadoRelatorio.pronto => narrarRelatorioDoDia(viewModel.resumo!),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewModel = context.read<RelatorioDiaViewModel>();
@@ -61,6 +74,7 @@ class RelatorioDiaView extends StatelessWidget {
                   : 'Como foi a sua rotina neste dia.',
             ),
             const SizedBox(height: 24),
+            BotaoOuvirTela(texto: () => _textoParaOuvir(context)),
             const RelatorioDiaConteudo(),
           ],
         ),

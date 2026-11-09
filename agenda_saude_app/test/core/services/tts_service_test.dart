@@ -103,5 +103,58 @@ void main() {
 
       expect(chamadas, isEmpty);
     });
+
+    group('ouvinte da fala', () {
+      late List<bool> avisos;
+
+      // O Android avisa o Dart por um metodo do mesmo canal; aqui o aviso e
+      // mandado na mao, como o aparelho faria.
+      Future<void> avisoDoAparelho(String metodo, [Object? argumentos]) {
+        return TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .handlePlatformMessage(
+          'flutter_tts',
+          const StandardMethodCodec().encodeMethodCall(MethodCall(metodo, argumentos)),
+          (_) {},
+        );
+      }
+
+      setUp(() {
+        avisos = [];
+        servico.definirOuvinteDaFala(avisos.add);
+      });
+
+      test('Deve avisar quando a fala começa e quando termina', () async {
+        await avisoDoAparelho('speak.onStart', true);
+        expect(avisos, [true]);
+
+        await avisoDoAparelho('speak.onComplete', true);
+        expect(avisos, [true, false]);
+      });
+
+      test('Deve avisar que parou quando a fala é cortada', () async {
+        await avisoDoAparelho('speak.onStart', true);
+
+        await avisoDoAparelho('speak.onCancel', true);
+
+        expect(avisos, [true, false]);
+      });
+
+      test('Deve avisar que parou quando a voz dá erro', () async {
+        await avisoDoAparelho('speak.onStart', true);
+
+        await avisoDoAparelho('speak.onError', 'Error from TextToSpeech (speak)');
+
+        expect(avisos, [true, false]);
+      });
+
+      test('Não deve avisar mais depois de tirar o ouvinte', () async {
+        servico.definirOuvinteDaFala(null);
+
+        await avisoDoAparelho('speak.onStart', true);
+        await avisoDoAparelho('speak.onComplete', true);
+
+        expect(avisos, isEmpty);
+      });
+    });
   });
 }

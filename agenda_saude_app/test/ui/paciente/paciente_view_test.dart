@@ -78,6 +78,8 @@ void main() {
       WidgetTester tester, {
       bool smartwatchSuportado = true,
       double escalaTexto = 1,
+      // Simula o TalkBack ligado.
+      bool leitorDeTela = false,
       // Os lembretes dependem dos remedios e do perfil; o paciente padrao do
       // teste nao tem nenhum dos dois.
       Paciente? pacienteDosLembretes,
@@ -86,8 +88,10 @@ void main() {
         MaterialApp(
           // Simula a opcao "tamanho da fonte" do celular.
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(escalaTexto)),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(escalaTexto),
+              accessibleNavigation: leitorDeTela,
+            ),
             child: child!,
           ),
           home: MultiProvider(
@@ -516,6 +520,172 @@ void main() {
       expect(find.text('Indisponível neste celular'), findsOneWidget);
 
       await desmontar(tester);
+    });
+
+    group('Ouvir esta tela', () {
+      final ouvir = find.text('Ouvir esta tela');
+
+      // O narrador ja vem ligado, como depois de o paciente te-lo ligado.
+      void narradorLigado() {
+        SharedPreferences.setMockInitialValues({'narrador.ligado': true});
+      }
+
+      testWidgets('Não deve aparecer com o narrador desligado', (tester) async {
+        await montar(tester);
+
+        expect(ouvir, findsNothing);
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve aparecer logo abaixo da saudação com o narrador ligado',
+          (tester) async {
+        narradorLigado();
+        await montar(tester);
+
+        expect(ouvir, findsOneWidget);
+        expect(
+          tester.getTopLeft(ouvir).dy,
+          greaterThan(tester.getBottomLeft(find.text('Olá, José')).dy),
+        );
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve ler os batimentos e para onde ir, em poucas frases',
+          (tester) async {
+        narradorLigado();
+        await salvarBatimento(78);
+        await montar(tester);
+
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        final texto = ttsService.faladas.single;
+        expect(texto, startsWith('Olá, José. Seus batimentos estão em 78 por minuto'));
+        expect(texto, contains('Está tudo estável.'));
+        expect(texto, contains('Minha Rotina, Meus Relatórios ou Falar com Acompanhante'));
+        // Texto curto: nao e o painel inteiro, so os pontos principais.
+        expect(texto.split(' ').length, lessThan(55));
+        // Enquanto fala, o botao oferece parar.
+        expect(find.text('Parar de ouvir'), findsOneWidget);
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve ler o alerta quando os batimentos estão altos',
+          (tester) async {
+        narradorLigado();
+        await salvarBatimento(128);
+        await montar(tester);
+
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        final texto = ttsService.faladas.single;
+        expect(texto, contains('Atenção! Seus batimentos estão altos: 128 por minuto'));
+        expect(texto, contains('fale com seu acompanhante'));
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve ler o aviso do smartwatch no lugar dos batimentos',
+          (tester) async {
+        narradorLigado();
+        await salvarBatimento(72);
+        await montar(tester, smartwatchSuportado: false);
+
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        final texto = ttsService.faladas.single;
+        expect(texto, contains('Smartwatch indisponível.'));
+        expect(texto, isNot(contains('72')));
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve ler a espera pela primeira medição', (tester) async {
+        narradorLigado();
+        await montar(tester);
+
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        expect(ttsService.faladas.single, contains('Aguardando medição.'));
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve calar a leitura ao abrir outra tela', (tester) async {
+        // Janela alta: com o botao a mais, "Meus Relatorios" desce.
+        menuAlto(tester);
+        narradorLigado();
+        await salvarBatimento(78);
+        await montar(tester);
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        await tester.tap(find.text('Meus Relatórios'));
+        await tester.pumpAndSettle();
+
+        expect(ttsService.paradas, 1);
+
+        await tester.tap(find.text('Voltar'));
+        await tester.pumpAndSettle();
+        await desmontar(tester);
+      });
+
+      testWidgets('Não deve aparecer, nem falar, com o leitor de tela ligado',
+          (tester) async {
+        narradorLigado();
+        await salvarBatimento(78);
+        await montar(tester, leitorDeTela: true);
+
+        expect(ouvir, findsNothing);
+        expect(ttsService.faladas, isEmpty);
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Deve aparecer ao ligar o narrador pelo menu e voltar ao painel',
+          (tester) async {
+        menuAlto(tester);
+        await montar(tester);
+        expect(ouvir, findsNothing);
+
+        await tester.tap(find.text('Menu'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Acessibilidade'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Ligar narrador'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Voltar'));
+        await tester.pumpAndSettle();
+
+        expect(ouvir, findsOneWidget);
+
+        await desmontar(tester);
+      });
+
+      testWidgets('Não deve estourar o layout com a fonte do celular em 200%',
+          (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        narradorLigado();
+        await salvarBatimento(128);
+        await montar(tester, escalaTexto: 2);
+
+        expect(ouvir, findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(ouvir);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+
+        await desmontar(tester);
+      });
     });
 
     testWidgets('Deve pedir confirmação antes de sair e não sair ao cancelar',

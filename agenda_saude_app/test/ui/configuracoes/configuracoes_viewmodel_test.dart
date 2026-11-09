@@ -288,5 +288,148 @@ void main() {
         expect(voz.faladas, isEmpty);
       });
     });
+
+    group('ouvir esta tela', () {
+      // O narrador ja vem ligado, como depois de o paciente te-lo ligado.
+      Future<ConfiguracoesViewModel> ligado({
+        FakeTtsService? voz,
+        String velocidade = 'normal',
+      }) async {
+        SharedPreferences.setMockInitialValues({
+          'narrador.ligado': true,
+          'narrador.velocidade': velocidade,
+        });
+        return carregado(voz: voz);
+      }
+
+      test('Deve ler o texto em voz alta com o narrador ligado', () async {
+        final viewModel = await ligado();
+
+        final falou = await viewModel.ouvir('Sua rotina de hoje.');
+
+        expect(falou, isTrue);
+        expect(tts.faladas, ['Sua rotina de hoje.']);
+        expect(viewModel.falando, isTrue);
+      });
+
+      test('Não deve falar com o narrador desligado', () async {
+        final viewModel = await carregado();
+
+        final falou = await viewModel.ouvir('Sua rotina de hoje.');
+
+        expect(falou, isFalse);
+        expect(tts.faladas, isEmpty);
+        expect(viewModel.falando, isFalse);
+      });
+
+      test('Não deve falar onde não há voz do sistema', () async {
+        final voz = FakeTtsService(disponivel: false);
+        final viewModel = await ligado(voz: voz);
+
+        final falou = await viewModel.ouvir('Olá');
+
+        expect(falou, isFalse);
+        expect(voz.faladas, isEmpty);
+      });
+
+      test('Deve falar na velocidade que o paciente escolheu', () async {
+        final viewModel = await ligado(velocidade: 'devagar');
+
+        await viewModel.ouvir('Olá');
+
+        expect(tts.velocidade, VelocidadeNarracao.devagar.taxa);
+      });
+
+      test('Deve voltar a "não falando" quando a voz termina o texto', () async {
+        final viewModel = await ligado();
+        await viewModel.ouvir('Olá');
+        expect(viewModel.falando, isTrue);
+
+        tts.terminarDeFalar();
+
+        expect(viewModel.falando, isFalse);
+      });
+
+      test('Deve avisar os ouvintes quando começa e quando termina de falar', () async {
+        final viewModel = await ligado();
+        final estados = <bool>[];
+        viewModel.addListener(() => estados.add(viewModel.falando));
+
+        await viewModel.ouvir('Olá');
+        tts.terminarDeFalar();
+
+        expect(estados, [true, false]);
+      });
+
+      test('Deve parar a leitura quando o paciente pede', () async {
+        final viewModel = await ligado();
+        await viewModel.ouvir('Olá');
+
+        await viewModel.pararDeOuvir();
+
+        expect(viewModel.falando, isFalse);
+        expect(tts.paradas, 1);
+      });
+
+      test('Deve calar a leitura em andamento ao desligar o narrador', () async {
+        final viewModel = await ligado();
+        await viewModel.ouvir('Olá');
+
+        await viewModel.alternarNarrador(false);
+
+        expect(viewModel.falando, isFalse);
+        expect(tts.paradas, 1);
+      });
+
+      test('Deve esperar a configuração carregar antes de decidir se fala', () async {
+        SharedPreferences.setMockInitialValues({'narrador.ligado': true});
+        final viewModel = criar();
+        expect(viewModel.carregando, isTrue);
+
+        final falou = viewModel.ouvir('Olá');
+        await viewModel.carregar();
+
+        expect(await falou, isTrue);
+        expect(tts.faladas, ['Olá']);
+      });
+
+      testWidgets('Não deve ficar esperando para sempre se a configuração nunca carrega', (tester) async {
+        final viewModel = criar();
+
+        final falou = viewModel.ouvir('Olá');
+        await tester.pump(const Duration(seconds: 6));
+
+        expect(await falou, isFalse);
+        expect(tts.faladas, isEmpty);
+      });
+
+      test('Deve avisar, sem quebrar, quando a voz do sistema recusa falar', () async {
+        final viewModel = await ligado(voz: _VozQueFalha());
+
+        final falou = await viewModel.ouvir('Olá');
+
+        expect(falou, isFalse);
+        expect(viewModel.falando, isFalse);
+        expect(viewModel.mensagemErro, contains('voz do sistema'));
+      });
+
+      test('Deve calar a voz quando o ViewModel é descartado falando', () async {
+        final viewModel = await ligado();
+        await viewModel.ouvir('Olá');
+
+        viewModel.dispose();
+
+        expect(tts.paradas, 1);
+        expect(tts.ouvinteDaFala, isNull);
+      });
+
+      test('Não deve mexer na voz ao ser descartado sem estar falando', () async {
+        final viewModel = await ligado();
+
+        viewModel.dispose();
+
+        expect(tts.paradas, 0);
+      });
+    });
   });
 }

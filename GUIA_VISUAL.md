@@ -191,6 +191,19 @@ Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localizaçã
   como em "Meus remédios", e "Voltar para 07:00" só aparece depois de mudar.
 - **Velocidade da voz**: três `BotaoSelecionavel` um embaixo do outro (Devagar, Normal,
   Rápido, com check no escolhido) e "Testar voz"; tocar em uma velocidade já fala um exemplo.
+- **Ouvir esta tela** (`BotaoOuvirTela`): botão de contorno de 56dp, com ícone de alto-falante,
+  **logo abaixo do título** do painel, da rotina, dos relatórios e da lista de notificações.
+  Enquanto a voz fala vira botão preenchido "Parar de ouvir", com o ícone de parar. Só
+  aparece com o narrador ligado e **some com o TalkBack ligado** (a tela de Acessibilidade
+  explica o porquê), sem deixar buraco no lugar. Na tela de emergência (fundo vermelho)
+  o contorno e o texto ficam brancos, e a tela fala sozinha ao abrir.
+- **O que o narrador lê**: um resumo **curto**, não a tela inteira. O que importa agora, em
+  frases curtas e nesta ordem: o alerta primeiro, depois o que FALTA (na rotina, só o que
+  falta; o que já foi feito vira uma contagem), e por fim para onde ir. Sem siglas que a
+  voz lê mal: "batimentos por minuto" (não "BPM"), "miligramas por decilitro" (não
+  "mg/dL"), "50 miligramas" (não "50mg"), horas por extenso ("14 horas e 5 minutos") e o
+  192 como "um, nove, dois". Cada texto fica numa função `narrar...` (`narracao_*.dart`)
+  com teste que limita o número de palavras (50 a 95, de 15 a 40 segundos de fala).
 
 ## Widgets compartilhados (`lib/ui/shared/`)
 
@@ -210,6 +223,8 @@ Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localizaçã
 | `ErroFormulario`            | erro de formulário: caixa alta, ícone e vermelho, anunciado pelo leitor de tela |
 | `BotaoSalvar`               | "SALVAR" de 72dp que fecha um formulário da Rotina; vira indicador de progresso enquanto grava |
 | `ContadorGrande`            | valor grande com "Menos" / "Mais" de 64dp, para números sem teclado (horas de sono, minutos de exercício); os botões descem um para baixo do outro com a fonte aumentada |
+| `BotaoOuvirTela`            | "Ouvir esta tela": lê em voz alta um resumo curto da tela (só com o narrador ligado; some com o TalkBack); vira "Parar de ouvir" enquanto fala |
+| `rotaComNarrador`           | rota que leva o narrador de voz para a tela aberta por cima (as telas novas não herdam os providers da que as abriu) |
 
 ## Rotina (`lib/ui/rotina/`)
 

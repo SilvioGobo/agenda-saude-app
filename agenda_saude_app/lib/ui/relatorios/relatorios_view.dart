@@ -5,9 +5,13 @@ import '../../data/repositories/alimentos_repository.dart';
 import '../../data/repositories/relatorios_repository.dart';
 import '../../domain/models/paciente.dart';
 import '../shared/botao_barra_superior.dart';
+import '../shared/botao_ouvir_tela.dart';
 import '../shared/botao_selecionavel.dart';
+import '../shared/rota_com_narrador.dart';
 import '../shared/titulo_tela.dart';
+import 'estado_relatorio.dart';
 import 'formato_relatorios.dart';
+import 'narracao_dos_relatorios.dart';
 import 'relatorio_dia_conteudo.dart';
 import 'relatorio_dia_view.dart';
 import 'relatorio_dia_viewmodel.dart';
@@ -69,9 +73,12 @@ class RelatoriosView extends StatefulWidget {
       child: RelatoriosView(
         paraAcompanhante: paraAcompanhante,
         aoAbrirDia: (context, dia) {
+          // O relatorio do dia abre por cima e leva junto o narrador (botao
+          // "Ouvir esta tela"), que ele nao herdaria.
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => RelatorioDiaView.comProviders(
+            rotaComNarrador(
+              context,
+              RelatorioDiaView.comProviders(
                 paciente,
                 dia,
                 paraAcompanhante: paraAcompanhante,
@@ -92,6 +99,27 @@ class RelatoriosView extends StatefulWidget {
 class _RelatoriosViewState extends State<RelatoriosView> {
   // 0 = Ontem, 1 = Mês.
   int _aba = 0;
+
+  // O texto do botao "Ouvir esta tela" (RF 08.2): o da aba aberta, lido no
+  // instante do toque. Relatorio ainda carregando ou que nao carregou diz isso,
+  // em vez de falar numeros que nao existem.
+  String _textoParaOuvir() {
+    if (_aba == 0) {
+      final viewModel = context.read<RelatorioDiaViewModel>();
+      return switch (viewModel.estado) {
+        EstadoRelatorio.carregando => relatorioCarregandoNarrado,
+        EstadoRelatorio.erro => relatorioComErroNarrado,
+        EstadoRelatorio.pronto => narrarRelatorioDoDia(viewModel.resumo!),
+      };
+    }
+
+    final viewModel = context.read<RelatorioMesViewModel>();
+    return switch (viewModel.estado) {
+      EstadoRelatorio.carregando => relatorioCarregandoNarrado,
+      EstadoRelatorio.erro => relatorioComErroNarrado,
+      EstadoRelatorio.pronto => narrarRelatorioDoMes(viewModel.resumo!),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +146,9 @@ class _RelatoriosViewState extends State<RelatoriosView> {
                   : 'Veja como foram o seu dia anterior e o seu mês.',
             ),
             const SizedBox(height: 24),
+            // Uma chave por aba: ao trocar de aba o botao e recriado e a
+            // leitura da aba anterior para.
+            BotaoOuvirTela(key: ValueKey(_aba), texto: _textoParaOuvir),
             Row(
               children: [
                 Expanded(

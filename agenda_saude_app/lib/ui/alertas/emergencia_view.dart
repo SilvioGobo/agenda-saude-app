@@ -9,7 +9,9 @@ import '../../domain/models/alerta.dart';
 import '../../domain/models/paciente.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_ligar.dart';
+import '../shared/botao_ouvir_tela.dart';
 import 'card_alerta.dart';
+import 'narracao_dos_alertas.dart';
 
 // Tela de emergencia do acompanhante (Figura 16 do TCC, RF06.2 e RF06.4):
 // toma a tela inteira em vermelho para interromper o que ele estiver
@@ -85,6 +87,20 @@ class EmergenciaView extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute(builder: telaDeLocalizacao!));
   }
 
+  // O que o narrador fala (RF 08.2): o aviso, quem esta mal e o que fazer. Com
+  // o narrador ligado, a tela o fala sozinha ao abrir; o botao o repete.
+  String _textoParaOuvir() {
+    return narrarEmergencia(
+      nomePaciente: _primeiroNome,
+      motivo: _motivo.toLowerCase(),
+      bpm: alerta.bpm,
+      dataHora: alerta.dataHora,
+      agora: agora ?? DateTime.now(),
+      podeLigarParaPaciente: _podeLigarParaPaciente,
+      temLocalizacao: telaDeLocalizacao != null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final paciente = this.paciente;
@@ -137,6 +153,11 @@ class EmergenciaView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            BotaoOuvirTela(
+              falarAoAbrir: true,
+              paraFundoVermelho: true,
+              texto: _textoParaOuvir,
+            ),
             _QuadroDoAlerta(
               alerta: alerta,
               motivo: _motivo,

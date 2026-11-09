@@ -53,6 +53,21 @@ class ConfiguracoesView extends StatelessWidget {
               )
             else ...[
               _CartaoNarrador(viewModel: viewModel),
+              // Com o TalkBack ligado o botao "Ouvir esta tela" some (ver
+              // BotaoOuvirTela): a tela explica por que, para ninguem achar que
+              // o narrador quebrou.
+              if (MediaQuery.accessibleNavigationOf(context)) ...[
+                const SizedBox(height: 16),
+                _CartaoAviso(
+                  icone: Icons.info_outline_rounded,
+                  titulo: 'Leitor de tela ligado',
+                  texto: 'O leitor de tela do celular (TalkBack) já lê o '
+                      'aplicativo. Por isso o botão "Ouvir esta tela" fica '
+                      'escondido: assim as duas vozes não falam ao mesmo '
+                      'tempo.',
+                  cor: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
               if (viewModel.faltaVozEmPortugues) ...[
                 const SizedBox(height: 16),
                 const _CartaoAviso(
@@ -122,9 +137,10 @@ class _CartaoNarrador extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'O narrador lê os textos do aplicativo em voz alta, para quem '
-              'tem dificuldade de enxergar. Ele fica ligado até você '
-              'desligar.',
+              'O narrador lê em voz alta um resumo de cada tela, para quem '
+              'tem dificuldade de enxergar. Com ele ligado, aparece o botão '
+              '"Ouvir esta tela" no painel, na rotina e nos relatórios. Ele '
+              'fica ligado até você desligar.',
               style: TextStyle(
                 fontSize: 18,
                 height: 1.35,
