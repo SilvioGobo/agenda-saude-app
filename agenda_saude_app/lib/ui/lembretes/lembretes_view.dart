@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants/momentos_glicemia.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/lembretes/lembrete.dart';
 import '../shared/botao_barra_superior.dart';
+import '../shared/seletor_horario.dart';
 import '../shared/titulo_tela.dart';
-import 'dialogo_horario_lembrete.dart';
 import 'formato_lembretes.dart';
 import 'lembretes_viewmodel.dart';
 
 // Tela "Meus lembretes" (RF 07.3), aberta pelo menu do paciente: liga e desliga
 // os avisos no celular, ajuda com as permissoes que o Android pede e mostra a
-// lista de horarios. O horario da glicemia e da insulina se muda aqui; o dos
-// remedios, em "Meus remedios". Reaproveita o LembretesViewModel do painel (que
-// continua agendando enquanto esta tela esta aberta), em vez de criar outro.
+// lista de horarios. O horario da glicemia e da insulina se muda aqui, no
+// relogio; o dos remedios, em "Meus remedios". Reaproveita o LembretesViewModel
+// do painel (que continua agendando enquanto esta tela esta aberta), em vez de
+// criar outro.
 class LembretesView extends StatelessWidget {
   const LembretesView({super.key});
 
@@ -244,6 +246,75 @@ class _Horarios extends StatelessWidget {
 
   const _Horarios({required this.viewModel});
 
+  // Glicemia e insulina tem o horario editavel; o do remedio se muda em "Meus
+  // remedios". "Voltar para 07:00" so aparece com o aviso fora do horario padrao.
+  Widget _linha(BuildContext context, Lembrete lembrete) {
+    final momento = lembrete.nomeDoMomento;
+    if (momento == null) return _LinhaDeLembrete(lembrete: lembrete);
+    final padrao = MomentoGlicemia.porNome(momento).horarioPadrao;
+    final voltarPara =
+        padrao != null && viewModel.horarioFoiAlterado(momento) ? padrao : null;
+    return _LinhaDeLembrete(
+      lembrete: lembrete,
+      aoMudarHorario: () => _mudarHorario(context, lembrete, momento),
+      horarioPadrao: voltarPara,
+      aoVoltarAoPadrao: voltarPara == null
+          ? null
+          : () => _voltarAoPadrao(context, momento, voltarPara),
+    );
+  }
+
+  // Abre o relogio no horario de agora do aviso e guarda o escolhido. O
+  // relogio so deixa escolher hora que existe; o que pode falhar e guardar no
+  // aparelho. A lista se reordena pelo horario novo, entao o aviso de baixo
+  // confirma o que mudou.
+  Future<void> _mudarHorario(
+    BuildContext context,
+    Lembrete lembrete,
+    String momento,
+  ) async {
+    final escolhido = await mostrarSeletorDeHorario(
+      context,
+      inicial: lembrete.horario,
+      titulo: lembrete.tipo == TipoLembrete.insulina
+          ? 'HORÁRIO DA INSULINA'
+          : 'HORÁRIO DA GLICEMIA',
+    );
+    if (escolhido == null || escolhido == lembrete.horario) return;
+    final mudou = await viewModel.definirHorarioDoMomento(momento, escolhido);
+    if (!context.mounted) return;
+    _avisar(
+      context,
+      mudou
+          ? 'Horário mudado para $escolhido.'
+          : 'Não foi possível mudar o horário. Tente de novo.',
+    );
+  }
+
+  Future<void> _voltarAoPadrao(
+    BuildContext context,
+    String momento,
+    String padrao,
+  ) async {
+    final voltou = await viewModel.restaurarHorarioDoMomento(momento);
+    if (!context.mounted) return;
+    _avisar(
+      context,
+      voltou
+          ? 'Horário de volta para $padrao.'
+          : 'Não foi possível voltar ao horário padrão. Tente de novo.',
+    );
+  }
+
+  // Um aviso anterior sai, para o de agora aparecer na hora.
+  void _avisar(BuildContext context, String texto) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(texto, style: const TextStyle(fontSize: 18))),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -277,16 +348,7 @@ class _Horarios extends StatelessWidget {
           )
         else ...[
           for (final lembrete in lembretes) ...[
-            _LinhaDeLembrete(
-              lembrete: lembrete,
-              aoMudarHorario: lembrete.nomeDoMomento == null
-                  ? null
-                  : () => mostrarDialogoDeHorario(
-                        context,
-                        viewModel: viewModel,
-                        lembrete: lembrete,
-                      ),
-            ),
+            _linha(context, lembrete),
             const SizedBox(height: 12),
           ],
           if (temRemedio)
@@ -306,13 +368,21 @@ class _Horarios extends StatelessWidget {
 }
 
 // Um lembrete: o horario grande, o que fazer e, nos de glicemia e insulina, o
-// botao para mudar o horario. O leitor de tela le "Tomar Losartana 50 mg, as 8
-// horas" de uma vez.
+// botao para mudar o horario (e, depois de mudar, o de voltar ao padrao). O
+// leitor de tela le "Tomar Losartana 50 mg, as 8 horas" de uma vez.
 class _LinhaDeLembrete extends StatelessWidget {
   final Lembrete lembrete;
   final VoidCallback? aoMudarHorario;
+  // O horario padrao do momento, so quando o aviso esta fora dele.
+  final String? horarioPadrao;
+  final VoidCallback? aoVoltarAoPadrao;
 
-  const _LinhaDeLembrete({required this.lembrete, this.aoMudarHorario});
+  const _LinhaDeLembrete({
+    required this.lembrete,
+    this.aoMudarHorario,
+    this.horarioPadrao,
+    this.aoVoltarAoPadrao,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +433,14 @@ class _LinhaDeLembrete extends StatelessWidget {
                 onPressed: aoMudarHorario,
                 icon: const Icon(Icons.schedule_rounded),
                 label: const Text('Mudar horário'),
+              ),
+            ],
+            if (horarioPadrao != null && aoVoltarAoPadrao != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: aoVoltarAoPadrao,
+                icon: const Icon(Icons.restore_rounded),
+                label: Text('Voltar para $horarioPadrao'),
               ),
             ],
           ],

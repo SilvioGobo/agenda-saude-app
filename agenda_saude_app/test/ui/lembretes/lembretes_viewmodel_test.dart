@@ -540,6 +540,36 @@ void main() {
         expect(horariosDe(5), isNot(contains('06:30')));
       });
 
+      test('Escolher o horário padrão deve ser o mesmo que voltar a ele', () async {
+        final viewModel = await iniciar(diabetico());
+        await viewModel.definirHorarioDoMomento('Ao acordar', '06:30');
+
+        final mudou =
+            await viewModel.definirHorarioDoMomento('Ao acordar', '07:00');
+        await aguardar();
+
+        expect(mudou, isTrue);
+        expect(viewModel.horarioFoiAlterado('Ao acordar'), isFalse);
+        expect(viewModel.horariosDosMomentos, isEmpty);
+        expect(horariosDe(5), contains('07:00'));
+        // Nada fica guardado: a proxima abertura tambem usa o padrao.
+        expect(
+          await PreferenciasRepository().horariosDosMomentos('paciente_01'),
+          isEmpty,
+        );
+      });
+
+      test('Não deve contar como mudado um horário guardado igual ao padrão', () async {
+        // Como ficava quem digitava "0700" antes do relogio.
+        await PreferenciasRepository()
+            .salvarHorarioDoMomento('paciente_01', 'Ao acordar', '07:00');
+
+        final viewModel = await iniciar(diabetico());
+
+        expect(viewModel.horarioFoiAlterado('Ao acordar'), isFalse);
+        expect(horariosDe(5), contains('07:00'));
+      });
+
       test('Deve lembrar o horário escolhido na próxima vez que o app abre', () async {
         final primeiro = await iniciar(diabetico());
         await primeiro.definirHorarioDoMomento('Ao acordar', '0630');

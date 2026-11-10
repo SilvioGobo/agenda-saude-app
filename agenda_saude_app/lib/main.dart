@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +38,12 @@ class AgendaSaudeApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.claro,
       scrollBehavior: SemBrilhoAoRolar(),
+      // O app e todo em portugues, entao os textos prontos do Flutter (seletor
+      // de hora e de data, "Colar"/"Copiar", o que o TalkBack diz deles)
+      // tambem, qualquer que seja o idioma do celular.
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: ChangeNotifierProvider(
         create: (_) => LoginViewModel(),
         child: const AberturaView(),

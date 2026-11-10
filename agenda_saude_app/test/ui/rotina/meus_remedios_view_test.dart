@@ -7,6 +7,8 @@ import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/ui/rotina/meus_remedios_view.dart';
 import 'package:agenda_saude_app/ui/rotina/meus_remedios_viewmodel.dart';
 
+import '../shared/escolher_horario.dart';
+
 const _losartana = Medicamento(
   id: 'm1',
   nome: 'Losartana',
@@ -82,13 +84,20 @@ void main() {
 
     Finder campo(String rotulo) => find.widgetWithText(TextFormField, rotulo);
 
+    // Um texto dentro do relogio aberto (a tela embaixo tambem tem "Cancelar").
+    Finder noRelogio(String texto) => find.descendant(
+          of: find.byType(TimePickerDialog),
+          matching: find.text(texto),
+        );
+
     testWidgets('Deve mostrar os remédios do paciente para editar, com os horários', (
       tester,
     ) async {
       await abrir(tester, atual: const [_losartana, _metformina]);
 
       expect(find.text('Meus remédios'), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(6));
+      // Nome e dose de cada remedio; os horarios nao se digitam.
+      expect(find.byType(TextFormField), findsNWidgets(4));
       expect(find.widgetWithText(TextFormField, 'Losartana'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '50 mg'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, 'Metformina'), findsOneWidget);
@@ -117,23 +126,23 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(campo('Nome do remédio'), 'Losartana');
       await tester.enterText(campo('Dose (opcional)'), '50 mg');
-      await tester.enterText(campo('Novo horário'), '2000');
       await tester.tap(find.text('Adicionar horário'));
       await tester.pumpAndSettle();
-      await tester.enterText(campo('Novo horário'), '0800');
+      expect(find.text('HORÁRIO DO REMÉDIO'), findsOneWidget);
+      await escolherNoSeletorDeHorario(tester, hora: 20, minuto: 0);
+      // O relogio abre nas 08:00: para esse horario, basta confirmar.
       await tester.tap(find.text('Adicionar horário'));
+      await tester.pumpAndSettle();
+      await tester.tap(noRelogio('OK'));
       await tester.pumpAndSettle();
 
-      // Os horarios ficam em ordem e o campo de horario volta vazio.
+      // Os horarios ficam em ordem.
       expect(find.text('08:00'), findsOneWidget);
       expect(find.text('20:00'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('08:00')).dy,
         lessThan(tester.getTopLeft(find.text('20:00')).dy),
       );
-      final campoDeHorario =
-          tester.widget<TextFormField>(campo('Novo horário'));
-      expect(campoDeHorario.controller?.text ?? campoDeHorario.initialValue, '');
 
       await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
@@ -147,48 +156,53 @@ void main() {
       expect(find.text('Meus remédios'), findsNothing);
     });
 
-    testWidgets('Deve explicar quando o horário digitado não existe, sem adicioná-lo', (
+    testWidgets('Não deve adicionar nada quando a pessoa cancela o relógio', (
       tester,
     ) async {
       await abrir(tester, atual: const [_losartana]);
 
-      await tester.enterText(campo('Novo horário'), '2560');
       await tester.tap(find.text('Adicionar horário'));
       await tester.pumpAndSettle();
+      await tester.tap(noRelogio('Cancelar'));
+      await tester.pumpAndSettle();
 
-      expect(
-        find.text('ESSE HORÁRIO NÃO EXISTE. DIGITE 4 NÚMEROS, COMO 0800 PARA 08:00.'),
-        findsOneWidget,
-      );
-      expect(find.text('25:60'), findsNothing);
-
-      // Digitar de novo tira o aviso.
-      await tester.enterText(campo('Novo horário'), '1');
-      await tester.pump();
-      expect(find.textContaining('ESSE HORÁRIO NÃO EXISTE'), findsNothing);
+      expect(find.byType(TimePickerDialog), findsNothing);
+      expect(find.text('Meus remédios'), findsOneWidget);
+      expect(find.text('08:00'), findsOneWidget);
+      expect(find.textContaining('ESSE HORÁRIO'), findsNothing);
     });
 
     testWidgets('Deve recusar um horário repetido', (tester) async {
       await abrir(tester, atual: const [_losartana]);
 
-      await tester.enterText(campo('Novo horário'), '800');
       await tester.tap(find.text('Adicionar horário'));
+      await tester.pumpAndSettle();
+      await tester.tap(noRelogio('OK'));
       await tester.pumpAndSettle();
 
       expect(find.text('ESSE HORÁRIO JÁ ESTÁ NA LISTA.'), findsOneWidget);
       expect(find.text('08:00'), findsOneWidget);
     });
 
-    testWidgets('Deve acrescentar o horário digitado e esquecido ao tocar em Salvar', (
+    testWidgets('Deve avisar quando o remédio já tem o máximo de horários', (
       tester,
     ) async {
-      await abrir(tester, atual: const [_losartana]);
+      await abrir(tester, atual: const [
+        Medicamento(
+          id: 'm3',
+          nome: 'Dipirona',
+          dose: '',
+          horarios: ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00'],
+        ),
+      ]);
 
-      await tester.enterText(campo('Novo horário'), '2000');
-      await tester.tap(find.text('Salvar'));
+      expect(find.text('Este remédio já tem o máximo de 6 horários.'),
+          findsOneWidget);
+
+      // O botao fica desligado: tocar nao abre o relogio.
+      await tester.tap(find.text('Adicionar horário'));
       await tester.pumpAndSettle();
-
-      expect(salvos.single.single.horarios, ['08:00', '20:00']);
+      expect(find.byType(TimePickerDialog), findsNothing);
     });
 
     testWidgets('Deve remover um horário', (tester) async {
@@ -218,7 +232,10 @@ void main() {
 
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
-      await tester.enterText(campo('Novo horário'), '0800');
+      await tester.tap(find.text('Adicionar horário'));
+      await tester.pumpAndSettle();
+      await tester.tap(noRelogio('OK'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
@@ -286,7 +303,7 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      expect(find.byType(TextFormField), findsNWidgets(30));
+      expect(find.byType(TextFormField), findsNWidgets(20));
       expect(find.text('Você já tem o máximo de 10 remédios.'), findsOneWidget);
     });
 

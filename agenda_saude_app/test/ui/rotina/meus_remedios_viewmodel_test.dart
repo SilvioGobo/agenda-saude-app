@@ -38,16 +38,6 @@ void main() {
       );
     }
 
-    // Digita no campo de horario do remedio e toca em "Adicionar horario".
-    bool digitarEAdicionar(
-      MeusRemediosViewModel viewModel,
-      RemedioEmEdicao remedio,
-      String texto,
-    ) {
-      viewModel.definirHorarioDigitado(remedio, texto);
-      return viewModel.adicionarHorario(remedio);
-    }
-
     test('Deve começar com os remédios que o paciente já tem', () {
       final viewModel = criar(atual: const [_losartana, _metformina]);
 
@@ -89,55 +79,48 @@ void main() {
       expect(viewModel.podeAdicionar, isFalse);
     });
 
-    test('Deve guardar o horário digitado como HH:MM, em ordem', () {
+    test('Deve guardar os horários escolhidos em ordem', () {
       final viewModel = criar(atual: const [_losartana]);
       final remedio = viewModel.remedios.single;
 
-      expect(digitarEAdicionar(viewModel, remedio, '2000'), isTrue);
-      expect(digitarEAdicionar(viewModel, remedio, '6'), isTrue);
-      expect(digitarEAdicionar(viewModel, remedio, '14:30'), isTrue);
+      expect(viewModel.adicionarHorario(remedio, '20:00'), isTrue);
+      expect(viewModel.adicionarHorario(remedio, '06:00'), isTrue);
+      expect(viewModel.adicionarHorario(remedio, '14:30'), isTrue);
 
       expect(remedio.horarios, ['06:00', '08:00', '14:30', '20:00']);
-      expect(remedio.horarioDigitado, '');
       expect(remedio.erroHorario, isNull);
     });
 
-    test('Deve recriar o campo de horário ao adicionar um horário', () {
-      final viewModel = criar(atual: const [_losartana]);
-      final remedio = viewModel.remedios.single;
-      final antes = remedio.versaoDoHorario;
-
-      digitarEAdicionar(viewModel, remedio, '1200');
-
-      expect(remedio.versaoDoHorario, antes + 1);
-    });
-
-    test('Deve explicar por que um horário não entrou, sem apagar o que foi digitado', () {
+    test('Deve recusar um horário repetido e explicar o motivo', () {
       final viewModel = criar(atual: const [_losartana]);
       final remedio = viewModel.remedios.single;
 
-      expect(digitarEAdicionar(viewModel, remedio, ''), isFalse);
-      expect(remedio.erroHorario, contains('Digite o horário'));
+      expect(viewModel.adicionarHorario(remedio, '08:00'), isFalse);
 
-      expect(digitarEAdicionar(viewModel, remedio, '2560'), isFalse);
-      expect(remedio.erroHorario, contains('não existe'));
-      expect(remedio.horarioDigitado, '2560');
-
-      expect(digitarEAdicionar(viewModel, remedio, '0800'), isFalse);
       expect(remedio.erroHorario, 'Esse horário já está na lista.');
-
       expect(remedio.horarios, ['08:00']);
     });
 
-    test('Deve limpar o aviso do horário ao digitar de novo', () {
+    test('Deve recusar um horário que não existe', () {
       final viewModel = criar(atual: const [_losartana]);
       final remedio = viewModel.remedios.single;
-      digitarEAdicionar(viewModel, remedio, '9999');
+
+      expect(viewModel.adicionarHorario(remedio, '25:60'), isFalse);
+
+      expect(remedio.erroHorario, 'Esse horário não existe.');
+      expect(remedio.horarios, ['08:00']);
+    });
+
+    test('Deve limpar o aviso do horário quando outro horário entra', () {
+      final viewModel = criar(atual: const [_losartana]);
+      final remedio = viewModel.remedios.single;
+      viewModel.adicionarHorario(remedio, '08:00');
       expect(remedio.erroHorario, isNotNull);
 
-      viewModel.definirHorarioDigitado(remedio, '0900');
+      viewModel.adicionarHorario(remedio, '09:00');
 
       expect(remedio.erroHorario, isNull);
+      expect(remedio.horarios, ['08:00', '09:00']);
     });
 
     test('Deve limitar os horários de cada remédio', () {
@@ -145,12 +128,12 @@ void main() {
       viewModel.adicionar();
       final remedio = viewModel.remedios.single;
 
-      for (final horario in ['0600', '0800', '1000', '1200', '1400', '1600']) {
-        expect(digitarEAdicionar(viewModel, remedio, horario), isTrue);
+      for (final horario in ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) {
+        expect(viewModel.adicionarHorario(remedio, horario), isTrue);
       }
 
       expect(viewModel.podeAdicionarHorario(remedio), isFalse);
-      expect(digitarEAdicionar(viewModel, remedio, '1800'), isFalse);
+      expect(viewModel.adicionarHorario(remedio, '18:00'), isFalse);
       expect(remedio.erroHorario, contains('até 6 horários'));
       expect(remedio.horarios, hasLength(6));
     });
@@ -166,7 +149,7 @@ void main() {
     test('Deve pedir o nome de todos os remédios antes de salvar', () async {
       final viewModel = criar();
       viewModel.adicionar();
-      digitarEAdicionar(viewModel, viewModel.remedios.single, '0800');
+      viewModel.adicionarHorario(viewModel.remedios.single, '08:00');
 
       final salvou = await viewModel.salvar();
 
@@ -196,7 +179,7 @@ void main() {
       final novo = viewModel.remedios.last;
       viewModel.definirNome(novo, '  Losartana ');
       viewModel.definirDose(novo, ' 50 mg ');
-      digitarEAdicionar(viewModel, novo, '0800');
+      viewModel.adicionarHorario(novo, '08:00');
 
       final salvou = await viewModel.salvar();
 
@@ -209,28 +192,6 @@ void main() {
       expect(lista.last.dose, '50 mg');
       expect(lista.last.horarios, ['08:00']);
       expect(lista.first.horarios, ['12:00', '20:00']);
-    });
-
-    test('Deve acrescentar o horário que foi digitado mas não adicionado ao salvar', () async {
-      final viewModel = criar(atual: const [_losartana]);
-      viewModel.definirHorarioDigitado(viewModel.remedios.single, '2000');
-
-      final salvou = await viewModel.salvar();
-
-      expect(salvou, isTrue);
-      expect(salvos.single.single.horarios, ['08:00', '20:00']);
-    });
-
-    test('Não deve salvar quando o horário digitado e não adicionado está errado', () async {
-      final viewModel = criar(atual: const [_losartana]);
-      viewModel.definirHorarioDigitado(viewModel.remedios.single, '9999');
-
-      final salvou = await viewModel.salvar();
-
-      expect(salvou, isFalse);
-      expect(viewModel.mensagemErro, 'Confira o horário digitado.');
-      expect(viewModel.remedios.single.erroHorario, contains('não existe'));
-      expect(salvos, isEmpty);
     });
 
     test('Deve aceitar salvar sem nenhum remédio: quem para de tomar apaga a lista', () async {

@@ -12,14 +12,8 @@ class RemedioEmEdicao {
   String dose;
   // Em "HH:MM", do mais cedo para o mais tarde.
   final List<String> horarios;
-  // O que ele ja digitou no campo de horario e ainda nao adicionou.
-  String horarioDigitado = '';
-  // Por que o ultimo horario digitado nao entrou; null = sem erro.
+  // Por que o ultimo horario escolhido nao entrou; null = sem erro.
   String? erroHorario;
-  // Muda quando o ViewModel limpa o campo de horario (ao adicionar): a tela usa
-  // o numero para recriar o campo de texto, que senao manteria o que estava
-  // digitado.
-  int versaoDoHorario = 0;
 
   RemedioEmEdicao({
     required this.id,
@@ -31,8 +25,8 @@ class RemedioEmEdicao {
 
 // Estado da tela "Meus remedios": o paciente cadastra os remedios que toma, com
 // a dose e os horarios de cada um (RF003, Figura 14). Na rotina ele so marca
-// "tomado". Os horarios sao digitados em numeros ("0800") e guardados como
-// "08:00". Nada e gravado ate "Salvar".
+// "tomado". Os horarios vem do seletor de hora, ja em "HH:MM" ("08:00"). Nada
+// e gravado ate "Salvar".
 class MeusRemediosViewModel extends ChangeNotifier {
   static const int tamanhoMaximoNome = 40;
   static const int tamanhoMaximoDose = 20;
@@ -92,30 +86,12 @@ class MeusRemediosViewModel extends ChangeNotifier {
     _limparAviso();
   }
 
-  void definirHorarioDigitado(RemedioEmEdicao remedio, String texto) {
-    remedio.horarioDigitado = texto;
-    if (remedio.erroHorario != null) {
-      remedio.erroHorario = null;
-      notifyListeners();
-    }
-  }
-
-  // Adiciona o horario que esta no campo. Devolve true se entrou; senao deixa o
-  // motivo em `erroHorario` do remedio.
-  bool adicionarHorario(RemedioEmEdicao remedio) {
-    final texto = remedio.horarioDigitado;
-    if (texto.trim().isEmpty) {
-      return _recusarHorario(
-        remedio,
-        'Digite o horário, por exemplo 0800 para 08:00.',
-      );
-    }
-    final horario = normalizarHorario(texto);
+  // Adiciona o horario escolhido no seletor ("HH:MM"). Devolve true se entrou;
+  // senao deixa o motivo em `erroHorario` do remedio.
+  bool adicionarHorario(RemedioEmEdicao remedio, String escolhido) {
+    final horario = normalizarHorario(escolhido);
     if (horario == null) {
-      return _recusarHorario(
-        remedio,
-        'Esse horário não existe. Digite 4 números, como 0800 para 08:00.',
-      );
+      return _recusarHorario(remedio, 'Esse horário não existe.');
     }
     if (remedio.horarios.contains(horario)) {
       return _recusarHorario(remedio, 'Esse horário já está na lista.');
@@ -131,8 +107,6 @@ class MeusRemediosViewModel extends ChangeNotifier {
     remedio.horarios
       ..add(horario)
       ..sort();
-    remedio.horarioDigitado = '';
-    remedio.versaoDoHorario++;
     remedio.erroHorario = null;
     mensagemErro = null;
     notifyListeners();
@@ -147,20 +121,6 @@ class MeusRemediosViewModel extends ChangeNotifier {
   }
 
   Future<bool> salvar() async {
-    // Um horario digitado e ainda nao adicionado entra agora: quem digita e toca
-    // em "Salvar" nao pode perder o horario.
-    var horarioInvalido = false;
-    for (final remedio in remedios) {
-      if (remedio.horarioDigitado.trim().isNotEmpty &&
-          !adicionarHorario(remedio)) {
-        horarioInvalido = true;
-      }
-    }
-    if (horarioInvalido) {
-      mensagemErro = 'Confira o horário digitado.';
-      notifyListeners();
-      return false;
-    }
     if (remedios.any((remedio) => remedio.nome.trim().isEmpty)) {
       mensagemErro = 'Dê um nome para todos os remédios.';
       notifyListeners();

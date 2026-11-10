@@ -13,6 +13,8 @@ import 'package:agenda_saude_app/ui/acompanhante/formato_status_paciente.dart';
 import 'package:agenda_saude_app/ui/rotina/card_medicacao.dart';
 import 'package:agenda_saude_app/ui/rotina/medicacao_viewmodel.dart';
 
+import '../shared/escolher_horario.dart';
+
 // Leitura do dia que sempre falha (ex.: indice composto nao publicado).
 class _RepositorioSemLeitura extends DadosMedicosRepository {
   _RepositorioSemLeitura(FakeFirebaseFirestore firestore)
@@ -289,14 +291,14 @@ void main() {
 
       await tester.enterText(campo('Nome do remédio', 0), 'Losartana');
       await tester.enterText(campo('Dose (opcional)', 0), '50 mg');
-      await tester.enterText(campo('Novo horário', 0), '0800');
       await tester.tap(find.text('Adicionar horário').at(0));
       await tester.pumpAndSettle();
+      await escolherNoSeletorDeHorario(tester, hora: 8, minuto: 0);
       await tester.enterText(campo('Nome do remédio', 1), 'Metformina');
       await tester.enterText(campo('Dose (opcional)', 1), '500 mg');
-      await tester.enterText(campo('Novo horário', 1), '1200');
       await tester.tap(find.text('Adicionar horário').at(1));
       await tester.pumpAndSettle();
+      await escolherNoSeletorDeHorario(tester, hora: 12, minuto: 0);
       await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
