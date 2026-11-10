@@ -6,15 +6,16 @@ import '../../core/theme/app_cores.dart';
 import '../shared/barra_acoes.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/erro_formulario.dart';
+import '../shared/seletor_horario.dart';
 import '../shared/titulo_tela.dart';
 import 'medicacao_viewmodel.dart';
 import 'meus_remedios_viewmodel.dart';
 
 // "Meus remedios" (RF003, Figura 14): onde o paciente cadastra os remedios que
 // toma, com a dose e os horarios de cada um. Na rotina ele so marca "tomado" a
-// cada dose. Os horarios sao digitados em numeros - "0800" vira 08:00 - porque
-// o seletor de hora do sistema aparece em ingles neste app. Salvar e Cancelar
-// ficam fixos na base, como em "Minhas refeicoes".
+// cada dose. Cada horario e escolhido no relogio (`mostrarSeletorDeHorario`),
+// sem digitar. Salvar e Cancelar ficam fixos na base, como em "Minhas
+// refeicoes".
 class MeusRemediosView extends StatelessWidget {
   const MeusRemediosView({super.key});
 
@@ -122,14 +123,30 @@ class MeusRemediosView extends StatelessWidget {
   }
 }
 
-// Um remedio: nome, dose, os horarios ja adicionados e o campo para adicionar
-// mais um. Os campos guardam o proprio texto (`initialValue`); o ViewModel
-// recebe cada mudanca e, ao limpar o campo de horario, muda a `versaoDoHorario`
-// para o campo ser recriado.
+// Um remedio: nome, dose, os horarios ja adicionados e o botao que abre o
+// relogio para adicionar mais um. Os campos guardam o proprio texto
+// (`initialValue`); o ViewModel recebe cada mudanca.
 class _EditorRemedio extends StatelessWidget {
+  // Onde o relogio abre. Os remedios costumam comecar de manha; se ja houver
+  // 08:00, a pessoa so gira o ponteiro.
+  static const String horarioInicial = '08:00';
+
   final RemedioEmEdicao remedio;
 
   const _EditorRemedio({super.key, required this.remedio});
+
+  Future<void> _escolherHorario(
+    BuildContext context,
+    MeusRemediosViewModel viewModel,
+  ) async {
+    final horario = await mostrarSeletorDeHorario(
+      context,
+      inicial: horarioInicial,
+      titulo: 'HORÁRIO DO REMÉDIO',
+    );
+    if (horario == null || !context.mounted) return;
+    viewModel.adicionarHorario(remedio, horario);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,8 +209,8 @@ class _EditorRemedio extends StatelessWidget {
             const SizedBox(height: 8),
             if (remedio.horarios.isEmpty)
               Text(
-                'Nenhum horário ainda. Digite abaixo e toque em "Adicionar '
-                'horário".',
+                'Nenhum horário ainda. Toque em "Adicionar horário" e escolha '
+                'a hora no relógio.',
                 style: TextStyle(
                   fontSize: 16,
                   height: 1.35,
@@ -207,39 +224,28 @@ class _EditorRemedio extends StatelessWidget {
                   aoRemover: () => viewModel.removerHorario(remedio, horario),
                 ),
             const SizedBox(height: 12),
-            TextFormField(
-              key: ValueKey('horario-${remedio.id}-${remedio.versaoDoHorario}'),
-              initialValue: remedio.horarioDigitado,
-              onChanged: (texto) =>
-                  viewModel.definirHorarioDigitado(remedio, texto),
-              onFieldSubmitted: (_) => viewModel.adicionarHorario(remedio),
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.done,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9:hH.]')),
-                LengthLimitingTextInputFormatter(5),
-              ],
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                labelText: 'Novo horário',
-                hintText: '0800',
-                helperText: 'Digite 4 números. Ex.: 0800 é 08:00.',
-                // O guia pede texto de pelo menos 16sp (o padrao do campo e 12).
-                helperStyle: TextStyle(fontSize: 16),
-              ),
-            ),
-            if (remedio.erroHorario != null) ...[
-              const SizedBox(height: 8),
-              ErroFormulario(remedio.erroHorario!),
-            ],
-            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: viewModel.podeAdicionarHorario(remedio)
-                  ? () => viewModel.adicionarHorario(remedio)
+                  ? () => _escolherHorario(context, viewModel)
                   : null,
               icon: const Icon(Icons.schedule_rounded),
               label: const Text('Adicionar horário'),
             ),
+            if (!viewModel.podeAdicionarHorario(remedio)) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Este remédio já tem o máximo de '
+                '${MedicacaoViewModel.maximoHorariosPorRemedio} horários.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (remedio.erroHorario != null) ...[
+              const SizedBox(height: 8),
+              ErroFormulario(remedio.erroHorario!),
+            ],
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,

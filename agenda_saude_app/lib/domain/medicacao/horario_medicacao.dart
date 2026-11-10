@@ -1,8 +1,9 @@
 // O horario de uma dose de remedio, sempre guardado como "HH:MM" ("08:00").
 
-// O horario no formato "HH:MM" a partir do que a pessoa digitar: "0800", "800",
-// "8:00", "08:00", "8h30" ou so a hora ("8", "20"). Devolve null quando nao e
-// um horario (a hora vai de 0 a 23 e os minutos de 0 a 59).
+// O horario no formato "HH:MM" a partir de um texto: "0800", "800", "8:00",
+// "08:00", "8h30" ou so a hora ("8", "20"). Confere os horarios guardados e o
+// que vem do relogio. Devolve null quando nao e um horario (a hora vai de 0 a
+// 23 e os minutos de 0 a 59).
 String? normalizarHorario(String entrada) {
   final texto = entrada.trim();
 
@@ -25,5 +26,9 @@ String? normalizarHorario(String entrada) {
   }
 
   if (hora > 23 || minuto > 59) return null;
-  return '${hora.toString().padLeft(2, '0')}:${minuto.toString().padLeft(2, '0')}';
+  return formatarHorario(hora, minuto);
 }
+
+// "HH:MM" com dois digitos em cada parte: (8, 5) vira "08:05".
+String formatarHorario(int hora, int minuto) =>
+    '${hora.toString().padLeft(2, '0')}:${minuto.toString().padLeft(2, '0')}';

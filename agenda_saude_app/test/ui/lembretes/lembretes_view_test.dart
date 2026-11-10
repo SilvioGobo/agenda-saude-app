@@ -12,6 +12,24 @@ import 'package:agenda_saude_app/ui/lembretes/lembretes_view.dart';
 import 'package:agenda_saude_app/ui/lembretes/lembretes_viewmodel.dart';
 
 import '../../core/services/fake_notification_service.dart';
+import '../shared/escolher_horario.dart';
+
+// Nao consegue guardar o horario escolhido (ex.: armazenamento cheio).
+class _PreferenciasQueNaoGravam extends PreferenciasRepository {
+  @override
+  Future<void> salvarHorarioDoMomento(
+    String pacienteId,
+    String nomeDoMomento,
+    String? horario,
+  ) =>
+      throw Exception('sem espaco');
+}
+
+// O texto dentro do relogio aberto, e nao na lista atras dele.
+Finder _noRelogio(String texto) => find.descendant(
+      of: find.byType(TimePickerDialog),
+      matching: find.text(texto),
+    );
 
 const _losartana = Medicamento(
   id: 'm1',
@@ -47,9 +65,9 @@ void main() {
       servico = FakeNotificationService();
     });
 
-    // Uma tela alta para a lista inteira ficar construida sem rolar.
-    void telaAlta(WidgetTester tester) {
-      tester.view.physicalSize = const Size(800, 3200);
+    // Por padrao, uma tela alta para a lista inteira ficar construida sem rolar.
+    void ajustarTela(WidgetTester tester, Size tamanho) {
+      tester.view.physicalSize = tamanho;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
     }
@@ -59,14 +77,16 @@ void main() {
     Future<LembretesViewModel> montar(
       WidgetTester tester, {
       Paciente? paciente,
+      PreferenciasRepository? preferencias,
       double escalaTexto = 1,
+      Size tamanho = const Size(800, 3200),
     }) async {
-      telaAlta(tester);
+      ajustarTela(tester, tamanho);
       final viewModel = LembretesViewModel(
         paciente: paciente ?? _paciente(),
         dadosRepository:
             DadosMedicosRepository(firestore: FakeFirebaseFirestore()),
-        preferencias: PreferenciasRepository(),
+        preferencias: preferencias ?? PreferenciasRepository(),
         notificationService: servico,
         // Antes das 7h, para os horarios padrao de hoje ainda estarem por vir.
         agora: () => DateTime(2026, 11, 5, 5, 0),
@@ -212,7 +232,7 @@ void main() {
       await desmontar(tester, viewModel);
     });
 
-    testWidgets('Deve mudar o horário de uma medição pelo diálogo', (tester) async {
+    testWidgets('Deve mudar o horário de uma medição pelo relógio', (tester) async {
       final viewModel = await montar(
         tester,
         paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
@@ -221,43 +241,56 @@ void main() {
       // A primeira é "ao acordar", às 07:00.
       await tester.tap(find.text('Mudar horário').first);
       await tester.pumpAndSettle();
-      expect(find.text('Medir a glicemia (ao acordar)'), findsNWidgets(2));
+      await escolherNoSeletorDeHorario(tester, hora: 6, minuto: 30);
 
-      await tester.enterText(find.byType(TextField), '0630');
-      await tester.tap(find.text('Salvar horário'));
-      await tester.pumpAndSettle();
-
+      expect(find.byType(TimePickerDialog), findsNothing);
       expect(find.text('06:30'), findsOneWidget);
       expect(find.text('07:00'), findsNothing);
+      expect(find.text('Horário mudado para 06:30.'), findsOneWidget);
       expect(
         servico.agendadas.values.any((a) => a.dataHora.hour == 6 && a.dataHora.minute == 30),
         isTrue,
       );
+      // Nada de campo para digitar: o horário só se escolhe no relógio.
+      expect(find.byType(TextField), findsNothing);
 
       await desmontar(tester, viewModel);
     });
 
-    testWidgets('Deve recusar um horário que não existe e manter o diálogo aberto',
+    testWidgets('Deve abrir o relógio no horário do aviso, com o título do que muda',
         (tester) async {
       final viewModel = await montar(
         tester,
-        paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
+        paciente: _paciente(
+          possuiDiabetes: true,
+          usaInsulina: true,
+          medicamentos: const [],
+        ),
       );
 
       await tester.tap(find.text('Mudar horário').first);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '2575');
-      await tester.tap(find.text('Salvar horário'));
+      expect(_noRelogio('HORÁRIO DA GLICEMIA'), findsOneWidget);
+      expect(_noRelogio('07'), findsOneWidget);
+      expect(_noRelogio('00'), findsOneWidget);
+      // Confirmar o mesmo horário não muda nada nem mostra aviso.
+      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
-
-      expect(find.textContaining('HORÁRIO INVÁLIDO'), findsOneWidget);
-      expect(find.text('Salvar horário'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
       expect(find.text('07:00'), findsOneWidget);
+
+      // A última é a insulina lenta, às 22:00.
+      await tester.tap(find.text('Mudar horário').last);
+      await tester.pumpAndSettle();
+      expect(_noRelogio('HORÁRIO DA INSULINA'), findsOneWidget);
+      expect(_noRelogio('22'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
 
       await desmontar(tester, viewModel);
     });
 
-    testWidgets('Deve cancelar o diálogo sem mudar o horário', (tester) async {
+    testWidgets('Deve cancelar o relógio sem mudar o horário', (tester) async {
       final viewModel = await montar(
         tester,
         paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
@@ -268,8 +301,10 @@ void main() {
       await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Salvar horário'), findsNothing);
+      expect(find.byType(TimePickerDialog), findsNothing);
       expect(find.text('07:00'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(viewModel.horarioFoiAlterado('Ao acordar'), isFalse);
 
       await desmontar(tester, viewModel);
     });
@@ -280,20 +315,64 @@ void main() {
         tester,
         paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
       );
+      expect(find.textContaining('Voltar para'), findsNothing);
 
       await tester.tap(find.text('Mudar horário').first);
       await tester.pumpAndSettle();
-      expect(find.text('Voltar para 07:00'), findsNothing);
-      await tester.enterText(find.byType(TextField), '0630');
-      await tester.tap(find.text('Salvar horário'));
-      await tester.pumpAndSettle();
+      await escolherNoSeletorDeHorario(tester, hora: 6, minuto: 30);
 
-      await tester.tap(find.text('Mudar horário').first);
-      await tester.pumpAndSettle();
+      // Só o cartão que mudou ganha o botão.
       expect(find.text('Voltar para 07:00'), findsOneWidget);
+      expect(find.textContaining('Voltar para'), findsOneWidget);
       await tester.tap(find.text('Voltar para 07:00'));
       await tester.pumpAndSettle();
 
+      expect(find.text('07:00'), findsOneWidget);
+      expect(find.text('06:30'), findsNothing);
+      expect(find.text('Voltar para 07:00'), findsNothing);
+      expect(find.text('Horário de volta para 07:00.'), findsOneWidget);
+
+      await desmontar(tester, viewModel);
+    });
+
+    testWidgets('Escolher no relógio o horário padrão deve ser o mesmo que voltar a ele',
+        (tester) async {
+      final viewModel = await montar(
+        tester,
+        paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
+      );
+
+      await tester.tap(find.text('Mudar horário').first);
+      await tester.pumpAndSettle();
+      await escolherNoSeletorDeHorario(tester, hora: 6, minuto: 30);
+      expect(find.text('Voltar para 07:00'), findsOneWidget);
+
+      await tester.tap(find.text('Mudar horário').first);
+      await tester.pumpAndSettle();
+      await escolherNoSeletorDeHorario(tester, hora: 7, minuto: 0);
+
+      expect(find.text('07:00'), findsOneWidget);
+      expect(find.text('Voltar para 07:00'), findsNothing);
+      expect(viewModel.horariosDosMomentos, isEmpty);
+
+      await desmontar(tester, viewModel);
+    });
+
+    testWidgets('Deve avisar quando não consegue guardar o horário', (tester) async {
+      final viewModel = await montar(
+        tester,
+        paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
+        preferencias: _PreferenciasQueNaoGravam(),
+      );
+
+      await tester.tap(find.text('Mudar horário').first);
+      await tester.pumpAndSettle();
+      await escolherNoSeletorDeHorario(tester, hora: 6, minuto: 30);
+
+      expect(
+        find.text('Não foi possível mudar o horário. Tente de novo.'),
+        findsOneWidget,
+      );
       expect(find.text('07:00'), findsOneWidget);
       expect(find.text('06:30'), findsNothing);
 
@@ -324,6 +403,27 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Meus lembretes'), findsOneWidget);
+
+      await desmontar(tester, viewModel);
+    });
+
+    testWidgets('Não deve estourar o cartão com os dois botões num celular, fonte em 200%',
+        (tester) async {
+      // Largura de celular; alta para a lista inteira ficar construida.
+      final viewModel = await montar(
+        tester,
+        paciente: _paciente(possuiDiabetes: true, medicamentos: const []),
+        escalaTexto: 2,
+        tamanho: const Size(412, 4000),
+      );
+
+      await tester.tap(find.text('Mudar horário').first);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await escolherNoSeletorDeHorario(tester, hora: 6, minuto: 30);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Voltar para 07:00'), findsOneWidget);
 
       await desmontar(tester, viewModel);
     });

@@ -47,4 +47,13 @@ void main() {
       expect(normalizarHorario('-8'), isNull);
     });
   });
+
+  group('formatarHorario Testes', () {
+    test('Deve escrever hora e minuto com dois dígitos cada', () {
+      expect(formatarHorario(8, 5), '08:05');
+      expect(formatarHorario(0, 0), '00:00');
+      expect(formatarHorario(20, 30), '20:30');
+      expect(formatarHorario(23, 59), '23:59');
+    });
+  });
 }

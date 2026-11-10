@@ -20,6 +20,9 @@ inventar. O código Flutter fica em `agenda_saude_app/`.
   esperado conforme os módulos avançam; o que não pode mudar é a versão do
   Flutter/Dart em si.
 - Dart 3.x, Material 3, seed color teal
+- Idioma fixo em português do Brasil (`locale` do `MaterialApp` + `flutter_localizations`,
+  que vem com o SDK): seletores de hora e de data, "Colar"/"Copiar" e o que o TalkBack
+  diz deles saem em português, qualquer que seja o idioma do celular
 - **Firebase (BaaS)**: Auth (login/cadastro), Cloud Firestore (dados + sync em tempo
   real), Cloud Messaging (notificações push) e Cloud Functions (`functions/` na raiz,
   Node 22, quem manda o push; exige o plano Blaze). Projeto: `tcc-agenda-saude`
@@ -161,9 +164,13 @@ Convenções já estabelecidas nos repositories — manter:
   `nome`, `dose`, `horarios` em "HH:MM"); lista vazia = nenhum remédio. Cada horário de
   cada remédio é uma dose (`DosePlanejada`) que a rotina mostra para marcar; o `id` liga
   o remédio aos registros do dia, então não muda ao editar. Gravada por
-  `PacienteRepository.salvarMedicamentos` (update só desse campo). O horário é digitado
-  em números ("0800" vira 08:00): o seletor de hora do sistema sairia em inglês, porque o
-  app não tem as localizações do Flutter.
+  `PacienteRepository.salvarMedicamentos` (update só desse campo). O horário é escolhido
+  no relógio do Flutter (`mostrarSeletorDeHorario`, em `ui/shared/`): só o relógio, sem o
+  modo de digitar, sempre em 24 h, abrindo nas 08:00. Os textos prontos do Flutter saem em
+  português porque o `MaterialApp` usa o `flutter_localizations` com o pt-BR fixo. O
+  "Mudar horário" dos lembretes (glicemia e insulina) usa o mesmo relógio, aberto no
+  horário de agora do aviso; escolher o horário padrão é o mesmo que voltar a ele, e o
+  cartão só mostra "Voltar para 07:00" com o aviso fora do padrão.
   Os **limites de alerta** (RF 06.1, B8) ficam em `limitesAlerta` (map, `LimitesAlerta`:
   `bpmMinimo`, `bpmMaximo`, `atualizadoPor` = UID de quem ajustou, `atualizadoEm`).
   `null`/ausente = zona padrão (60 a 100, ou 60 a 90 para cardiopatas). Quem ajusta é o

@@ -187,8 +187,11 @@ Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localizaçã
 - **Lista de horários**: cartão por lembrete com o horário em 26 bold na cor principal e
   o que fazer ao lado ("Tomar Losartana 50 mg"); a frase falada junta tudo ("…, às 8
   horas"). "Mudar horário" (só glicemia e insulina; o dos remédios é em "Meus remédios")
-  abre um diálogo com campo numérico grande: digitar **4 números** ("0630" vira 06:30),
-  como em "Meus remédios", e "Voltar para 07:00" só aparece depois de mudar.
+  abre o relógio (`mostrarSeletorDeHorario`) no horário de agora do aviso, com o título
+  "HORÁRIO DA GLICEMIA" ou "HORÁRIO DA INSULINA" (curto, para caber numa linha e não
+  encolher o relógio). Depois de mudar, o cartão ganha um segundo botão, "Voltar para
+  07:00", que some quando o aviso volta ao horário padrão; cada mudança confirma com um
+  aviso embaixo ("Horário mudado para 06:30."), porque a lista se reordena pelo horário.
 - **Velocidade da voz**: três `BotaoSelecionavel` um embaixo do outro (Devagar, Normal,
   Rápido, com check no escolhido) e "Testar voz"; tocar em uma velocidade já fala um exemplo.
 - **Ouvir esta tela** (`BotaoOuvirTela`): botão de contorno de 56dp, com ícone de alto-falante,
@@ -216,6 +219,7 @@ Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localizaçã
 | `CardStatus`                | selo de status colorido ("ESTÁVEL")                       |
 | `CaixaAlerta`                | caixa vermelha de alerta de saúde com orientação          |
 | `mostrarDialogoConfirmacao` | pergunta "tem certeza?" com botões grandes                |
+| `mostrarSeletorDeHorario`   | relógio do Flutter para escolher um horário, sem digitar: 24 h, só o relógio (sem o ícone de teclado), título em caixa alta e botões maiores pelo `timePickerTheme`; devolve "HH:MM" |
 | `BotaoSelecionavel`         | escolha entre poucas opções (Sim/Não, perfil)             |
 | `BarraAcoes`                | botões fixos na base (`bottomNavigationBar`) em telas longas, para a ação principal nunca sair da vista |
 | `LogoAgendaSaude`           | marca nas telas de entrada                                |
@@ -238,6 +242,7 @@ remédios"), que volta com um aviso ("Sono registrado.").
   Figura 14 do TCC; marcada fica com fundo e borda verdes e o texto "Tomado às 08:10".
 - **Telas de registro**: perguntas numeradas em caixa alta (`PerguntaFormulario`), opções
   em botões de 64dp com check no escolhido (`BotaoSelecionavel`) e "SALVAR" no fim
-  (`BotaoSalvar`). Nada de campo de texto quando uma escolha resolve; onde precisa digitar
-  (o horário de um remédio), o campo é numérico e grande.
+  (`BotaoSalvar`). Nada de campo de texto quando uma escolha resolve: o horário de um
+  remédio (e o de um lembrete) se escolhe no relógio (`mostrarSeletorDeHorario`), e não
+  digitando.
 - **Semana de exercício**: começa no domingo, como o calendário dos relatórios.

@@ -11,7 +11,14 @@ import 'triagem_viewmodel.dart';
 
 // Etapa 4 de 4 (final) do assistente de triagem: informacoes opcionais.
 class TriagemOutrasInformacoesView extends StatefulWidget {
-  const TriagemOutrasInformacoesView({super.key});
+  // Monta o painel do paciente no fim da triagem. Os testes trocam por uma
+  // tela simples: o painel de verdade liga no Firebase e nos sensores.
+  final Widget Function(Paciente paciente) construirPainel;
+
+  const TriagemOutrasInformacoesView({
+    super.key,
+    this.construirPainel = PacienteView.comProviders,
+  });
 
   @override
   State<TriagemOutrasInformacoesView> createState() =>
@@ -39,27 +46,36 @@ class _TriagemOutrasInformacoesViewState
     final paciente = viewModel.pacienteAtualizado;
     if (paciente == null) return;
 
+    // Guardados agora, e nao lidos desta tela na hora de ir ao painel: o
+    // pushAndRemoveUntil abaixo tira esta tela da arvore, e o "Aceitar e
+    // continuar" das metas so roda depois. Com o context dela o
+    // Navigator.of falhava ("Null check operator used on a null value") e o
+    // paciente nao saia das metas.
+    final navegador = Navigator.of(context);
+    final construirPainel = widget.construirPainel;
+
     // Com metas calculadas, o paciente confere (e ajusta, se quiser) antes de
     // ir ao painel. Sem elas, vai direto.
-    Navigator.of(context).pushAndRemoveUntil(
+    navegador.pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => paciente.metas == null
-            ? PacienteView.comProviders(paciente)
+            ? construirPainel(paciente)
             : MetasView.comProviders(
                 paciente,
-                aoContinuar: (pacienteComMetas) =>
-                    _irParaOPainel(context, pacienteComMetas),
+                aoContinuar: (pacienteComMetas) => _irParaOPainel(
+                  navegador,
+                  construirPainel(pacienteComMetas),
+                ),
               ),
       ),
       (route) => false,
     );
   }
 
-  void _irParaOPainel(BuildContext context, Paciente paciente) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => PacienteView.comProviders(paciente),
-      ),
+  // Limpa a pilha: o "voltar" do painel nao retorna as metas nem a triagem.
+  static void _irParaOPainel(NavigatorState navegador, Widget painel) {
+    navegador.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => painel),
       (route) => false,
     );
   }

@@ -75,6 +75,25 @@ class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       ),
+      // Seletor de hora (`mostrarSeletorDeHorario`): o titulo do Material sai
+      // com 12sp e os botoes com 40dp; aqui ficam com o tamanho do resto do
+      // app (NF004).
+      timePickerTheme: TimePickerThemeData(
+        helpTextStyle: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+          color: colorScheme.onSurface,
+        ),
+        cancelButtonStyle: TextButton.styleFrom(
+          minimumSize: const Size(96, 52),
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        confirmButtonStyle: TextButton.styleFrom(
+          minimumSize: const Size(96, 52),
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
         color: colorScheme.surfaceContainerLow,

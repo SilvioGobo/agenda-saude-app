@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/constants/momentos_glicemia.dart';
 import '../../core/services/notification_service.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../data/repositories/preferencias_repository.dart';
@@ -187,20 +188,27 @@ class LembretesViewModel extends ChangeNotifier with WidgetsBindingObserver {
     await _reagendar();
   }
 
-  // O paciente ja mudou o horario deste momento da glicemia?
-  bool horarioFoiAlterado(String nomeDoMomento) =>
-      _horarios.containsKey(nomeDoMomento);
+  // O aviso deste momento da glicemia esta fora do horario padrao? E o que
+  // mostra o "Voltar para 07:00". Um horario guardado igual ao padrao (de
+  // quando o horario se digitava e dava para escrever "0700") nao conta.
+  bool horarioFoiAlterado(String nomeDoMomento) {
+    final guardado = _horarios[nomeDoMomento];
+    return guardado != null &&
+        guardado != MomentoGlicemia.porNome(nomeDoMomento).horarioPadrao;
+  }
 
   // Muda o horario do aviso de um momento da glicemia (ou da insulina lenta).
-  // [entrada] e o que o paciente digitou: "0630" vira 06:30. Devolve false, sem
-  // mudar nada, se nao for uma hora valida ou se nao conseguir guardar.
+  // [entrada] vem do relogio, em "HH:MM" (tambem aceita "0630"). Escolher o
+  // horario padrao e o mesmo que voltar a ele. Devolve false, sem mudar nada,
+  // se nao for uma hora valida ou se nao conseguir guardar.
   Future<bool> definirHorarioDoMomento(
     String nomeDoMomento,
     String entrada,
   ) async {
     final horario = normalizarHorario(entrada);
     if (horario == null) return false;
-    return _guardarHorario(nomeDoMomento, horario);
+    final padrao = MomentoGlicemia.porNome(nomeDoMomento).horarioPadrao;
+    return _guardarHorario(nomeDoMomento, horario == padrao ? null : horario);
   }
 
   // Volta o aviso do momento ao horario padrao.
