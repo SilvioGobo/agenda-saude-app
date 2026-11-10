@@ -170,7 +170,9 @@ class _RelatoriosViewState extends State<RelatoriosView> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            // Espaco maior que o normal: o dia (titulo grande, que quebra em
+            // duas linhas) nao pode parecer grudado nos botoes das abas.
+            const SizedBox(height: 32),
             if (_aba == 0) ...[
               Text(
                 capitalizar(
@@ -180,13 +182,6 @@ class _RelatoriosViewState extends State<RelatoriosView> {
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: colorScheme.onSurface,
-                ),
-              ),
-              Text(
-                'Resumo da rotina do dia de ontem',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 16),

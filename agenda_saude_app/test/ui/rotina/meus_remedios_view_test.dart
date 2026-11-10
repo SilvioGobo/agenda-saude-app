@@ -107,6 +107,11 @@ void main() {
       expect(find.text('Adicionar remédio'), findsOneWidget);
       expect(find.text('Salvar'), findsOneWidget);
       expect(find.text('Cancelar'), findsOneWidget);
+      // O relogio de adicionar fica na linha de HORÁRIOS, acima dos horarios.
+      final titulo = tester.getCenter(find.text('HORÁRIOS').first);
+      final relogio = tester.getCenter(find.byTooltip('Adicionar horário').first);
+      expect((relogio.dy - titulo.dy).abs(), lessThan(4));
+      expect(relogio.dy, lessThan(tester.getCenter(find.text('08:00')).dy));
     });
 
     testWidgets('Sem remédios, deve explicar como começar', (tester) async {

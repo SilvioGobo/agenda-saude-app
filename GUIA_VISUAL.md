@@ -93,6 +93,12 @@ Textos longos de orientação usam altura de linha `1.35`.
 - `FilledButton`: ação principal **dentro de um card**, que precisa se destacar do
   fundo dele. Ex.: "Conectar smartwatch".
 - `OutlinedButton`: ação secundária ou de cancelar.
+- `IconButton.filled` (56dp, verde, só o ícone) ao lado do título de uma lista dentro
+  de um card: adiciona um item a ela. Ex.: o relógio de "HORÁRIOS" em "Meus remédios" e
+  o "+" de "ALIMENTOS" em "Minhas refeições". É a exceção à regra do ícone com texto,
+  para não se confundir com o botão grande que adiciona um card inteiro ("Adicionar
+  remédio", "Adicionar refeição"); o `tooltip` dá o nome ao leitor de tela, e a lista
+  vazia diz onde tocar.
 - `TextButton.icon` (48dp, texto 18 em negrito): ação discreta no pé de um card, nunca
   só o ícone. Ex.: o "?" "Como funciona?" (`BotaoComoFunciona`) do destaque dos
   batimentos e de "Meu smartwatch", que abre a explicação de como o BPM chega ao app.
