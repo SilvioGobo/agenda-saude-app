@@ -200,7 +200,7 @@ void main() {
       expect(find.text('Jantar'), findsOneWidget);
       expect(find.text('Ainda não feito'), findsNWidgets(4));
       expect(find.text('Feito'), findsNothing);
-      expect(find.text('Personalizar refeições'), findsOneWidget);
+      expect(find.text('Personalizar refeições'), findsNothing);
 
       await desmontar(tester);
     });
@@ -271,7 +271,7 @@ void main() {
       }
 
       expect(find.text('4 de 4 feitas'), findsOneWidget);
-      expect(find.text('REFEIÇÕES DE HOJE FEITAS'), findsOneWidget);
+      expect(find.text('REFEIÇÕES DE HOJE FEITAS'), findsNothing);
 
       await desmontar(tester);
     });
@@ -375,13 +375,13 @@ void main() {
     });
 
     testWidgets(
-      'Deve explicar como ver as calorias quando não há alimentos cadastrados',
+      'Não deve mostrar o resumo nutricional quando não há alimentos cadastrados',
       (tester) async {
         await montar(tester);
 
         expect(
           find.textContaining('Cadastre os alimentos de cada refeição'),
-          findsOneWidget,
+          findsNothing,
         );
         expect(find.text('O que você já comeu hoje'), findsNothing);
 
@@ -429,7 +429,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('REFEIÇÕES DE HOJE FEITAS'), findsNothing);
-      expect(find.text('Personalizar refeições'), findsOneWidget);
+      expect(find.text('Personalizar refeições'), findsNothing);
 
       await desmontar(tester);
     });

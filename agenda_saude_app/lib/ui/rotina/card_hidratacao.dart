@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
-import '../shared/card_status.dart';
 import 'hidratacao_viewmodel.dart';
 
 // Cartao "Hidratacao" do checklist de rotina (Figura 14 do TCC): copos bebidos
@@ -70,14 +69,6 @@ class CardHidratacao extends StatelessWidget {
                     Expanded(child: botaoAdicionar),
                   ],
                 ),
-              if (viewModel.metaAtingida) ...[
-                const SizedBox(height: 16),
-                const CardStatus(
-                  rotulo: 'META DE HOJE ATINGIDA',
-                  icone: Icons.check_circle_rounded,
-                  cor: AppCores.sucesso,
-                ),
-              ],
             ],
             if (viewModel.mensagemErro != null) ...[
               const SizedBox(height: 12),

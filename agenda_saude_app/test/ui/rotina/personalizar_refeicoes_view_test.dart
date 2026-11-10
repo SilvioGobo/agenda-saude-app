@@ -12,6 +12,7 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/ui/rotina/card_refeicoes.dart';
+import 'package:agenda_saude_app/ui/rotina/personalizar_refeicoes_view.dart';
 import 'package:agenda_saude_app/ui/rotina/refeicoes_viewmodel.dart';
 
 import '../../helpers/catalogo_de_teste.dart';
@@ -101,10 +102,29 @@ void main() {
               aoAtualizarPaciente: atualizacoes.add,
               agora: () => hoje,
             ),
-            child: const Scaffold(
-              body: SingleChildScrollView(
-                padding: EdgeInsets.all(24),
-                child: CardRefeicoes(),
+            // O editor abre pelo "Personalizar rotina"; aqui um botao faz o
+            // papel dele, com o mesmo RefeicoesViewModel do cartao.
+            child: Builder(
+              builder: (context) => Scaffold(
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                PersonalizarRefeicoesView.comProviders(
+                              context.read<RefeicoesViewModel>(),
+                            ),
+                          ),
+                        ),
+                        child: const Text('Personalizar refeições'),
+                      ),
+                      const CardRefeicoes(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

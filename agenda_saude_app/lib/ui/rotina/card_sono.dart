@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
-import '../shared/card_status.dart';
 import 'formato_sono.dart';
 import 'registrar_sono_view.dart';
 import 'sono_viewmodel.dart';
@@ -34,7 +33,6 @@ class CardSono extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<SonoViewModel>();
-    final colorScheme = Theme.of(context).colorScheme;
     final pronto = !viewModel.carregando && !viewModel.erroDeLeitura;
     final registrou = viewModel.registrou;
 
@@ -62,38 +60,8 @@ class CardSono extends StatelessWidget {
                     color: AppCores.perigo,
                   ),
                 ),
-              )
-            else if (pronto) ...[
-              Text(
-                registrou
-                    ? 'Meta: ${formatarMetaDeSono(viewModel.metaMinHoras, viewModel.metaMaxHoras)} por noite.'
-                    : 'Registre ao acordar quantas horas dormiu e como foi o '
-                        'sono. A meta é de '
-                        '${formatarMetaDeSono(viewModel.metaMinHoras, viewModel.metaMaxHoras)} '
-                        'por noite.',
-                style: TextStyle(
-                  fontSize: 18,
-                  height: 1.35,
-                  color: colorScheme.onSurfaceVariant,
-                ),
               ),
-              if (registrou) ...[
-                const SizedBox(height: 16),
-                if (viewModel.metaAtingida)
-                  const CardStatus(
-                    rotulo: 'META DE SONO ATINGIDA',
-                    icone: Icons.check_circle_rounded,
-                    cor: AppCores.sucesso,
-                  )
-                else
-                  const CardStatus(
-                    rotulo: 'ABAIXO DA META DE SONO',
-                    icone: Icons.info_rounded,
-                    cor: AppCores.aviso,
-                  ),
-              ],
-            ],
-            const SizedBox(height: 16),
+            if (viewModel.erroDeLeitura) const SizedBox(height: 16),
             if (registrou)
               OutlinedButton.icon(
                 onPressed: aoTocar,

@@ -40,7 +40,7 @@ class SmartwatchView extends StatelessWidget {
             const TituloTela(
               'Meu smartwatch',
               subtitulo: 'O app lê os batimentos do seu smartwatch pelo '
-                  'Health Connect.',
+                  'Saúde Connect.',
             ),
             const SizedBox(height: 24),
             const CardSmartwatch(),

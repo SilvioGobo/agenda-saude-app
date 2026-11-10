@@ -209,8 +209,8 @@ class _EditorRemedio extends StatelessWidget {
             const SizedBox(height: 8),
             if (remedio.horarios.isEmpty)
               Text(
-                'Nenhum horário ainda. Toque em "Adicionar horário" e escolha '
-                'a hora no relógio.',
+                'Nenhum horário ainda. Toque no relógio abaixo e escolha a '
+                'hora.',
                 style: TextStyle(
                   fontSize: 16,
                   height: 1.35,
@@ -224,12 +224,19 @@ class _EditorRemedio extends StatelessWidget {
                   aoRemover: () => viewModel.removerHorario(remedio, horario),
                 ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: viewModel.podeAdicionarHorario(remedio)
-                  ? () => _escolherHorario(context, viewModel)
-                  : null,
-              icon: const Icon(Icons.schedule_rounded),
-              label: const Text('Adicionar horário'),
+            // So o icone (com tooltip para o leitor de tela), menor que o
+            // "Adicionar remédio", para os dois botoes nao se confundirem.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton.outlined(
+                onPressed: viewModel.podeAdicionarHorario(remedio)
+                    ? () => _escolherHorario(context, viewModel)
+                    : null,
+                tooltip: 'Adicionar horário',
+                iconSize: 28,
+                style: IconButton.styleFrom(minimumSize: const Size(56, 56)),
+                icon: const Icon(Icons.more_time_rounded),
+              ),
             ),
             if (!viewModel.podeAdicionarHorario(remedio)) ...[
               const SizedBox(height: 8),

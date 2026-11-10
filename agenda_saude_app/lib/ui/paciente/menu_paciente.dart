@@ -11,12 +11,13 @@ import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
 import 'paciente_viewmodel.dart';
 
 // Menu lateral do painel do paciente, aberto pelo botao "Menu". Guarda o que
-// o paciente usa pouco (codigo de vinculo, conexao do smartwatch,
-// compartilhamento da localizacao, lembretes, acessibilidade, sair) para o
-// painel ficar so com o BPM e os atalhos principais. Itens com 72dp de altura,
+// o paciente usa pouco (metas, personalizar a rotina, codigo de vinculo,
+// conexao do smartwatch, compartilhamento da localizacao, lembretes,
+// acessibilidade, sair) para o painel ficar so com o BPM e os atalhos principais. Itens com 72dp de altura,
 // icone 32 e texto 20, com uma linha de explicacao embaixo (NF004).
 class MenuPaciente extends StatelessWidget {
   final VoidCallback aoAbrirMetas;
+  final VoidCallback aoAbrirPersonalizarRotina;
   final VoidCallback aoAbrirCodigo;
   final VoidCallback aoAbrirSmartwatch;
   final VoidCallback aoAbrirLocalizacao;
@@ -27,6 +28,7 @@ class MenuPaciente extends StatelessWidget {
   const MenuPaciente({
     super.key,
     required this.aoAbrirMetas,
+    required this.aoAbrirPersonalizarRotina,
     required this.aoAbrirCodigo,
     required this.aoAbrirSmartwatch,
     required this.aoAbrirLocalizacao,
@@ -210,6 +212,12 @@ class MenuPaciente extends StatelessWidget {
               rotulo: 'Minhas metas',
               descricao: 'Água, passos, calorias e mais',
               aoTocar: () => _tocar(context, aoAbrirMetas),
+            ),
+            _ItemMenu(
+              icone: Icons.tune_rounded,
+              rotulo: 'Personalizar rotina',
+              descricao: 'Remédios, refeições e metas',
+              aoTocar: () => _tocar(context, aoAbrirPersonalizarRotina),
             ),
             _ItemMenu(
               icone: Icons.key_rounded,

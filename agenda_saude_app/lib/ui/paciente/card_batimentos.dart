@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_cores.dart';
+import '../sincronizacao/explicacao_batimentos.dart';
 
 // Destaque do painel do paciente com o BPM mais recente (Figura 13 do TCC:
 // "destaque absoluto para o componente numerico"). Numero em 76, coracao
 // num circulo e o horario da medicao, para o paciente saber se a leitura e
 // recente. O leitor de tela le "72 batimentos por minuto" em vez de "72 B P M".
+// Com [aoTocarComoFunciona], mostra embaixo o "Como funciona?", que explica
+// como os batimentos chegam do relogio.
 class CardBatimentos extends StatelessWidget {
   final int bpm;
   final DateTime medidoEm;
   final bool emAlerta;
+  final VoidCallback? aoTocarComoFunciona;
 
   const CardBatimentos({
     super.key,
     required this.bpm,
     required this.medidoEm,
     this.emAlerta = false,
+    this.aoTocarComoFunciona,
   });
 
   String _quando(DateTime agora) {
@@ -37,75 +42,90 @@ class CardBatimentos extends StatelessWidget {
         emAlerta ? AppCores.perigoContainer : colorScheme.primaryContainer;
     final quando = _quando(DateTime.now());
 
-    return Semantics(
-      container: true,
-      label: 'Seus batimentos: $bpm por minuto. $quando.',
-      child: ExcludeSemantics(
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-            child: Column(
-              children: [
-                Text(
-                  'Seus batimentos',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: fundoCoracao,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.favorite_rounded,
-                          size: 48,
-                          color: corCoracao,
-                        ),
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          24,
+          20,
+          aoTocarComoFunciona == null ? 24 : 12,
+        ),
+        child: Column(
+          children: [
+            // O leitor de tela ouve o destaque numa frase so; o "Como
+            // funciona?" fica de fora, como um botao a parte.
+            Semantics(
+              container: true,
+              label: 'Seus batimentos: $bpm por minuto. $quando.',
+              child: ExcludeSemantics(
+                child: Column(
+                  children: [
+                    Text(
+                      'Seus batimentos',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 20),
-                      Text(
-                        '$bpm',
-                        style: TextStyle(
-                          fontSize: 76,
-                          height: 1,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
+                    ),
+                    const SizedBox(height: 12),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: fundoCoracao,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.favorite_rounded,
+                              size: 48,
+                              color: corCoracao,
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Text(
+                            '$bpm',
+                            style: TextStyle(
+                              fontSize: 76,
+                              height: 1,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'BPM',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'BPM',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      quando,
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  quando,
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            if (aoTocarComoFunciona != null) ...[
+              const SizedBox(height: 8),
+              BotaoComoFunciona(aoTocar: aoTocarComoFunciona!),
+            ],
+          ],
         ),
       ),
     );
@@ -114,7 +134,8 @@ class CardBatimentos extends StatelessWidget {
 
 // Ocupa o lugar do BPM quando nao ha leitura para mostrar: smartwatch com
 // problema (mensagem + acao para resolver, com borda na cor do aviso) ou
-// ainda aguardando a primeira medicao.
+// ainda aguardando a primeira medicao. Com [aoTocarComoFunciona], mostra
+// embaixo o "Como funciona?", como o CardBatimentos.
 class CardSemBatimentos extends StatelessWidget {
   final IconData icone;
   final String titulo;
@@ -122,6 +143,7 @@ class CardSemBatimentos extends StatelessWidget {
   final Color cor;
   final Widget? acao;
   final bool destacarBorda;
+  final VoidCallback? aoTocarComoFunciona;
 
   const CardSemBatimentos({
     super.key,
@@ -131,6 +153,7 @@ class CardSemBatimentos extends StatelessWidget {
     required this.cor,
     this.acao,
     this.destacarBorda = false,
+    this.aoTocarComoFunciona,
   });
 
   @override
@@ -145,7 +168,12 @@ class CardSemBatimentos extends StatelessWidget {
             : BorderSide.none,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          aoTocarComoFunciona == null ? 24 : 12,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -183,6 +211,10 @@ class CardSemBatimentos extends StatelessWidget {
             if (acao != null) ...[
               const SizedBox(height: 20),
               acao!,
+            ],
+            if (aoTocarComoFunciona != null) ...[
+              const SizedBox(height: 12),
+              BotaoComoFunciona(aoTocar: aoTocarComoFunciona!),
             ],
           ],
         ),

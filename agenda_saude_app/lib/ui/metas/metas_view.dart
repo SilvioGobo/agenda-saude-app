@@ -13,9 +13,11 @@ import 'metas_viewmodel.dart';
 import 'recalcular_metas_view.dart';
 
 // "Minhas metas": o que o app calculou a partir da triagem - rotina do dia,
-// alimentacao e limites - com atalhos para ajustar a rotina e para atualizar
-// o peso. Logo depois da triagem ela abre em modo `aoContinuar` (sem
-// "Voltar"), para o paciente conferir as metas antes de ir ao painel.
+// alimentacao e limites - com atalho para atualizar o peso. Ajustar agua,
+// passos e exercicio fica em "Personalizar rotina", no menu lateral (aqui so
+// na primeira vez, quando o menu ainda nao existe). Logo depois da triagem ela
+// abre em modo `aoContinuar` (sem "Voltar"), para o paciente conferir as metas
+// antes de ir ao painel.
 class MetasView extends StatelessWidget {
   // Preenchido so na primeira vez, logo depois da triagem.
   final ValueChanged<Paciente>? aoContinuar;
@@ -66,7 +68,7 @@ class MetasView extends StatelessWidget {
                 ? () => aoContinuar!(viewModel.paciente)
                 : () => _abrir(context, const RecalcularMetasView()),
           ),
-          if (metas != null)
+          if (primeiraVez && metas != null)
             OutlinedButton.icon(
               onPressed: () => _abrir(context, const AjustarMetasView()),
               icon: const Icon(Icons.tune_rounded),

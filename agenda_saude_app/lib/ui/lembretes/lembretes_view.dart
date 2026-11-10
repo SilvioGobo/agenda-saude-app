@@ -353,8 +353,8 @@ class _Horarios extends StatelessWidget {
           ],
           if (temRemedio)
             Text(
-              'Para mudar o horário de um remédio, use "Meus remédios" na '
-              'Minha Rotina.',
+              'Para mudar o horário de um remédio, use "Personalizar rotina" '
+              'no menu.',
               style: TextStyle(
                 fontSize: 16,
                 height: 1.35,

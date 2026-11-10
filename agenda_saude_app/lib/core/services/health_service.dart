@@ -33,8 +33,8 @@ abstract class HealthService {
   Future<bool> solicitarPermissaoBpm();
 
   // Abre as configuracoes do Health Connect. Necessario quando o usuario ja
-  // negou a permissao e o Android nao mostra mais o pop-up.
-  Future<void> abrirConfiguracoesHealthConnect();
+  // negou a permissao e o Android nao mostra mais o pop-up. Retorna se abriu.
+  Future<bool> abrirConfiguracoesHealthConnect();
 
   // Leituras de BPM registradas entre [inicio] e [fim], da mais antiga para
   // a mais recente.
@@ -109,8 +109,8 @@ class HealthServiceImpl implements HealthService {
   }
 
   @override
-  Future<void> abrirConfiguracoesHealthConnect() async {
-    await _canal.invokeMethod<bool>('abrirConfiguracoes');
+  Future<bool> abrirConfiguracoesHealthConnect() async {
+    return await _canal.invokeMethod<bool>('abrirConfiguracoes') ?? false;
   }
 
   @override

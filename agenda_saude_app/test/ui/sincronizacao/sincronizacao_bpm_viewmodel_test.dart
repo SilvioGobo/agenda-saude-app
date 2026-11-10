@@ -456,6 +456,23 @@ void main() {
       viewModel.dispose();
     });
 
+    test('Deve abrir o Health Connect pela explicação sem mexer na sincronização',
+        () async {
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+
+      expect(await viewModel.abrirHealthConnect(), isTrue);
+
+      // Sem nenhuma tela que abra o Health Connect: avisa quem chamou, mas a
+      // leitura dos batimentos continua.
+      healthService.abreConfiguracoes = false;
+      expect(await viewModel.abrirHealthConnect(), isFalse);
+      expect(healthService.aberturasDasConfiguracoes, 2);
+      expect(viewModel.estado, EstadoSincronizacao.ativa);
+      expect(viewModel.mensagemErro, isNull);
+      viewModel.dispose();
+    });
+
     test('Não deve repetir ao abrir o app a emergência gerada com o app fechado',
         () async {
       // A leitura com o app fechado (B7) ja gravou o episodio e a emergencia.

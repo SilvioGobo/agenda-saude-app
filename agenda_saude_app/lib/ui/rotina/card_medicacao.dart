@@ -4,16 +4,13 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_cores.dart';
 import '../../domain/medicacao/dose_planejada.dart';
 import '../relatorios/formato_relatorios.dart';
-import '../shared/card_status.dart';
 import 'medicacao_viewmodel.dart';
-import 'meus_remedios_view.dart';
 
 // Cartao "Medicacoes" do checklist de rotina (RF003, Figura 14 do TCC): uma
 // linha por dose - um remedio num horario -, com uma caixa de selecao grande
 // que o paciente toca para marcar como tomada. Cada linha diz "Tomado as 08:10"
-// ou "Ainda nao tomado" em texto, alem do icone (nunca so a cor - NF004). O
-// botao "Meus remedios" abre a tela onde ele cadastra o nome, a dose e os
-// horarios de cada remedio.
+// ou "Ainda nao tomado" em texto, alem do icone (nunca so a cor - NF004). Os
+// remedios sao cadastrados em "Personalizar rotina", no menu lateral.
 class CardMedicacao extends StatelessWidget {
   const CardMedicacao({super.key});
 
@@ -51,8 +48,8 @@ class CardMedicacao extends StatelessWidget {
               )
             else if (doses.isEmpty)
               Text(
-                'Você ainda não cadastrou seus remédios. Toque em "Meus '
-                'remédios" para adicionar o nome, a dose e os horários.',
+                'Você ainda não cadastrou seus remédios. Cadastre em '
+                '"Personalizar rotina", no menu.',
                 style: TextStyle(
                   fontSize: 18,
                   height: 1.35,
@@ -67,14 +64,6 @@ class CardMedicacao extends StatelessWidget {
                   aoTocar: pronto ? () => viewModel.alternar(dose) : null,
                 ),
                 const SizedBox(height: 8),
-              ],
-              if (viewModel.todasTomadas) ...[
-                const SizedBox(height: 8),
-                const CardStatus(
-                  rotulo: 'REMÉDIOS DE HOJE TOMADOS',
-                  icone: Icons.check_circle_rounded,
-                  cor: AppCores.sucesso,
-                ),
               ],
             ],
             if (viewModel.mensagemErro != null) ...[
@@ -91,16 +80,6 @@ class CardMedicacao extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MeusRemediosView.comProviders(viewModel),
-                ),
-              ),
-              icon: const Icon(Icons.edit_rounded),
-              label: const Text('Meus remédios'),
-            ),
           ],
         ),
       ),

@@ -39,9 +39,13 @@ class FakeHealthService implements HealthService {
     return permissaoConcedida;
   }
 
+  // Simula o Android sem nenhuma tela que abra o Health Connect.
+  bool abreConfiguracoes = true;
+
   @override
-  Future<void> abrirConfiguracoesHealthConnect() async {
+  Future<bool> abrirConfiguracoesHealthConnect() async {
     aberturasDasConfiguracoes++;
+    return abreConfiguracoes;
   }
 
   @override

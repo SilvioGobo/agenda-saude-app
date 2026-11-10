@@ -79,9 +79,9 @@ void main() {
       await viewModel.iniciar();
       await montar(tester);
 
-      expect(find.text('Health Connect necessário'), findsOneWidget);
+      expect(find.text('Saúde Connect necessário'), findsOneWidget);
 
-      await tester.tap(find.text('Instalar Health Connect'));
+      await tester.tap(find.text('Instalar Saúde Connect'));
       await tester.pump();
 
       expect(healthService.aberturasDaLoja, 1);

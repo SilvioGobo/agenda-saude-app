@@ -129,7 +129,6 @@ void main() {
       expect(find.text('Exercício'), findsOneWidget);
       expect(find.text('Nenhum exercício hoje'), findsOneWidget);
       expect(find.text('Nesta semana: 0 de 150 min'), findsOneWidget);
-      expect(find.text('Faltam 150 min para a meta da semana.'), findsOneWidget);
       expect(find.text('Registrar exercício'), findsOneWidget);
       expect(find.text('Apagar'), findsNothing);
       expect(find.text('META DA SEMANA ATINGIDA'), findsNothing);
@@ -154,21 +153,19 @@ void main() {
       // O de segunda-feira conta na semana, mas nao aparece na lista de hoje.
       expect(find.text('40 min · Moderada'), findsNothing);
       expect(find.text('Nesta semana: 115 de 150 min'), findsOneWidget);
-      expect(find.text('Faltam 35 min para a meta da semana.'), findsOneWidget);
       expect(find.text('Apagar'), findsNWidgets(2));
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve avisar com texto e ícone quando a meta da semana é atingida', (
+    testWidgets('Deve mostrar a semana completa sem selo de meta', (
       tester,
     ) async {
       await registrar(DateTime(2026, 10, 26, 8, 0), 120);
       await registrar(DateTime(2026, 10, 28, 7, 0), 30);
       await montar(tester);
 
-      expect(find.text('META DA SEMANA ATINGIDA'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.text('META DA SEMANA ATINGIDA'), findsNothing);
       expect(find.textContaining('Faltam'), findsNothing);
       expect(find.text('Nesta semana: 150 de 150 min'), findsOneWidget);
 

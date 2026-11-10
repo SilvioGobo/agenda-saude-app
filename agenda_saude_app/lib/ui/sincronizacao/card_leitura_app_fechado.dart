@@ -28,9 +28,9 @@ class CardLeituraAppFechado extends StatelessWidget {
         situacao = !disponivel
             ? (
                 estado: 'NÃO FUNCIONA NESTE CELULAR',
-                explicacao: 'O Health Connect deste celular só deixa ler os '
+                explicacao: 'O Saúde Connect deste celular só deixa ler os '
                     'batimentos com o app aberto. Se aparecer uma atualização '
-                    'do Health Connect na Play Store, instale e volte aqui.',
+                    'do Saúde Connect na Play Store, instale e volte aqui.',
                 cor: colorScheme.onSurfaceVariant,
                 icone: Icons.phonelink_off_rounded,
               )

@@ -63,7 +63,7 @@ class CardTesteSegundoPlano extends StatelessWidget {
               const Center(child: CircularProgressIndicator())
             else ...[
               _Situacao(
-                rotulo: 'Recurso no Health Connect',
+                rotulo: 'Recurso no Saúde Connect',
                 valor: viewModel.disponivel,
                 sim: 'DISPONÍVEL',
                 nao: 'INDISPONÍVEL',

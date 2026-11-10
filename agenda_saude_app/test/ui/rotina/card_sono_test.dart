@@ -94,15 +94,13 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
 
-    testWidgets('Deve lembrar de registrar e dizer a meta quando ainda não há noite registrada', (
+    testWidgets('Deve lembrar de registrar quando ainda não há noite registrada', (
       tester,
     ) async {
       await montar(tester);
 
       expect(find.text('Sono'), findsOneWidget);
       expect(find.text('Ainda não registrado'), findsOneWidget);
-      expect(find.textContaining('A meta é de 7 a 9 horas por noite.'),
-          findsOneWidget);
       expect(find.text('Registrar sono'), findsOneWidget);
       expect(find.text('Corrigir o sono de hoje'), findsNothing);
       expect(find.text('META DE SONO ATINGIDA'), findsNothing);
@@ -111,7 +109,7 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Deve mostrar a noite registrada, a qualidade e a meta atingida', (
+    testWidgets('Deve mostrar a noite registrada e a qualidade', (
       tester,
     ) async {
       await registrarSono(7.5, 4);
@@ -119,15 +117,14 @@ void main() {
 
       expect(find.text('7 h 30 min'), findsOneWidget);
       expect(find.text('Qualidade: Bom (4 de 5)'), findsOneWidget);
-      expect(find.text('Meta: 7 a 9 horas por noite.'), findsOneWidget);
-      expect(find.text('META DE SONO ATINGIDA'), findsOneWidget);
+      expect(find.text('META DE SONO ATINGIDA'), findsNothing);
       expect(find.text('Corrigir o sono de hoje'), findsOneWidget);
       expect(find.text('Registrar sono'), findsNothing);
 
       await desmontar(tester);
     });
 
-    testWidgets('Deve avisar com texto e ícone quando dormiu menos que a meta', (
+    testWidgets('Deve mostrar a noite curta sem selo de meta', (
       tester,
     ) async {
       await registrarSono(5.5, 2);
@@ -135,9 +132,7 @@ void main() {
 
       expect(find.text('5 h 30 min'), findsOneWidget);
       expect(find.text('Qualidade: Ruim (2 de 5)'), findsOneWidget);
-      expect(find.text('ABAIXO DA META DE SONO'), findsOneWidget);
-      expect(find.byIcon(Icons.info_rounded), findsOneWidget);
-      expect(find.text('META DE SONO ATINGIDA'), findsNothing);
+      expect(find.text('ABAIXO DA META DE SONO'), findsNothing);
 
       await desmontar(tester);
     });

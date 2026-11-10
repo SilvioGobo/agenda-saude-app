@@ -126,12 +126,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(campo('Nome do remédio'), 'Losartana');
       await tester.enterText(campo('Dose (opcional)'), '50 mg');
-      await tester.tap(find.text('Adicionar horário'));
+      await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
       expect(find.text('HORÁRIO DO REMÉDIO'), findsOneWidget);
       await escolherNoSeletorDeHorario(tester, hora: 20, minuto: 0);
       // O relogio abre nas 08:00: para esse horario, basta confirmar.
-      await tester.tap(find.text('Adicionar horário'));
+      await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
       await tester.tap(noRelogio('OK'));
       await tester.pumpAndSettle();
@@ -161,7 +161,7 @@ void main() {
     ) async {
       await abrir(tester, atual: const [_losartana]);
 
-      await tester.tap(find.text('Adicionar horário'));
+      await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
       await tester.tap(noRelogio('Cancelar'));
       await tester.pumpAndSettle();
@@ -175,7 +175,7 @@ void main() {
     testWidgets('Deve recusar um horário repetido', (tester) async {
       await abrir(tester, atual: const [_losartana]);
 
-      await tester.tap(find.text('Adicionar horário'));
+      await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
       await tester.tap(noRelogio('OK'));
       await tester.pumpAndSettle();
@@ -200,7 +200,7 @@ void main() {
           findsOneWidget);
 
       // O botao fica desligado: tocar nao abre o relogio.
-      await tester.tap(find.text('Adicionar horário'));
+      await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
       expect(find.byType(TimePickerDialog), findsNothing);
     });
@@ -232,7 +232,7 @@ void main() {
 
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Adicionar horário'));
+      await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
       await tester.tap(noRelogio('OK'));
       await tester.pumpAndSettle();
