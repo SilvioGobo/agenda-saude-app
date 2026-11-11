@@ -14,10 +14,14 @@
          que tocam com o app fechado. RECEIVE_BOOT_COMPLETED deixa o plugin
          reagendar os avisos quando o celular reinicia. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <!-- No Android 12 ou mais novo o aviso so toca na hora exata se o usuario
-         permitir "Alarmes e lembretes" para o app (o app pede, pela tela de
-         lembretes). Sem isso o aviso cai no modo aproximado e pode atrasar. -->
+    <!-- Lembrete de remedio tem de tocar na hora: no modo aproximado o Android
+         pode atrasar o aviso ate 1 hora (aconteceu: marcado para 12:51, tocou
+         as 13:51). No Android 13 ou mais novo a USE_EXACT_ALARM vem concedida
+         na instalacao, sem pedir nada ao paciente. No Android 12 vale a
+         SCHEDULE_EXACT_ALARM, que o sistema da por padrao; se o paciente a
+         tirar em "Alarmes e lembretes", a tela de lembretes pede de novo. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 
     <application
         android:label="agenda_saude_app"

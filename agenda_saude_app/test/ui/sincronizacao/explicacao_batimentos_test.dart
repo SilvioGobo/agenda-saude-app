@@ -2,15 +2,19 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:agenda_saude_app/core/services/health_service.dart';
 import 'package:agenda_saude_app/data/repositories/dados_repository.dart';
+import 'package:agenda_saude_app/data/repositories/preferencias_repository.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
+import 'package:agenda_saude_app/ui/configuracoes/configuracoes_viewmodel.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/card_smartwatch.dart';
 import 'package:agenda_saude_app/ui/sincronizacao/sincronizacao_bpm_viewmodel.dart';
 
 import '../../core/services/fake_health_service.dart';
 import '../../core/services/fake_leitura_segundo_plano_service.dart';
+import '../../core/services/fake_tts_service.dart';
 
 void main() {
   group('Explicação dos batimentos Testes', () {
@@ -44,6 +48,8 @@ void main() {
     Future<void> abrirExplicacao(
       WidgetTester tester, {
       double escalaTexto = 1,
+      // O narrador do app, como na tela "Meu smartwatch" aberta pelo menu.
+      ConfiguracoesViewModel? narrador,
     }) async {
       await viewModel.iniciar();
       await tester.pumpWidget(
@@ -56,9 +62,12 @@ void main() {
             child: child!,
           ),
           home: Scaffold(
-            body: ChangeNotifierProvider.value(
-              value: viewModel,
-              child: ListView(children: const [CardSmartwatch()]),
+            body: ChangeNotifierProvider<ConfiguracoesViewModel?>.value(
+              value: narrador,
+              child: ChangeNotifierProvider.value(
+                value: viewModel,
+                child: ListView(children: const [CardSmartwatch()]),
+              ),
             ),
           ),
         ),
@@ -92,6 +101,37 @@ void main() {
       await tocar(tester, 'Fechar');
 
       expect(find.text('Como o app recebe seus batimentos'), findsNothing);
+      viewModel.dispose();
+    });
+
+    testWidgets('Deve ler a explicação em voz alta com o narrador ligado', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'narrador.ligado': true});
+      final tts = FakeTtsService();
+      final narrador = ConfiguracoesViewModel(
+        preferencias: PreferenciasRepository(),
+        ttsService: tts,
+      );
+      await narrador.carregar();
+      await abrirExplicacao(tester, narrador: narrador);
+
+      await tocar(tester, 'Ouvir esta tela');
+
+      expect(
+        tts.faladas.single,
+        startsWith('O Agenda Saúde não se liga direto no relógio.'),
+      );
+      viewModel.dispose();
+    });
+
+    testWidgets('Não deve mostrar "Ouvir esta tela" sem o narrador ligado', (
+      tester,
+    ) async {
+      await abrirExplicacao(tester);
+
+      expect(find.text('Como o app recebe seus batimentos'), findsOneWidget);
+      expect(find.text('Ouvir esta tela'), findsNothing);
       viewModel.dispose();
     });
 

@@ -6,10 +6,12 @@ import '../../domain/models/paciente.dart';
 import '../shared/barra_acoes.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
+import '../shared/botao_ouvir_tela.dart';
 import '../shared/titulo_tela.dart';
 import 'ajustar_metas_view.dart';
 import 'formato_metas.dart';
 import 'metas_viewmodel.dart';
+import 'narracao_das_metas.dart';
 import 'recalcular_metas_view.dart';
 
 // "Minhas metas": o que o app calculou a partir da triagem - rotina do dia,
@@ -96,6 +98,13 @@ class MetasView extends StatelessWidget {
                   : 'Calculamos com base nos seus dados de saúde.',
             ),
             const SizedBox(height: 24),
+            BotaoOuvirTela(
+              texto: () => narrarMetas(
+                metas: viewModel.metas,
+                limiteLiquidoMl: viewModel.paciente.limiteLiquidoMl,
+                primeiraVez: primeiraVez,
+              ),
+            ),
             if (metas != null) ...[
               _AvisoSugestao(
                 limiteLiquidoMl: viewModel.paciente.limiteLiquidoMl,

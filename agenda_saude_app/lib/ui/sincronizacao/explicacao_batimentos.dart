@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/services/health_service.dart';
 import '../../core/theme/app_cores.dart';
+import '../configuracoes/configuracoes_viewmodel.dart';
+import '../shared/botao_ouvir_tela.dart';
+import 'narracao_da_explicacao.dart';
 import 'sincronizacao_bpm_viewmodel.dart';
 
 // Botao "Como funciona?" do destaque dos batimentos no painel e do card de
@@ -39,21 +43,30 @@ class BotaoComoFunciona extends StatelessWidget {
 // "Health Connect", e a explicacao cita os tres). O botao de abrir so aparece
 // com o Health Connect no aparelho: sem ele, o proprio card ja oferece
 // instalar.
+//
+// A folha abre numa rota nova, que nao herda os providers da tela: o narrador
+// vai junto (como no `rotaComNarrador`), para o "Ouvir esta tela" dela.
 Future<void> mostrarExplicacaoBatimentos(
   BuildContext context,
   SincronizacaoBpmViewModel viewModel,
 ) {
+  final narrador = Provider.of<ConfiguracoesViewModel?>(context, listen: false);
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,
-    builder: (_) => _ExplicacaoBatimentos(
-      abrirSaudeConnect:
-          viewModel.statusHealthConnect == StatusHealthConnect.disponivel
-              ? viewModel.abrirHealthConnect
-              : null,
-    ),
+    builder: (_) {
+      final explicacao = _ExplicacaoBatimentos(
+        abrirSaudeConnect:
+            viewModel.statusHealthConnect == StatusHealthConnect.disponivel
+                ? viewModel.abrirHealthConnect
+                : null,
+      );
+      return narrador == null
+          ? explicacao
+          : ChangeNotifierProvider.value(value: narrador, child: explicacao);
+    },
   );
 }
 
@@ -97,6 +110,7 @@ class _ExplicacaoBatimentosState extends State<_ExplicacaoBatimentos> {
               ),
             ),
             const SizedBox(height: 12),
+            const BotaoOuvirTela(texto: narrarExplicacaoBatimentos),
             Text(
               'O Agenda Saúde não se liga direto no relógio. Os batimentos '
               'fazem este caminho:',

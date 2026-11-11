@@ -408,8 +408,11 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    Os ids vêm de um hash estável (`idDaNotificacao`) e o payload começa com `lembrete:`; os
    dias seguintes entram a cada abertura, registro ou mudança nos remédios e o plugin
    reagenda sozinho ao reiniciar o celular. O horário vira um instante em UTC (`tz.UTC`),
-   então não depende do fuso do aparelho. O Android 12+ pede `SCHEDULE_EXACT_ALARM`: sem
-   ele o aviso cai no modo aproximado (ainda toca, pode atrasar) e a tela oferece o botão.
+   então não depende do fuso do aparelho. Sem alarme exato o aviso cai no modo aproximado,
+   e nele o Android pode atrasar **até 1 hora** (visto num celular real: 12:51 tocou às
+   13:51, o que parecia erro de fuso). Por isso o app declara `USE_EXACT_ALARM`, que o
+   Android 13+ concede na instalação; no Android 12 vale a `SCHEDULE_EXACT_ALARM` (dada
+   por padrão) e, se o paciente a tirar, a tela de lembretes oferece o botão.
    Sair da conta cancela os avisos. Conferido num emulador Android 16: toca com o processo
    morto, não toca o que já foi registrado e some da bandeja ao registrar (lido de
    `adb shell dumpsys alarm` e `dumpsys notification`). Falta sugerir/gerar os alimentos

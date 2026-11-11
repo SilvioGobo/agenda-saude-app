@@ -2,12 +2,17 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
+import 'package:agenda_saude_app/data/repositories/preferencias_repository.dart';
 import 'package:agenda_saude_app/domain/metas/calculadora_metas.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/metas/metas_view.dart';
 import 'package:agenda_saude_app/ui/metas/metas_viewmodel.dart';
+import 'package:agenda_saude_app/ui/configuracoes/configuracoes_viewmodel.dart';
+
+import '../../core/services/fake_tts_service.dart';
 
 void main() {
   group('MetasView Testes', () {
@@ -63,6 +68,8 @@ void main() {
       bool primeiraVez = false,
       double escalaTexto = 1,
       Size tamanhoTela = const Size(800, 3200),
+      // O narrador do app, como quando a tela abre pelo menu do painel.
+      ConfiguracoesViewModel? narrador,
     }) async {
       tester.view.physicalSize = tamanhoTela;
       tester.view.devicePixelRatio = 1;
@@ -76,15 +83,18 @@ void main() {
             ).copyWith(textScaler: TextScaler.linear(escalaTexto)),
             child: child!,
           ),
-          home: ChangeNotifierProvider(
-            create: (_) => MetasViewModel(
-              paciente: paciente,
-              pacienteRepository: repositorio,
-              aoAtualizar: atualizacoes.add,
-              agora: () => hoje,
-            ),
-            child: MetasView(
-              aoContinuar: primeiraVez ? continuacoes.add : null,
+          home: ChangeNotifierProvider<ConfiguracoesViewModel?>.value(
+            value: narrador,
+            child: ChangeNotifierProvider(
+              create: (_) => MetasViewModel(
+                paciente: paciente,
+                pacienteRepository: repositorio,
+                aoAtualizar: atualizacoes.add,
+                agora: () => hoje,
+              ),
+              child: MetasView(
+                aoContinuar: primeiraVez ? continuacoes.add : null,
+              ),
             ),
           ),
         ),
@@ -173,6 +183,33 @@ void main() {
         expect(continuacoes.single.metas!.calorias, 1270);
       },
     );
+
+    testWidgets('Deve ler as metas em voz alta pelo "Ouvir esta tela"', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'narrador.ligado': true});
+      final tts = FakeTtsService();
+      final narrador = ConfiguracoesViewModel(
+        preferencias: PreferenciasRepository(),
+        ttsService: tts,
+      );
+      await narrador.carregar();
+      await montar(tester, await criarPaciente(), narrador: narrador);
+
+      await tester.tap(find.text('Ouvir esta tela'));
+      await tester.pump();
+
+      expect(tts.faladas.single, contains('Beber 7 copos de água.'));
+      expect(tts.faladas.single, contains('Andar 4000 passos.'));
+    });
+
+    testWidgets('Não deve mostrar "Ouvir esta tela" com o narrador desligado', (
+      tester,
+    ) async {
+      await montar(tester, await criarPaciente());
+
+      expect(find.text('Ouvir esta tela'), findsNothing);
+    });
 
     testWidgets(
       'Sem metas calculadas, deve explicar e só oferecer a atualização do peso',

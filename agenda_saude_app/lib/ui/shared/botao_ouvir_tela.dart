@@ -21,7 +21,8 @@ import '../configuracoes/configuracoes_viewmodel.dart';
 //
 // Enquanto a voz fala, o botao vira "Parar de ouvir". A leitura para sozinha
 // quando a tela sai da frente (volta, ou outra tela abre por cima), mas so se
-// foi este botao que a comecou: nao corta, por exemplo, o "Testar voz".
+// foi este botao que a comecou: nao corta, por exemplo, o "Testar voz". Rolar
+// a tela nao para a leitura, mesmo com o botao fora de vista.
 //
 // Fica logo abaixo do titulo da tela e traz o seu proprio espaco embaixo, para
 // nao deixar um buraco quando esta escondido.
@@ -49,10 +50,17 @@ class BotaoOuvirTela extends StatefulWidget {
   State<BotaoOuvirTela> createState() => _BotaoOuvirTelaState();
 }
 
-class _BotaoOuvirTelaState extends State<BotaoOuvirTela> {
+class _BotaoOuvirTelaState extends State<BotaoOuvirTela>
+    with AutomaticKeepAliveClientMixin {
   ConfiguracoesViewModel? _narrador;
   // Foi este botao que pediu a fala em andamento.
   bool _minhaFala = false;
+
+  // Numa lista (ListView), o item que rola para fora da tela sai da arvore, e
+  // sair da arvore corta a leitura (`dispose`). Enquanto a fala e deste botao,
+  // ele pede para a lista o manter vivo: rolar a tela nao para a voz.
+  @override
+  bool get wantKeepAlive => _minhaFala;
 
   @override
   void initState() {
@@ -86,7 +94,9 @@ class _BotaoOuvirTelaState extends State<BotaoOuvirTela> {
   void _aoMudarNarrador() {
     // A voz acabou (ou foi cortada): a fala deixa de ser deste botao.
     if (!(_narrador?.falando ?? false)) _minhaFala = false;
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    updateKeepAlive();
+    setState(() {});
   }
 
   void _pararSeForMinha() {
@@ -102,8 +112,12 @@ class _BotaoOuvirTelaState extends State<BotaoOuvirTela> {
   // ou a voz do sistema recusou).
   Future<bool> _ler(ConfiguracoesViewModel narrador) async {
     _minhaFala = true;
+    updateKeepAlive();
     final falou = await narrador.ouvir(widget.texto());
-    if (!falou) _minhaFala = false;
+    if (!falou) {
+      _minhaFala = false;
+      if (mounted) updateKeepAlive();
+    }
     return falou;
   }
 
@@ -125,6 +139,7 @@ class _BotaoOuvirTelaState extends State<BotaoOuvirTela> {
     // Segundo toque enquanto fala: parar.
     if (_minhaFala && narrador.falando) {
       _minhaFala = false;
+      updateKeepAlive();
       await narrador.pararDeOuvir();
       return;
     }
@@ -148,6 +163,7 @@ class _BotaoOuvirTelaState extends State<BotaoOuvirTela> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final narrador = _narrador;
     if (narrador == null ||
         !narrador.suportado ||
