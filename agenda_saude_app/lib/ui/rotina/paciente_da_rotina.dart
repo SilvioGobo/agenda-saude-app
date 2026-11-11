@@ -29,4 +29,10 @@ class PacienteDaRotina {
     _atual = _atual.copyWith(medicamentos: novo.medicamentos);
     _aoAtualizar?.call(_atual);
   }
+
+  // O paciente ajustou as metas de agua, passos ou exercicio.
+  void metasMudaram(Paciente novo) {
+    _atual = _atual.copyWith(metas: novo.metas);
+    _aoAtualizar?.call(_atual);
+  }
 }

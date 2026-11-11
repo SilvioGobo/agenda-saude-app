@@ -3,16 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/refeicao_planejada.dart';
-import '../shared/card_status.dart';
 import 'formato_nutrientes.dart';
-import 'personalizar_refeicoes_view.dart';
 import 'refeicoes_viewmodel.dart';
 import 'resumo_nutricional.dart';
 
 // Cartao "Refeicoes" do checklist de rotina (RF03.4): uma linha grande por
 // refeicao do plano, que o paciente toca para marcar como feita. Ele nao
 // precisa descrever o que comeu - os alimentos que aparecem sao os que ele mesmo
-// cadastrou em "Personalizar refeicoes", e deles saem as calorias e os
+// cadastrou em "Personalizar rotina" (menu lateral), e deles saem as calorias e os
 // nutrientes do dia. Cada linha diz "Feito" ou "Ainda nao feito" em texto,
 // alem do icone (nunca so a cor ou o icone - NF004).
 class CardRefeicoes extends StatelessWidget {
@@ -48,8 +46,8 @@ class CardRefeicoes extends StatelessWidget {
               )
             else if (viewModel.refeicoes.isEmpty)
               Text(
-                'Você ainda não tem refeições. Toque em "Personalizar '
-                'refeições" para adicionar.',
+                'Você ainda não tem refeições. Cadastre em "Personalizar '
+                'rotina", no menu.',
                 style: TextStyle(
                   fontSize: 18,
                   height: 1.35,
@@ -68,31 +66,12 @@ class CardRefeicoes extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
-              if (viewModel.todasFeitas) ...[
-                const SizedBox(height: 8),
-                const CardStatus(
-                  rotulo: 'REFEIÇÕES DE HOJE FEITAS',
-                  icone: Icons.check_circle_rounded,
-                  cor: AppCores.sucesso,
-                ),
-              ],
               if (pronto && viewModel.temAlimentos) ...[
                 const SizedBox(height: 16),
                 ResumoNutricional(
                   titulo: 'O que você já comeu hoje',
                   nutrientes: viewModel.nutrientesConsumidos,
                   metas: viewModel.metas,
-                ),
-              ] else if (pronto) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Cadastre os alimentos de cada refeição em "Personalizar '
-                  'refeições" para ver as calorias e os nutrientes do dia.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.35,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
                 ),
               ],
             ],
@@ -110,17 +89,6 @@ class CardRefeicoes extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      PersonalizarRefeicoesView.comProviders(viewModel),
-                ),
-              ),
-              icon: const Icon(Icons.edit_rounded),
-              label: const Text('Personalizar refeições'),
-            ),
           ],
         ),
       ),

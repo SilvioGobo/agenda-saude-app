@@ -274,7 +274,7 @@ void main() {
         expect(find.text('Ontem'), findsOneWidget);
         expect(find.text('Mês'), findsOneWidget);
         expect(find.text('Quinta-feira, 19 de novembro'), findsOneWidget);
-        expect(find.text('Resumo da rotina do dia de ontem'), findsOneWidget);
+        expect(find.text('Resumo da rotina do dia de ontem'), findsNothing);
       });
 
       testWidgets('Deve falar do paciente pelo nome quando quem abre é o acompanhante', (tester) async {

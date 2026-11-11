@@ -194,6 +194,8 @@ void main() {
       expect(find.text('Menu'), findsOneWidget);
       expect(find.text('Minha Rotina'), findsOneWidget);
       expect(find.text('Meus Relatórios'), findsOneWidget);
+      // O ultimo atalho fica abaixo da dobra na tela do teste (800x600).
+      await tester.scrollUntilVisible(find.text('Falar com Acompanhante'), 200);
       expect(find.text('Falar com Acompanhante'), findsOneWidget);
       expect(find.text('ABC123'), findsNothing);
       expect(find.text('Smartwatch conectado'), findsNothing);
@@ -310,6 +312,33 @@ void main() {
       expect(find.text('ESTÁVEL'), findsNothing);
     });
 
+    testWidgets('Deve explicar como os batimentos chegam pelo "Como funciona?" do destaque',
+        (tester) async {
+      await salvarBatimento(72);
+      await montar(tester);
+
+      expect(find.text('72'), findsOneWidget);
+      await tester.ensureVisible(find.text('Como funciona?'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Como funciona?'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Como o app recebe seus batimentos'), findsOneWidget);
+      expect(find.text('Onde fica o Saúde Connect'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve oferecer o "Como funciona?" também enquanto aguarda a primeira medição',
+        (tester) async {
+      await montar(tester);
+
+      expect(find.text('Aguardando medição'), findsOneWidget);
+      expect(find.text('Como funciona?'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
     testWidgets('Não deve estourar o layout com a fonte do celular em 200%',
         (tester) async {
       // Celular pequeno (360x640) com a fonte no maximo: qualquer overflow
@@ -401,6 +430,7 @@ void main() {
 
     testWidgets('Deve ligar o compartilhamento da localização pelo menu',
         (tester) async {
+      menuAlto(tester);
       await montar(tester);
 
       await tester.tap(find.text('Menu'));
@@ -793,6 +823,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Olá, José'), findsOneWidget);
+
+      await desmontar(tester);
+    });
+
+    testWidgets('Deve oferecer Personalizar rotina no menu', (tester) async {
+      menuAlto(tester);
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Personalizar rotina'), findsOneWidget);
+      expect(find.text('Remédios, refeições e metas'), findsOneWidget);
 
       await desmontar(tester);
     });

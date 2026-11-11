@@ -210,6 +210,51 @@ class _EditorRefeicao extends StatelessWidget {
               onChanged: (valor) => viewModel.definirNome(refeicao, valor),
             ),
             const SizedBox(height: 16),
+            // O "+" verde de adicionar fica ao lado de "ALIMENTOS", como o
+            // relogio dos "HORÁRIOS" em "Meus remédios": so o icone (o tooltip
+            // da o nome ao leitor de tela), para nao se confundir com o
+            // "Adicionar refeição".
+            Row(
+              children: [
+                Flexible(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      'ALIMENTOS',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IconButton.filled(
+                  onPressed:
+                      viewModel.podeEscolherAlimentos &&
+                          viewModel.podeAdicionarAlimento(refeicao)
+                      ? () => _escolherAlimento(context, viewModel)
+                      : null,
+                  tooltip: 'Adicionar alimento',
+                  iconSize: 28,
+                  style: IconButton.styleFrom(minimumSize: const Size(56, 56)),
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (refeicao.itens.isEmpty)
+              Text(
+                'Nenhum alimento ainda. Toque no + ao lado de ALIMENTOS e '
+                'escolha no catálogo.',
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 1.35,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
             for (final item in refeicao.itens) ...[
               // A chave evita que, ao tirar um alimento do meio, o campo de
               // quantidade do vizinho herde o texto do que saiu.
@@ -220,17 +265,7 @@ class _EditorRefeicao extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-            OutlinedButton.icon(
-              onPressed:
-                  viewModel.podeEscolherAlimentos &&
-                      viewModel.podeAdicionarAlimento(refeicao)
-                  ? () => _escolherAlimento(context, viewModel)
-                  : null,
-              icon: const Icon(Icons.search_rounded),
-              label: const Text('Adicionar alimento'),
-            ),
             if (refeicao.itens.isNotEmpty) ...[
-              const SizedBox(height: 12),
               Semantics(
                 container: true,
                 child: Text(

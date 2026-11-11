@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
 import '../../domain/models/registro_exercicio.dart';
-import '../shared/card_status.dart';
 import '../shared/dialogo_confirmacao.dart';
 import 'exercicio_viewmodel.dart';
 import 'formato_exercicio.dart';
@@ -82,24 +81,7 @@ class CardExercicio extends StatelessWidget {
                 ),
               )
             else if (pronto) ...[
-              if (viewModel.metaAtingida)
-                const CardStatus(
-                  rotulo: 'META DA SEMANA ATINGIDA',
-                  icone: Icons.check_circle_rounded,
-                  cor: AppCores.sucesso,
-                )
-              else
-                Text(
-                  'Faltam ${viewModel.minutosQueFaltam} min para a meta da '
-                  'semana.',
-                  style: TextStyle(
-                    fontSize: 18,
-                    height: 1.35,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
               if (viewModel.fezExercicioHoje) ...[
-                const SizedBox(height: 16),
                 for (final registro in viewModel.registrosDeHoje) ...[
                   _LinhaDeExercicio(
                     registro: registro,

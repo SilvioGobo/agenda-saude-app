@@ -12,6 +12,7 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 import 'package:agenda_saude_app/domain/models/registro_refeicao.dart';
 import 'package:agenda_saude_app/ui/rotina/card_refeicoes.dart';
+import 'package:agenda_saude_app/ui/rotina/personalizar_refeicoes_view.dart';
 import 'package:agenda_saude_app/ui/rotina/refeicoes_viewmodel.dart';
 
 import '../../helpers/catalogo_de_teste.dart';
@@ -101,10 +102,29 @@ void main() {
               aoAtualizarPaciente: atualizacoes.add,
               agora: () => hoje,
             ),
-            child: const Scaffold(
-              body: SingleChildScrollView(
-                padding: EdgeInsets.all(24),
-                child: CardRefeicoes(),
+            // O editor abre pelo "Personalizar rotina"; aqui um botao faz o
+            // papel dele, com o mesmo RefeicoesViewModel do cartao.
+            child: Builder(
+              builder: (context) => Scaffold(
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                PersonalizarRefeicoesView.comProviders(
+                              context.read<RefeicoesViewModel>(),
+                            ),
+                          ),
+                        ),
+                        child: const Text('Personalizar refeições'),
+                      ),
+                      const CardRefeicoes(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -141,7 +161,7 @@ void main() {
       required String busca,
       required String nome,
     }) async {
-      final botao = find.text('Adicionar alimento').at(refeicao);
+      final botao = find.byTooltip('Adicionar alimento').at(refeicao);
       await tester.ensureVisible(botao);
       await tester.tap(botao);
       await tester.pumpAndSettle();
@@ -182,7 +202,15 @@ void main() {
       expect(find.text('Café da manhã'), findsOneWidget);
       expect(find.text('Almoço'), findsOneWidget);
       expect(find.text('Jantar'), findsOneWidget);
-      expect(find.text('Adicionar alimento'), findsNWidgets(4));
+      // So o "+" ao lado de ALIMENTOS, sem texto: nao se confunde com o
+      // "Adicionar refeição".
+      expect(find.byTooltip('Adicionar alimento'), findsNWidgets(4));
+      expect(find.text('Adicionar alimento'), findsNothing);
+      final titulo = tester.getCenter(find.text('ALIMENTOS').first);
+      final mais = tester.getCenter(find.byTooltip('Adicionar alimento').first);
+      expect((mais.dy - titulo.dy).abs(), lessThan(4));
+      // Sem alimentos, a refeicao explica onde tocar.
+      expect(find.textContaining('Nenhum alimento ainda'), findsWidgets);
       expect(find.text('Remover refeição'), findsNWidgets(4));
       expect(find.text('Adicionar refeição'), findsOneWidget);
       expect(find.text('Voltar ao padrão'), findsOneWidget);
@@ -418,10 +446,10 @@ void main() {
           find.textContaining('A lista de alimentos não está disponível agora'),
           findsOneWidget,
         );
-        final botao = tester.widget<OutlinedButton>(
+        final botao = tester.widget<IconButton>(
           find.ancestor(
-            of: find.text('Adicionar alimento').first,
-            matching: find.bySubtype<OutlinedButton>(),
+            of: find.byTooltip('Adicionar alimento').first,
+            matching: find.byType(IconButton),
           ),
         );
         expect(botao.onPressed, isNull);

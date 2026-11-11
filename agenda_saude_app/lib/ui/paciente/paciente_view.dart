@@ -16,6 +16,7 @@ import '../localizacao/compartilhamento_localizacao_viewmodel.dart';
 import '../localizacao/minha_localizacao_view.dart';
 import '../metas/metas_view.dart';
 import '../relatorios/relatorios_view.dart';
+import '../rotina/personalizar_rotina_view.dart';
 import '../rotina/rotina_view.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
@@ -26,6 +27,7 @@ import '../shared/dialogo_confirmacao.dart';
 import '../shared/rota_com_narrador.dart';
 import '../shared/titulo_tela.dart';
 import '../sincronizacao/card_smartwatch.dart';
+import '../sincronizacao/explicacao_batimentos.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
 import '../sincronizacao/smartwatch_view.dart';
 import 'card_batimentos.dart';
@@ -140,6 +142,17 @@ class PacienteView extends StatelessWidget {
     );
   }
 
+  void _abrirPersonalizarRotina(BuildContext context) {
+    final viewModel = context.read<PacienteViewModel>();
+    _abrir(
+      context,
+      PersonalizarRotinaView.comProviders(
+        viewModel.paciente,
+        aoAtualizarPaciente: viewModel.atualizarPaciente,
+      ),
+    );
+  }
+
   void _falarComAcompanhante(BuildContext context) {
     _abrir(
       context,
@@ -233,13 +246,15 @@ class PacienteView extends StatelessWidget {
 
   // O que aparece no lugar de destaque: o problema do smartwatch (que deixa
   // o BPM desatualizado), a espera pela primeira medicao ou o BPM com o
-  // status da zona de seguranca logo abaixo.
+  // status da zona de seguranca logo abaixo. Os tres com o "Como funciona?",
+  // que explica como os batimentos chegam do relogio.
   List<Widget> _destaque(BuildContext context) {
     final viewModel = context.watch<PacienteViewModel>();
     final sincronizacao = context.watch<SincronizacaoBpmViewModel>();
     final smartwatch = InfoSmartwatch.de(context, sincronizacao);
     final batimento = viewModel.ultimoBatimento;
     final colorScheme = Theme.of(context).colorScheme;
+    void comoFunciona() => mostrarExplicacaoBatimentos(context, sincronizacao);
 
     if (smartwatch.temProblema) {
       return [
@@ -250,6 +265,7 @@ class PacienteView extends StatelessWidget {
           cor: smartwatch.cor,
           acao: smartwatch.acao,
           destacarBorda: true,
+          aoTocarComoFunciona: comoFunciona,
         ),
       ];
     }
@@ -266,6 +282,7 @@ class PacienteView extends StatelessWidget {
           descricao: 'Use o smartwatch no pulso. Seus batimentos aparecem '
               'aqui assim que ele medir.',
           cor: colorScheme.primary,
+          aoTocarComoFunciona: comoFunciona,
         ),
       ];
     }
@@ -279,6 +296,7 @@ class PacienteView extends StatelessWidget {
         bpm: batimento.bpm,
         medidoEm: batimento.timestamp,
         emAlerta: emAlerta,
+        aoTocarComoFunciona: comoFunciona,
       ),
       const SizedBox(height: 16),
       if (status == StatusCardiaco.alto)
@@ -316,6 +334,7 @@ class PacienteView extends StatelessWidget {
       drawerEnableOpenDragGesture: false,
       drawer: MenuPaciente(
         aoAbrirMetas: () => _abrirMinhasMetas(context),
+        aoAbrirPersonalizarRotina: () => _abrirPersonalizarRotina(context),
         aoAbrirCodigo: () => _abrir(
           context,
           CodigoVinculoView(codigo: viewModel.paciente.codigoVinculo),

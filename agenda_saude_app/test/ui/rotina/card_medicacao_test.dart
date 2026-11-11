@@ -12,6 +12,7 @@ import 'package:agenda_saude_app/domain/models/registro_medicacao.dart';
 import 'package:agenda_saude_app/ui/acompanhante/formato_status_paciente.dart';
 import 'package:agenda_saude_app/ui/rotina/card_medicacao.dart';
 import 'package:agenda_saude_app/ui/rotina/medicacao_viewmodel.dart';
+import 'package:agenda_saude_app/ui/rotina/meus_remedios_view.dart';
 
 import '../shared/escolher_horario.dart';
 
@@ -101,10 +102,28 @@ void main() {
               pacienteRepository: PacienteRepository(firestore: fakeFirestore),
               agora: () => hoje,
             ),
-            child: const Scaffold(
-              body: SingleChildScrollView(
-                padding: EdgeInsets.all(24),
-                child: CardMedicacao(),
+            // "Meus remedios" abre pelo "Personalizar rotina"; aqui um botao
+            // faz o papel dele, com o mesmo MedicacaoViewModel do cartao.
+            child: Builder(
+              builder: (context) => Scaffold(
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => MeusRemediosView.comProviders(
+                              context.read<MedicacaoViewModel>(),
+                            ),
+                          ),
+                        ),
+                        child: const Text('Abrir Meus remédios'),
+                      ),
+                      const CardMedicacao(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -159,7 +178,6 @@ void main() {
         tester.getTopLeft(find.text('Metformina 500 mg')).dy,
         lessThan(tester.getTopLeft(find.text('Sinvastatina 20 mg')).dy),
       );
-      expect(find.text('Meus remédios'), findsOneWidget);
 
       await desmontar(tester);
     });
@@ -212,7 +230,7 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Deve avisar com texto e ícone quando todas as doses foram tomadas', (
+    testWidgets('Não deve mostrar selo quando todas as doses foram tomadas', (
       tester,
     ) async {
       await marcarNoFirestore('m1', '08:00', DateTime(2026, 10, 25, 8, 12));
@@ -221,8 +239,7 @@ void main() {
       await montar(tester);
 
       expect(find.text('3 de 3 tomados'), findsOneWidget);
-      expect(find.text('REMÉDIOS DE HOJE TOMADOS'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.text('REMÉDIOS DE HOJE TOMADOS'), findsNothing);
 
       await desmontar(tester);
     });
@@ -236,7 +253,6 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('tomados'), findsNothing);
       expect(find.byType(LinearProgressIndicator), findsNothing);
-      expect(find.text('Meus remédios'), findsOneWidget);
 
       await desmontar(tester);
     });
@@ -254,12 +270,12 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Deve abrir "Meus remédios" e mostrar o que o cartão está listando', (
+    testWidgets('"Meus remédios" deve mostrar o que o cartão está listando', (
       tester,
     ) async {
       await montar(tester);
 
-      await tester.tap(find.text('Meus remédios'));
+      await tester.tap(find.text('Abrir Meus remédios'));
       await tester.pumpAndSettle();
 
       expect(find.text('Cadastre cada remédio com a dose e os horários em que você toma. Na rotina, você só marca quando tomar.'),
@@ -279,7 +295,7 @@ void main() {
       await montar(tester, medicamentos: const []);
 
       // Cadastra os dois remedios em "Meus remedios".
-      await tester.tap(find.text('Meus remédios'));
+      await tester.tap(find.text('Abrir Meus remédios'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
@@ -291,12 +307,12 @@ void main() {
 
       await tester.enterText(campo('Nome do remédio', 0), 'Losartana');
       await tester.enterText(campo('Dose (opcional)', 0), '50 mg');
-      await tester.tap(find.text('Adicionar horário').at(0));
+      await tester.tap(find.byTooltip('Adicionar horário').at(0));
       await tester.pumpAndSettle();
       await escolherNoSeletorDeHorario(tester, hora: 8, minuto: 0);
       await tester.enterText(campo('Nome do remédio', 1), 'Metformina');
       await tester.enterText(campo('Dose (opcional)', 1), '500 mg');
-      await tester.tap(find.text('Adicionar horário').at(1));
+      await tester.tap(find.byTooltip('Adicionar horário').at(1));
       await tester.pumpAndSettle();
       await escolherNoSeletorDeHorario(tester, hora: 12, minuto: 0);
       await tester.tap(find.text('Salvar'));

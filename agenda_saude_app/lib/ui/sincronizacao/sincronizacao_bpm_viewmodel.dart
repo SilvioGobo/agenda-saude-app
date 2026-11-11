@@ -162,13 +162,13 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
         _estado = EstadoSincronizacao.semPermissao;
         _mensagemErro = 'Permissão não concedida. Sem ela o app não consegue '
             'ler seus batimentos. Se a janela de permissão não aparecer, '
-            'libere o acesso nas configurações do Health Connect.';
+            'libere o acesso nas configurações do Saúde Connect.';
         _notificar();
         return;
       }
       await _ativar();
     } catch (e) {
-      _falhar('Não foi possível pedir a permissão ao Health Connect.', e);
+      _falhar('Não foi possível pedir a permissão ao Saúde Connect.', e);
     }
   }
 
@@ -176,7 +176,19 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
     try {
       await _healthService.abrirConfiguracoesHealthConnect();
     } catch (e) {
-      _falhar('Não foi possível abrir as configurações do Health Connect.', e);
+      _falhar('Não foi possível abrir as configurações do Saúde Connect.', e);
+    }
+  }
+
+  // "Abrir o Saúde Connect" da explicacao dos batimentos. Diferente do metodo
+  // de cima, nao mexe no estado: a sincronizacao pode estar ativa. Retorna se
+  // abriu, para a explicacao dizer onde procurar quando nao abrir.
+  Future<bool> abrirHealthConnect() async {
+    try {
+      return await _healthService.abrirConfiguracoesHealthConnect();
+    } catch (e) {
+      debugPrint('Nao foi possivel abrir o Health Connect: $e');
+      return false;
     }
   }
 
@@ -184,7 +196,7 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
     try {
       await _healthService.abrirInstalacaoHealthConnect();
     } catch (e) {
-      _falhar('Não foi possível abrir a loja para instalar o Health Connect.', e);
+      _falhar('Não foi possível abrir a loja para instalar o Saúde Connect.', e);
     }
   }
 
@@ -357,7 +369,7 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
     } catch (e) {
       debugPrint('Falha ao pedir a leitura com o app fechado: $e');
       _mensagemLeituraAppFechado =
-          'Não foi possível pedir a permissão ao Health Connect.';
+          'Não foi possível pedir a permissão ao Saúde Connect.';
     }
     _notificar();
   }

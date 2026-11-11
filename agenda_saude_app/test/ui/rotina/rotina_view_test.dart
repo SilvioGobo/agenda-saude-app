@@ -259,7 +259,7 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Deve avisar que a meta do dia foi atingida', (tester) async {
+    testWidgets('Não deve mostrar selo quando a meta do dia é atingida', (tester) async {
       await salvarCopos(7);
       await montar(tester);
       expect(find.text('META DE HOJE ATINGIDA'), findsNothing);
@@ -268,7 +268,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('8 de 8 copos'), findsOneWidget);
-      expect(find.text('META DE HOJE ATINGIDA'), findsOneWidget);
+      expect(find.text('META DE HOJE ATINGIDA'), findsNothing);
 
       await desmontar(tester);
     });
@@ -405,7 +405,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('6 de 6 copos'), findsOneWidget);
-      expect(find.text('META DE HOJE ATINGIDA'), findsOneWidget);
+      expect(find.text('META DE HOJE ATINGIDA'), findsNothing);
 
       await desmontar(tester);
     });

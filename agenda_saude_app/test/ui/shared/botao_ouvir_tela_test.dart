@@ -328,6 +328,71 @@ void main() {
       });
     });
 
+    group('ao rolar a tela', () {
+      // Uma tela comprida, como o painel e os relatorios: o botao no topo de
+      // uma lista que rola bem para baixo dele.
+      Future<void> montarTelaComprida(
+        WidgetTester tester,
+        ConfiguracoesViewModel viewModel,
+      ) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.claro,
+          home: Scaffold(
+            body: ChangeNotifierProvider.value(
+              value: viewModel,
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const Text('Título'),
+                  BotaoOuvirTela(texto: texto),
+                  for (var i = 0; i < 40; i++)
+                    SizedBox(height: 200, child: Text('Conteúdo $i')),
+                ],
+              ),
+            ),
+          ),
+        ));
+        await tester.pump();
+      }
+
+      testWidgets('Deve continuar lendo quando a tela rola e o botão sai de vista', (tester) async {
+        await montarTelaComprida(tester, await narrador());
+        await tester.tap(ouvir);
+        await tester.pump();
+
+        await tester.drag(find.byType(ListView), const Offset(0, -4000));
+        await tester.pumpAndSettle();
+
+        // O botao saiu da tela, mas continua vivo, e a voz segue falando.
+        expect(parar, findsNothing);
+        expect(find.text('Parar de ouvir', skipOffstage: false), findsOneWidget);
+        expect(tts.paradas, 0);
+
+        // De volta ao topo, ele ainda oferece parar.
+        await tester.drag(find.byType(ListView), const Offset(0, 4000));
+        await tester.pumpAndSettle();
+        expect(parar, findsOneWidget);
+      });
+
+      testWidgets('Deve deixar a lista soltar o botão depois que a voz termina', (tester) async {
+        await montarTelaComprida(tester, await narrador());
+        await tester.tap(ouvir);
+        await tester.pump();
+        tts.terminarDeFalar();
+        await tester.pump();
+
+        await tester.drag(find.byType(ListView), const Offset(0, -4000));
+        await tester.pumpAndSettle();
+
+        // Sem fala dele, nao ha por que ficar vivo fora da tela.
+        expect(find.text('Ouvir esta tela', skipOffstage: false), findsNothing);
+        expect(tts.paradas, 0);
+      });
+    });
+
     group('acessibilidade e layout', () {
       testWidgets('Deve ter o tamanho dos botões do app, de pelo menos 56dp', (tester) async {
         await montar(tester, await narrador());

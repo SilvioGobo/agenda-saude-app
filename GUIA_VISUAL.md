@@ -93,6 +93,15 @@ Textos longos de orientação usam altura de linha `1.35`.
 - `FilledButton`: ação principal **dentro de um card**, que precisa se destacar do
   fundo dele. Ex.: "Conectar smartwatch".
 - `OutlinedButton`: ação secundária ou de cancelar.
+- `IconButton.filled` (56dp, verde, só o ícone) ao lado do título de uma lista dentro
+  de um card: adiciona um item a ela. Ex.: o relógio de "HORÁRIOS" em "Meus remédios" e
+  o "+" de "ALIMENTOS" em "Minhas refeições". É a exceção à regra do ícone com texto,
+  para não se confundir com o botão grande que adiciona um card inteiro ("Adicionar
+  remédio", "Adicionar refeição"); o `tooltip` dá o nome ao leitor de tela, e a lista
+  vazia diz onde tocar.
+- `TextButton.icon` (48dp, texto 18 em negrito): ação discreta no pé de um card, nunca
+  só o ícone. Ex.: o "?" "Como funciona?" (`BotaoComoFunciona`) do destaque dos
+  batimentos e de "Meu smartwatch", que abre a explicação de como o BPM chega ao app.
 - `ElevatedButton`: padrão das telas de cadastro/login. Fica claro sobre fundo claro,
   então não use dentro de cards.
 - `BotaoLigar`: ligar para alguém (abre o discador com o número). Mesmo tamanho do
@@ -115,8 +124,8 @@ o motivo, o BPM crítico em 76 e o que fazer, e os botões grandes "LIGAR PARA [
   acompanhante pelo botão "Ver relatórios" do card do paciente. É a mesma tela
   ("Ontem" e "Mês") para os dois; os textos dos relatórios não dizem "você" nem citam o
   nome, para servirem aos dois — só o título da tela muda.
-- **Menu lateral** para o que se usa pouco (minhas metas, código de vínculo, smartwatch,
-  localização, lembretes, acessibilidade, sair). Abre
+- **Menu lateral** para o que se usa pouco (minhas metas, personalizar rotina, código de
+  vínculo, smartwatch, localização, lembretes, acessibilidade, sair). Abre
   só pelo botão **"Menu" com ícone + texto** (`BotaoBarraSuperior.menu`); o gesto de
   arrastar da borda fica desligado, porque se confunde com o "voltar" do Android.
 - **Subtelas**: barra superior só com "Voltar" escrito (`BotaoBarraSuperior.voltar`) e
@@ -235,8 +244,9 @@ Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localizaçã
 Um cartão compacto por atividade na "Minha Rotina", na ordem do dia: hidratação,
 medicações, refeições, glicemia e insulina (só para diabéticos), sono, exercício. O que é
 de um toque (copo d'água, tomar um remédio) resolve no próprio cartão; o que tem várias
-perguntas abre uma tela própria (registrar o sono, registrar um exercício, "Meus
-remédios"), que volta com um aviso ("Sono registrado.").
+perguntas abre uma tela própria (registrar o sono, registrar um exercício), que volta com
+um aviso ("Sono registrado."). O cadastro do que a rotina usa (remédios, refeições e
+metas) fica em "Personalizar rotina", no menu lateral, e não nos cartões.
 
 - **Medicações**: uma linha por dose com **caixa de seleção grande** (44dp), como na
   Figura 14 do TCC; marcada fica com fundo e borda verdes e o texto "Tomado às 08:10".

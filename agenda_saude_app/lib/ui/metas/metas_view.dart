@@ -6,16 +6,20 @@ import '../../domain/models/paciente.dart';
 import '../shared/barra_acoes.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/botao_grande.dart';
+import '../shared/botao_ouvir_tela.dart';
 import '../shared/titulo_tela.dart';
 import 'ajustar_metas_view.dart';
 import 'formato_metas.dart';
 import 'metas_viewmodel.dart';
+import 'narracao_das_metas.dart';
 import 'recalcular_metas_view.dart';
 
 // "Minhas metas": o que o app calculou a partir da triagem - rotina do dia,
-// alimentacao e limites - com atalhos para ajustar a rotina e para atualizar
-// o peso. Logo depois da triagem ela abre em modo `aoContinuar` (sem
-// "Voltar"), para o paciente conferir as metas antes de ir ao painel.
+// alimentacao e limites - com atalho para atualizar o peso. Ajustar agua,
+// passos e exercicio fica em "Personalizar rotina", no menu lateral (aqui so
+// na primeira vez, quando o menu ainda nao existe). Logo depois da triagem ela
+// abre em modo `aoContinuar` (sem "Voltar"), para o paciente conferir as metas
+// antes de ir ao painel.
 class MetasView extends StatelessWidget {
   // Preenchido so na primeira vez, logo depois da triagem.
   final ValueChanged<Paciente>? aoContinuar;
@@ -66,7 +70,7 @@ class MetasView extends StatelessWidget {
                 ? () => aoContinuar!(viewModel.paciente)
                 : () => _abrir(context, const RecalcularMetasView()),
           ),
-          if (metas != null)
+          if (primeiraVez && metas != null)
             OutlinedButton.icon(
               onPressed: () => _abrir(context, const AjustarMetasView()),
               icon: const Icon(Icons.tune_rounded),
@@ -94,6 +98,13 @@ class MetasView extends StatelessWidget {
                   : 'Calculamos com base nos seus dados de saúde.',
             ),
             const SizedBox(height: 24),
+            BotaoOuvirTela(
+              texto: () => narrarMetas(
+                metas: viewModel.metas,
+                limiteLiquidoMl: viewModel.paciente.limiteLiquidoMl,
+                primeiraVez: primeiraVez,
+              ),
+            ),
             if (metas != null) ...[
               _AvisoSugestao(
                 limiteLiquidoMl: viewModel.paciente.limiteLiquidoMl,

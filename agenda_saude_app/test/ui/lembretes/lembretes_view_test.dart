@@ -130,7 +130,7 @@ void main() {
       expect(find.text('Tomar Losartana 50 mg'), findsOneWidget);
       // O horário de remédio se muda em outra tela.
       expect(find.text('Mudar horário'), findsNothing);
-      expect(find.textContaining('use "Meus remédios"'), findsOneWidget);
+      expect(find.textContaining('use "Personalizar rotina"'), findsOneWidget);
 
       await desmontar(tester, viewModel);
     });

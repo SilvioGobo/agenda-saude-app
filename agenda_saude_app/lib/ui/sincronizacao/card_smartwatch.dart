@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
+import 'explicacao_batimentos.dart';
 import 'sincronizacao_bpm_viewmodel.dart';
 
 // Como cada estado da sincronizacao aparece na tela: texto, icone, cor e a
@@ -50,15 +51,15 @@ class InfoSmartwatch {
           titulo: 'Smartwatch indisponível',
           descricao:
               'A leitura de batimentos só funciona em celulares Android com o '
-              'Health Connect.',
+              'Saúde Connect.',
           icone: Icons.watch_off_rounded,
           cor: colorScheme.onSurfaceVariant,
           temProblema: true,
         );
       case EstadoSincronizacao.healthConnectAusente:
         return InfoSmartwatch(
-          titulo: 'Health Connect necessário',
-          descricao: 'Instale ou atualize o Health Connect para o app receber '
+          titulo: 'Saúde Connect necessário',
+          descricao: 'Instale ou atualize o Saúde Connect para o app receber '
               'os batimentos do seu relógio.',
           icone: Icons.download_rounded,
           cor: AppCores.aviso,
@@ -66,7 +67,7 @@ class InfoSmartwatch {
           acao: FilledButton.icon(
             onPressed: viewModel.instalarHealthConnect,
             icon: const Icon(Icons.download_rounded),
-            label: const Text('Instalar Health Connect'),
+            label: const Text('Instalar Saúde Connect'),
           ),
         );
       case EstadoSincronizacao.semPermissao:
@@ -92,7 +93,7 @@ class InfoSmartwatch {
                 OutlinedButton.icon(
                   onPressed: viewModel.abrirConfiguracoesHealthConnect,
                   icon: const Icon(Icons.settings_rounded),
-                  label: const Text('Abrir configurações do Health Connect'),
+                  label: const Text('Abrir configurações do Saúde Connect'),
                 ),
               ],
             ],
@@ -161,7 +162,8 @@ class InfoSmartwatch {
 }
 
 // Card que mostra a situacao da conexao com o smartwatch e oferece a acao
-// necessaria. Fica na tela "Meu smartwatch" (menu do paciente).
+// necessaria, mais o "Como funciona?". Fica na tela "Meu smartwatch" (menu
+// do paciente).
 class CardSmartwatch extends StatelessWidget {
   const CardSmartwatch({super.key});
 
@@ -205,6 +207,10 @@ class CardSmartwatch extends StatelessWidget {
               const SizedBox(height: 16),
               info.acao!,
             ],
+            const SizedBox(height: 8),
+            BotaoComoFunciona(
+              aoTocar: () => mostrarExplicacaoBatimentos(context, viewModel),
+            ),
           ],
         ),
       ),

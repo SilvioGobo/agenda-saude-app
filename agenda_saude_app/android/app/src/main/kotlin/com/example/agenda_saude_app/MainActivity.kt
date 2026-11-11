@@ -1,6 +1,7 @@
 package com.example.agenda_saude_app
 
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -14,16 +15,12 @@ class MainActivity : FlutterFragmentActivity() {
 
         // Depois de duas negativas o Android deixa de mostrar o pop-up de
         // permissao; a unica saida e o usuario liberar nas configuracoes do
-        // Health Connect, que abrimos por aqui.
+        // Health Connect, que abrimos por aqui. Tambem usado pelo "Abrir o
+        // Saúde Connect" da explicacao dos batimentos.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CANAL_HEALTH_CONNECT)
             .setMethodCallHandler { call, result ->
                 if (call.method == "abrirConfiguracoes") {
-                    try {
-                        startActivity(Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"))
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.success(false)
-                    }
+                    result.success(abrirHealthConnect())
                 } else {
                     result.notImplemented()
                 }
@@ -49,8 +46,33 @@ class MainActivity : FlutterFragmentActivity() {
             }
     }
 
+    // No Android 14 ou mais novo o Health Connect faz parte do sistema e
+    // atende outra acao; a "androidx..." e a do app da Play Store (Android 13
+    // ou antes). Mesma escolha do HealthConnectClient.getHealthConnectSettingsAction(),
+    // com a outra acao de reserva. Retorna se abriu.
+    private fun abrirHealthConnect(): Boolean {
+        val acoes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            listOf(ACAO_HEALTH_CONNECT_SISTEMA, ACAO_HEALTH_CONNECT_APP)
+        } else {
+            listOf(ACAO_HEALTH_CONNECT_APP)
+        }
+        for (acao in acoes) {
+            try {
+                startActivity(Intent(acao))
+                return true
+            } catch (e: Exception) {
+                // nenhuma tela atende esta acao: tenta a proxima
+            }
+        }
+        return false
+    }
+
     companion object {
         private const val CANAL_HEALTH_CONNECT = "agenda_saude_app/health_connect"
         private const val CANAL_NOTIFICACOES = "agenda_saude_app/notificacoes"
+        private const val ACAO_HEALTH_CONNECT_SISTEMA =
+            "android.health.connect.action.HEALTH_HOME_SETTINGS"
+        private const val ACAO_HEALTH_CONNECT_APP =
+            "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
     }
 }

@@ -357,16 +357,25 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    para o app ele relê a janela do Firestore. Sair da conta desliga a tarefa. O cartão de
    teste do B2 continua só com `fvm flutter run --dart-define=TESTE_B2=true` ("LER UMA VEZ
    EM SEGUNDO PLANO" roda mesmo com o app aberto). Com o Flutter 3.32 o `workmanager`
-   precisa da `workmanager_platform_interface` fixa em 0.9.3 (ver `pubspec.yaml`)*
+   precisa da `workmanager_platform_interface` fixa em 0.9.3 (ver `pubspec.yaml`). O
+   "Como funciona?" do destaque do painel e de "Meu smartwatch"
+   (`explicacao_batimentos.dart`) explica que o app não fala com o relógio: o caminho é
+   relógio → app da marca → Health Connect → Agenda Saúde, e "conectar" só dá a
+   permissão de leitura (sem o app da marca mandar o BPM, nada chega). Diz também onde
+   fica o Health Connect. **Na tela, o Health Connect se chama "Saúde Connect"**, o nome
+   que aparece no celular em português (em alguns aparelhos é "Conexão Saúde" ou
+   "Health Connect", e a explicação cita os três); no código continua Health Connect.
+   O botão "Abrir o Saúde Connect" usa a ação do sistema no Android 14+ e a do app da
+   Play Store antes (`MainActivity`)*
 3. **Módulo de Rotina Diária** — checklists de água, sono, exercício, alimentação
    (RF003) e insulina/glicemia habilitado pela triagem (RF008). ← *tela "Minha Rotina"
    (`ui/rotina/`) com hidratação (RF03.1) já feita: meta do paciente em
    `Paciente.metas.hidratacaoMl` (padrão de 8 copos de 250 ml em `MetaHidratacao`
    para quem não tem metas), `+ Copo`/`- Copo` gravam/apagam `RegistroAgua`; o cartão
-   "Refeições" (RF03.4) lista as refeições do plano para marcar "feito" e tem o botão
-   "Personalizar refeições" (nome e alimentos com quantidade em g, escolhidos por
+   "Refeições" (RF03.4) lista as refeições do plano para marcar "feito"; o plano se edita
+   em "Minhas refeições" (nome e alimentos com quantidade em g, escolhidos por
    busca no catálogo TACO; mostra calorias e macros da refeição e do dia contra as
-   metas). Glicemia e
+   metas), aberta por "Personalizar rotina". Glicemia e
    insulina (RF008) também feitas (`ui/insulina/`): cartão resumido na Rotina só para
    `possuiDiabetes` (medições do dia + última glicemia fora da faixa) que abre a tela
    `GlicemiaInsulinaView` com o checklist dos momentos da E6 (`MomentoGlicemia`), em
@@ -383,7 +392,10 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    com "Apagar", e o progresso da meta semanal) + `RegistrarExercicioView` (tipo, minutos e
    intensidade em botões, sem digitar). Medicação: `CardMedicacao` (uma linha por dose, com
    caixa de seleção grande) + `MeusRemediosView` (nome, dose e horários, no molde de
-   "Minhas refeições"). As telas de registro usam os widgets de `ui/shared/`
+   "Minhas refeições"). Remédios, refeições e metas se editam em "Personalizar rotina"
+   (`PersonalizarRotinaView`, menu lateral, logo abaixo de "Minhas metas"), e não nos
+   cartões da Rotina; o "Ajustar metas" de "Minhas metas" só aparece na primeira vez,
+   logo depois da triagem, quando o paciente ainda não chega ao menu. As telas de registro usam os widgets de `ui/shared/`
    (`PerguntaFormulario`, `ErroFormulario`, `BotaoSalvar`, `ContadorGrande`). Lembretes
    (RF 07.3) também feitos (`domain/lembretes/`, `ui/lembretes/`, menu > Meus lembretes):
    o `LembretesViewModel` (criado em `PacienteView.comProviders`, que o atualiza quando os
@@ -396,8 +408,11 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    Os ids vêm de um hash estável (`idDaNotificacao`) e o payload começa com `lembrete:`; os
    dias seguintes entram a cada abertura, registro ou mudança nos remédios e o plugin
    reagenda sozinho ao reiniciar o celular. O horário vira um instante em UTC (`tz.UTC`),
-   então não depende do fuso do aparelho. O Android 12+ pede `SCHEDULE_EXACT_ALARM`: sem
-   ele o aviso cai no modo aproximado (ainda toca, pode atrasar) e a tela oferece o botão.
+   então não depende do fuso do aparelho. Sem alarme exato o aviso cai no modo aproximado,
+   e nele o Android pode atrasar **até 1 hora** (visto num celular real: 12:51 tocou às
+   13:51, o que parecia erro de fuso). Por isso o app declara `USE_EXACT_ALARM`, que o
+   Android 13+ concede na instalação; no Android 12 vale a `SCHEDULE_EXACT_ALARM` (dada
+   por padrão) e, se o paciente a tirar, a tela de lembretes oferece o botão.
    Sair da conta cancela os avisos. Conferido num emulador Android 16: toca com o processo
    morto, não toca o que já foi registrado e some da bandeja ao registrar (lido de
    `adb shell dumpsys alarm` e `dumpsys notification`). Falta sugerir/gerar os alimentos
