@@ -7,7 +7,9 @@ import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/ui/rotina/meus_remedios_view.dart';
 import 'package:agenda_saude_app/ui/rotina/meus_remedios_viewmodel.dart';
 
+import '../../helpers/catalogo_de_teste.dart';
 import '../shared/escolher_horario.dart';
+import '../shared/escolher_na_busca.dart';
 
 const _losartana = Medicamento(
   id: 'm1',
@@ -37,6 +39,7 @@ void main() {
     Future<void> abrir(
       WidgetTester tester, {
       List<Medicamento> atual = const [],
+      List<String> alergias = const [],
       double escalaTexto = 1,
       Size tamanho = const Size(800, 3200),
     }) async {
@@ -66,9 +69,12 @@ void main() {
                           if (gravaComSucesso) salvos.add(lista);
                           return gravaComSucesso;
                         },
+                        alergias: alergias,
                         gerarId: () => 'novo${++contador}',
                       ),
-                      child: const MeusRemediosView(),
+                      child: const MeusRemediosView(
+                        carregarCatalogo: carregarRemediosPequeno,
+                      ),
                     ),
                   ),
                 ),
@@ -96,11 +102,13 @@ void main() {
       await abrir(tester, atual: const [_losartana, _metformina]);
 
       expect(find.text('Meus remédios'), findsOneWidget);
-      // Nome e dose de cada remedio; os horarios nao se digitam.
-      expect(find.byType(TextFormField), findsNWidgets(4));
-      expect(find.widgetWithText(TextFormField, 'Losartana'), findsOneWidget);
+      // So a dose se digita: o nome vem da lista ("Trocar") e os horarios, do
+      // relogio.
+      expect(find.byType(TextFormField), findsNWidgets(2));
+      expect(find.text('Losartana'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '50 mg'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, 'Metformina'), findsOneWidget);
+      expect(find.text('Metformina'), findsOneWidget);
+      expect(find.text('Trocar'), findsNWidgets(2));
       expect(find.text('08:00'), findsOneWidget);
       expect(find.text('12:00'), findsOneWidget);
       expect(find.text('20:00'), findsOneWidget);
@@ -122,14 +130,17 @@ void main() {
       expect(find.byType(TextFormField), findsNothing);
     });
 
-    testWidgets('Deve cadastrar um remédio novo com dose e horários e salvar', (
+    testWidgets('Deve cadastrar um remédio da lista com dose e horários e salvar', (
       tester,
     ) async {
       await abrir(tester);
 
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
-      await tester.enterText(campo('Nome do remédio'), 'Losartana');
+      expect(find.text('Escolher remédio'), findsOneWidget);
+      await escolherNaBusca(tester, 'losar', 'Losartana potássica');
+      expect(find.text('Losartana potássica'), findsOneWidget);
+      expect(find.text('Princípio ativo: Losartana'), findsOneWidget);
       await tester.enterText(campo('Dose (opcional)'), '50 mg');
       await tester.tap(find.byTooltip('Adicionar horário'));
       await tester.pumpAndSettle();
@@ -154,7 +165,8 @@ void main() {
 
       final lista = salvos.single;
       expect(lista.single.id, 'novo1');
-      expect(lista.single.nome, 'Losartana');
+      expect(lista.single.nome, 'Losartana potássica');
+      expect(lista.single.substancias, ['Losartana']);
       expect(lista.single.dose, '50 mg');
       expect(lista.single.horarios, ['08:00', '20:00']);
       // Fechou a tela.
@@ -226,27 +238,71 @@ void main() {
       await tester.tap(find.text('Remover este remédio').first);
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(TextFormField, 'Losartana'), findsNothing);
-      expect(find.widgetWithText(TextFormField, 'Metformina'), findsOneWidget);
+      expect(find.text('Losartana'), findsNothing);
+      expect(find.text('Metformina'), findsOneWidget);
     });
 
-    testWidgets('Deve pedir o nome de todos os remédios e manter a tela aberta', (
+    testWidgets('Deve usar o nome digitado quando o remédio não está na lista', (
       tester,
     ) async {
       await abrir(tester);
 
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Adicionar horário'));
+      await escolherNaBusca(tester, 'xarope caseiro', 'Usar "Xarope caseiro"');
+
+      expect(find.text('Xarope caseiro'), findsOneWidget);
+      expect(find.textContaining('Princípio ativo'), findsNothing);
+    });
+
+    testWidgets('Deve buscar pelo princípio ativo e trocar o remédio sem perder os horários', (
+      tester,
+    ) async {
+      await abrir(tester, atual: const [_metformina]);
+
+      await tester.tap(find.text('Trocar'));
       await tester.pumpAndSettle();
-      await tester.tap(noRelogio('OK'));
-      await tester.pumpAndSettle();
+      await escolherNaBusca(tester, 'metformina', 'Glifage XR');
+
+      expect(find.text('Glifage XR'), findsOneWidget);
+      expect(find.text('Princípio ativo: Metformina'), findsOneWidget);
+      expect(find.text('12:00'), findsOneWidget);
       await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
+      expect(salvos.single.single.id, 'm2');
+      expect(salvos.single.single.nome, 'Glifage XR');
+    });
 
-      expect(find.text('Dê um nome para todos os remédios.'), findsOneWidget);
+    testWidgets('Deve avisar da alergia na busca, perguntar antes e marcar o remédio', (
+      tester,
+    ) async {
+      await abrir(tester, alergias: const ['Dipirona']);
+
+      await tester.tap(find.text('Adicionar remédio'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'novalg');
+      await tester.pumpAndSettle();
+      expect(find.text('ALERGIA A DIPIRONA'), findsOneWidget);
+
+      // "Escolher outro" volta para a busca sem escolher.
+      await tester.tap(find.text('Novalgina'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Você informou alergia a dipirona'),
+          findsOneWidget);
+      await tester.tap(find.text('Escolher outro'));
+      await tester.pumpAndSettle();
+      expect(find.text('Escolher remédio'), findsOneWidget);
+
+      // Continuar mesmo assim poe o remedio, marcado.
+      await tester.tap(find.text('Novalgina'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pôr na lista mesmo assim'));
+      await tester.pumpAndSettle();
       expect(find.text('Meus remédios'), findsOneWidget);
-      expect(salvos, isEmpty);
+      expect(find.text('Novalgina'), findsOneWidget);
+      expect(find.text('ALERGIA A DIPIRONA'), findsOneWidget);
+      expect(find.text('Fale com seu médico antes de tomar este remédio.'),
+          findsOneWidget);
     });
 
     testWidgets('Deve pedir um horário para cada remédio e manter a tela aberta', (
@@ -256,7 +312,7 @@ void main() {
 
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
-      await tester.enterText(campo('Nome do remédio'), 'Losartana');
+      await escolherNaBusca(tester, 'losar', 'Losartana potássica');
       await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
@@ -304,11 +360,12 @@ void main() {
 
       for (var i = 0; i < 10; i++) {
         await tester.tap(find.text('Adicionar remédio'));
-        await tester.pump();
+        await tester.pumpAndSettle();
+        await escolherNaBusca(tester, 'losar', 'Losartana potássica');
       }
-      await tester.pumpAndSettle();
 
-      expect(find.byType(TextFormField), findsNWidgets(20));
+      // Um campo de dose por remedio.
+      expect(find.byType(TextFormField), findsNWidgets(10));
       expect(find.text('Você já tem o máximo de 10 remédios.'), findsOneWidget);
     });
 

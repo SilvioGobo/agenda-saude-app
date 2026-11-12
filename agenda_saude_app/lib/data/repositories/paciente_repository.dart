@@ -74,6 +74,53 @@ class PacienteRepository {
     });
   }
 
+  // Grava as alergias do paciente ("Minhas alergias") sem reescrever o resto
+  // do documento: as dos dois catalogos e o texto das outras (vazio apaga).
+  Future<void> salvarAlergias(
+    String pacienteId, {
+    required List<String> alimentos,
+    required List<String> remedios,
+    String outras = '',
+  }) async {
+    await _firestore.collection('usuarios').doc(pacienteId).update({
+      'alergiasAlimentos': alimentos,
+      'alergiasRemedios': remedios,
+      'alergias': outras.trim().isEmpty ? null : outras.trim(),
+    });
+  }
+
+  // Os campos que a triagem preenche. "Meus dados" grava so eles (e as metas,
+  // recalculadas com eles): o plano de refeicoes, os remedios, os limites de
+  // alerta e as tarefas do dia ficam como estao.
+  static const camposDaTriagem = [
+    'possuiDiabetes',
+    'tipoDiabetes',
+    'usaInsulina',
+    'tipoInsulina',
+    'possuiCardiopatia',
+    'tipoCardiopatia',
+    'usaMarcapasso',
+    'limiteLiquidoMl',
+    'dataNascimento',
+    'sexoBiologico',
+    'alturaCm',
+    'pesoKg',
+    'nivelAtividadeFisica',
+    'alergias',
+    'alergiasAlimentos',
+    'alergiasRemedios',
+    'medicamentosEmUso',
+    'triagemConcluida',
+    'metas',
+  ];
+
+  Future<void> atualizarTriagem(Paciente paciente) async {
+    final json = paciente.toJson();
+    await _firestore.collection('usuarios').doc(paciente.id).update({
+      for (final campo in camposDaTriagem) campo: json[campo],
+    });
+  }
+
   Future<Paciente?> getPaciente(String id) async {
     final doc = await _firestore.collection('usuarios').doc(id).get();
     if (doc.exists && doc.data() != null) {

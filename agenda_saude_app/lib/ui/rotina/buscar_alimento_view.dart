@@ -3,19 +3,25 @@ import 'package:provider/provider.dart';
 
 import '../../domain/alimentos/alimento.dart';
 import '../../domain/alimentos/catalogo_alimentos.dart';
+import '../shared/aviso_alergia.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/titulo_tela.dart';
 import 'buscar_alimento_viewmodel.dart';
 
 // Busca de alimentos por nome, para montar uma refeicao. Ao tocar num alimento
 // a tela fecha e devolve esse [Alimento] a quem a abriu. A lista e a TACO
-// (NEPA/UNICAMP), citada no rodape como a licenca da tabela pede.
+// (NEPA/UNICAMP), citada no rodape como a licenca da tabela pede. O alimento
+// que tem algo das [alergias] do paciente sai com "ALERGIA A ..." e, ao ser
+// tocado, pergunta antes de entrar na refeicao.
 class BuscarAlimentoView extends StatelessWidget {
   const BuscarAlimentoView({super.key});
 
-  static Widget comProviders(CatalogoAlimentos catalogo) {
+  static Widget comProviders(
+    CatalogoAlimentos catalogo, {
+    List<String> alergias = const [],
+  }) {
     return ChangeNotifierProvider(
-      create: (_) => BuscarAlimentoViewModel(catalogo),
+      create: (_) => BuscarAlimentoViewModel(catalogo, alergias: alergias),
       child: const BuscarAlimentoView(),
     );
   }
@@ -74,7 +80,10 @@ class BuscarAlimentoView extends StatelessWidget {
                     )
                   else
                     for (final alimento in viewModel.resultados) ...[
-                      _LinhaAlimento(alimento: alimento),
+                      _LinhaAlimento(
+                        alimento: alimento,
+                        alergia: viewModel.alergiaDe(alimento),
+                      ),
                       const SizedBox(height: 8),
                     ],
                   const SizedBox(height: 16),
@@ -121,24 +130,44 @@ class _Aviso extends StatelessWidget {
 // Um resultado: a linha inteira e o botao (72dp ou mais).
 class _LinhaAlimento extends StatelessWidget {
   final Alimento alimento;
+  // A alergia do paciente que o alimento pode ter; null = nenhuma.
+  final String? alergia;
 
-  const _LinhaAlimento({required this.alimento});
+  const _LinhaAlimento({required this.alimento, this.alergia});
+
+  Future<void> _escolher(BuildContext context) async {
+    final alergia = this.alergia;
+    if (alergia != null) {
+      final continuar = await confirmarApesarDaAlergia(
+        context,
+        alergia: alergia,
+        mensagem:
+            'Você informou alergia a ${alergia.toLowerCase()}, e '
+            '"${alimento.nome}" pode ter ${alergia.toLowerCase()}. Quer pôr '
+            'este alimento na refeição mesmo assim?',
+        rotuloContinuar: 'Pôr na refeição mesmo assim',
+      );
+      if (!continuar || !context.mounted) return;
+    }
+    Navigator.of(context).pop(alimento);
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final detalhe = '${alimento.kcal} kcal por 100 g';
+    final avisoAlergia = alergia == null ? '' : ' Atenção: alergia a $alergia.';
 
     return Semantics(
       button: true,
-      label: '${alimento.nome}, $detalhe. Toque para escolher.',
+      label: '${alimento.nome}, $detalhe.$avisoAlergia Toque para escolher.',
       excludeSemantics: true,
-      onTap: () => Navigator.of(context).pop(alimento),
+      onTap: () => _escolher(context),
       child: Material(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          onTap: () => Navigator.of(context).pop(alimento),
+          onTap: () => _escolher(context),
           borderRadius: BorderRadius.circular(20),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 72),
@@ -165,6 +194,10 @@ class _LinhaAlimento extends StatelessWidget {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  if (alergia != null) ...[
+                    const SizedBox(height: 4),
+                    SeloAlergia(alergia!),
+                  ],
                 ],
               ),
             ),

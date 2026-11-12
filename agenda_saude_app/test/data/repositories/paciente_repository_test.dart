@@ -172,6 +172,32 @@ void main() {
       expect(resultado.metas!.ajustadaManualmente, true);
     });
 
+    test('Deve gravar as alergias sem mexer no resto do documento', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.salvarAlergias(
+        'paciente_001',
+        alimentos: const ['Camarão', 'Amendoim'],
+        remedios: const ['Dipirona'],
+        outras: ' Látex ',
+      );
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.alergiasAlimentos, ['Camarão', 'Amendoim']);
+      expect(resultado.alergiasRemedios, ['Dipirona']);
+      expect(resultado.alergias, 'Látex');
+      expect(resultado.nome, 'João da Silva');
+
+      await repository.salvarAlergias(
+        'paciente_001',
+        alimentos: const [],
+        remedios: const [],
+      );
+      final semAlergias = await repository.getPaciente('paciente_001');
+      expect(semAlergias!.alergiasAlimentos, isEmpty);
+      expect(semAlergias.alergias, isNull);
+    });
+
     test('Deve gravar o plano de refeições sem mexer no resto do documento', () async {
       await repository.salvarPaciente(criarPaciente());
 

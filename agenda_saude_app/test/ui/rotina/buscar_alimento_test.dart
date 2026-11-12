@@ -44,6 +44,22 @@ void main() {
       expect(avisos, 2);
     });
 
+    test('Deve apontar a alergia do paciente que o alimento pode ter', () {
+      final viewModel = BuscarAlimentoViewModel(
+        catalogo,
+        alergias: const ['Leite de vaca'],
+      );
+
+      viewModel.definirConsulta('leite');
+
+      final porNome = {
+        for (final alimento in viewModel.resultados)
+          alimento.nome: viewModel.alergiaDe(alimento),
+      };
+      expect(porNome['Leite, de vaca, desnatado, pó'], 'Leite de vaca');
+      expect(porNome['Leite, de coco'], isNull);
+    });
+
     test('Não deve considerar busca só de espaços', () {
       final viewModel = BuscarAlimentoViewModel(catalogo);
 
@@ -59,6 +75,7 @@ void main() {
     Future<List<Alimento?>> abrir(
       WidgetTester tester, {
       double escala = 1,
+      List<String> alergias = const [],
     }) async {
       final escolhidos = <Alimento?>[];
       await tester.pumpWidget(
@@ -75,7 +92,10 @@ void main() {
                 onPressed: () async => escolhidos.add(
                   await Navigator.of(context).push<Alimento>(
                     MaterialPageRoute(
-                      builder: (_) => BuscarAlimentoView.comProviders(catalogo),
+                      builder: (_) => BuscarAlimentoView.comProviders(
+                        catalogo,
+                        alergias: alergias,
+                      ),
                     ),
                   ),
                 ),
@@ -124,6 +144,33 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Nenhum alimento encontrado'), findsOneWidget);
+    });
+
+    testWidgets('Deve marcar o alimento da alergia e perguntar antes de devolver', (
+      tester,
+    ) async {
+      final escolhidos = await abrir(tester, alergias: const ['Amendoim']);
+
+      await tester.enterText(find.byType(TextField), 'amendoim');
+      await tester.pumpAndSettle();
+      expect(find.text('ALERGIA A AMENDOIM'), findsWidgets);
+
+      // "Escolher outro" fica na busca, sem devolver nada.
+      await tester.tap(find.text('Amendoim, torrado, salgado'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Você informou alergia a amendoim'),
+          findsOneWidget);
+      await tester.tap(find.text('Escolher outro'));
+      await tester.pumpAndSettle();
+      expect(find.text('Escolher alimento'), findsOneWidget);
+      expect(escolhidos, isEmpty);
+
+      await tester.tap(find.text('Amendoim, torrado, salgado'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pôr na refeição mesmo assim'));
+      await tester.pumpAndSettle();
+      expect(find.text('Escolher alimento'), findsNothing);
+      expect(escolhidos.single!.nome, 'Amendoim, torrado, salgado');
     });
 
     testWidgets('Deve devolver o alimento tocado e fechar a busca', (

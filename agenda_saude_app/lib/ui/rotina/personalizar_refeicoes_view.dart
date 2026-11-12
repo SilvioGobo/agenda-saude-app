@@ -5,6 +5,7 @@ import '../../core/theme/app_cores.dart';
 import '../../domain/alimentos/alimento.dart';
 import '../../domain/metas/metas_personalizadas.dart';
 import '../../domain/refeicoes/refeicoes_padrao.dart';
+import '../shared/aviso_alergia.dart';
 import '../shared/barra_acoes.dart';
 import '../shared/botao_barra_superior.dart';
 import '../shared/titulo_tela.dart';
@@ -25,8 +26,13 @@ class PersonalizarRefeicoesView extends StatelessWidget {
 
   const PersonalizarRefeicoesView({super.key, this.metas});
 
-  // Abre a tela editando o plano que a rotina esta mostrando.
-  static Widget comProviders(RefeicoesViewModel rotina) {
+  // Abre a tela editando o plano que a rotina esta mostrando. [alergias] vem
+  // de quem abre quando o paciente pode te-las mudado depois de a rotina ser
+  // criada ("Minhas alergias", na mesma tela de Personalizar rotina).
+  static Widget comProviders(
+    RefeicoesViewModel rotina, {
+    List<String>? alergias,
+  }) {
     return ChangeNotifierProvider(
       create: (_) => PersonalizarRefeicoesViewModel(
         atual: rotina.refeicoes,
@@ -35,6 +41,7 @@ class PersonalizarRefeicoesView extends StatelessWidget {
         ),
         aoSalvar: rotina.salvarPlano,
         catalogo: rotina.catalogo,
+        alergias: alergias ?? rotina.paciente.alergiasAlimentos,
       ),
       child: PersonalizarRefeicoesView(metas: rotina.metas),
     );
@@ -178,7 +185,10 @@ class _EditorRefeicao extends StatelessWidget {
     if (catalogo == null) return;
     final alimento = await Navigator.of(context).push<Alimento>(
       MaterialPageRoute(
-        builder: (_) => BuscarAlimentoView.comProviders(catalogo),
+        builder: (_) => BuscarAlimentoView.comProviders(
+          catalogo,
+          alergias: viewModel.alergias,
+        ),
       ),
     );
     if (alimento != null && context.mounted) {
@@ -318,6 +328,7 @@ class _EditorAlimento extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.read<PersonalizarRefeicoesViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
+    final alergia = viewModel.alergiaDoItem(item);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -336,6 +347,10 @@ class _EditorAlimento extends StatelessWidget {
               color: colorScheme.onSurface,
             ),
           ),
+          if (alergia != null) ...[
+            const SizedBox(height: 8),
+            SeloAlergia(alergia),
+          ],
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

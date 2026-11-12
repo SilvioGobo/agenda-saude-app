@@ -1,6 +1,7 @@
 import '../../core/constants/meta_exercicio.dart';
 import '../../core/constants/meta_hidratacao.dart';
 import '../../core/constants/meta_sono.dart';
+import '../medicacao/remedio.dart';
 import '../metas/metas_personalizadas.dart';
 import '../refeicoes/refeicoes_padrao.dart';
 import 'limites_alerta.dart';
@@ -30,8 +31,20 @@ class Paciente extends Usuario {
   final double? alturaCm;
   final double? pesoKg;
   final String? nivelAtividadeFisica;
+  // Alergias que nao estao nas listas (ex.: latex, picada de abelha), em
+  // texto livre.
   final String? alergias;
-  final String? medicamentosEmUso;
+  // Remedios em uso continuo informados na triagem (escolhidos na lista da
+  // Anvisa, com os principios ativos). Nao sao os de "Meus remedios", que tem
+  // dose e horarios. Lista vazia = nenhum.
+  final List<Remedio> medicamentosEmUso;
+
+  // Alergias escolhidas nos catalogos (ver domain/alergias/alergias.dart): a
+  // alimentos, pelo nome sem o preparo ("Camarão", "Leite de vaca"), e a
+  // remedios, pelo principio ativo ("Dipirona"). Lista vazia = nenhuma. O app
+  // avisa ao escolher um alimento ou remedio que tem uma delas.
+  final List<String> alergiasAlimentos;
+  final List<String> alergiasRemedios;
 
   // Restricao de liquido definida pelo medico (ex.: insuficiencia cardiaca),
   // em ml por dia. Quando existe, a meta de hidratacao nunca passa dela.
@@ -76,7 +89,9 @@ class Paciente extends Usuario {
     this.pesoKg,
     this.nivelAtividadeFisica,
     this.alergias,
-    this.medicamentosEmUso,
+    this.medicamentosEmUso = const [],
+    this.alergiasAlimentos = const [],
+    this.alergiasRemedios = const [],
     this.limiteLiquidoMl,
     this.metas,
     this.refeicoes,
@@ -143,7 +158,13 @@ class Paciente extends Usuario {
       pesoKg: (json['pesoKg'] as num?)?.toDouble(),
       nivelAtividadeFisica: json['nivelAtividadeFisica'],
       alergias: json['alergias'],
-      medicamentosEmUso: json['medicamentosEmUso'],
+      medicamentosEmUso: _lerMedicamentosEmUso(json['medicamentosEmUso']),
+      alergiasAlimentos: json['alergiasAlimentos'] is List
+          ? List<String>.from(json['alergiasAlimentos'] as List)
+          : const [],
+      alergiasRemedios: json['alergiasRemedios'] is List
+          ? List<String>.from(json['alergiasRemedios'] as List)
+          : const [],
       limiteLiquidoMl: (json['limiteLiquidoMl'] as num?)?.toInt(),
       metas: json['metas'] is Map
           ? MetasPersonalizadas.fromJson(
@@ -165,16 +186,40 @@ class Paciente extends Usuario {
     );
   }
 
+  // Lista de {nome, substancias}. Contas antigas guardavam um texto livre
+  // ("Losartana 50mg, AAS"): vira um remedio por nome, sem principio ativo.
+  static List<Remedio> _lerMedicamentosEmUso(Object? valor) {
+    if (valor is List) {
+      return valor
+          .whereType<Map>()
+          .map((item) => Remedio.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    if (valor is String) {
+      return valor
+          .split(',')
+          .map((nome) => nome.trim())
+          .where((nome) => nome.isNotEmpty)
+          .map((nome) => Remedio(nome: nome))
+          .toList();
+    }
+    return const [];
+  }
+
   // Copia com os campos que mudam depois da triagem: o peso e o nivel de
   // atividade (atualizados ao recalcular), as metas, o plano de refeicoes, os
-  // remedios e os limites de alerta. [semLimitesAlerta] volta a zona padrao
-  // (null em [limitesAlerta] mantem os limites atuais).
+  // remedios, as alergias e os limites de alerta. [semLimitesAlerta] volta a
+  // zona padrao (null em [limitesAlerta] mantem os limites atuais). Em
+  // [alergias], texto vazio apaga as outras alergias.
   Paciente copyWith({
     double? pesoKg,
     String? nivelAtividadeFisica,
     MetasPersonalizadas? metas,
     List<RefeicaoPlanejada>? refeicoes,
     List<Medicamento>? medicamentos,
+    List<String>? alergiasAlimentos,
+    List<String>? alergiasRemedios,
+    String? alergias,
     LimitesAlerta? limitesAlerta,
     bool semLimitesAlerta = false,
   }) {
@@ -199,8 +244,12 @@ class Paciente extends Usuario {
       alturaCm: alturaCm,
       pesoKg: pesoKg ?? this.pesoKg,
       nivelAtividadeFisica: nivelAtividadeFisica ?? this.nivelAtividadeFisica,
-      alergias: alergias,
+      alergias: alergias == null
+          ? this.alergias
+          : (alergias.trim().isEmpty ? null : alergias.trim()),
       medicamentosEmUso: medicamentosEmUso,
+      alergiasAlimentos: alergiasAlimentos ?? this.alergiasAlimentos,
+      alergiasRemedios: alergiasRemedios ?? this.alergiasRemedios,
       limiteLiquidoMl: limiteLiquidoMl,
       metas: metas ?? this.metas,
       refeicoes: refeicoes ?? this.refeicoes,
@@ -234,7 +283,10 @@ class Paciente extends Usuario {
       'pesoKg': pesoKg,
       'nivelAtividadeFisica': nivelAtividadeFisica,
       'alergias': alergias,
-      'medicamentosEmUso': medicamentosEmUso,
+      'medicamentosEmUso':
+          medicamentosEmUso.map((remedio) => remedio.toJson()).toList(),
+      'alergiasAlimentos': alergiasAlimentos,
+      'alergiasRemedios': alergiasRemedios,
       'limiteLiquidoMl': limiteLiquidoMl,
       'metas': metas?.toJson(),
       'refeicoes': refeicoes?.map((refeicao) => refeicao.toJson()).toList(),

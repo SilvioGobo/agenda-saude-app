@@ -90,8 +90,10 @@ lib/
   domain/metas/     # CalculadoraMetas + MetasPersonalizadas: metas a partir da triagem
   domain/refeicoes/ # RefeicoesPadrao: plano de refeições de quem não personalizou
   domain/alimentos/ # Alimento, Nutrientes, CatalogoAlimentos (busca por nome)
+  domain/alergias/  # nome da alergia a alimento e as comparações que disparam o aviso
+  domain/busca/     # separarPalavras: a busca por nome (sem acento, pelo começo das palavras) dos dois catálogos
   domain/relatorios/ # ResumoDoDia, ResumoDoMes e CalculadoraRelatorios: as contas dos relatórios
-  domain/medicacao/ # DosePlanejada e normalizarHorario: as doses do dia a partir dos remédios do paciente
+  domain/medicacao/ # DosePlanejada e normalizarHorario: as doses do dia a partir dos remédios do paciente; Remedio e CatalogoRemedios (lista da Anvisa)
   domain/lembretes/ # Lembrete e PlanejadorDeLembretes: o que lembrar, quando, e o que já foi cumprido hoje (RF 07.3)
   domain/acessibilidade/ # ConfiguracaoNarrador e VelocidadeNarracao (RF 07 e RF 08)
   domain/batimentos/ # MonitorZonaSeguranca: as regras dos alertas de BPM (app aberto e fechado)
@@ -102,6 +104,8 @@ lib/
     dados_repository.dart         # existente: DadosMedicosRepository (registros, BPM, alertas)
     relatorios_repository.dart    # existente: RelatoriosRepository (só lê, por período)
     preferencias_repository.dart  # existente: PreferenciasRepository (shared_preferences: só no aparelho)
+    alimentos_repository.dart     # existente: catálogo TACO (asset)
+    remedios_repository.dart      # existente: catálogo de remédios da Anvisa (asset)
   ui/
     auth/           # abertura, login, cadastro, recuperar senha, seleção de perfil (RF001)
     triagem/        # questionário adaptativo de comorbidades (RF002)
@@ -114,6 +118,7 @@ lib/
     configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007) e ler as telas em voz alta (RF 08.2)
     lembretes/      # "Meus lembretes": ligar/desligar os avisos, permissões e horários da glicemia (RF 07.3)
     metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
+    alergias/       # escolher alergias nas listas (BuscarAlergiaView), SecaoAlergias (triagem e "Minhas alergias")
     shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, BotaoOuvirTela, etc.)
 test/               # espelha lib/ (test/domain/models, test/data/repositories, test/ui)
 integration_test/   # fluxos completos no emulador
@@ -161,7 +166,11 @@ Convenções já estabelecidas nos repositories — manter:
   renomear. Os nutrientes de uma refeição (e do dia) saem do catálogo de alimentos:
   `quantidadeG / 100 × valores por 100 g`, somados (`Nutrientes`).
   O Paciente guarda também os `medicamentos` (RF003): lista de `Medicamento` (`id`,
-  `nome`, `dose`, `horarios` em "HH:MM"); lista vazia = nenhum remédio. Cada horário de
+  `nome`, `dose`, `horarios` em "HH:MM", `substancias`); lista vazia = nenhum remédio.
+  O nome é escolhido no catálogo de remédios (`BuscarRemedioView`, pelo nome da caixa ou
+  pelo princípio ativo) e `substancias` guarda os princípios ativos dele; quem não acha o
+  seu usa o nome digitado ("Usar"), sem princípio ativo (`substancias` vazia, como nos
+  remédios cadastrados antes do catálogo). Cada horário de
   cada remédio é uma dose (`DosePlanejada`) que a rotina mostra para marcar; o `id` liga
   o remédio aos registros do dia, então não muda ao editar. Gravada por
   `PacienteRepository.salvarMedicamentos` (update só desse campo). O horário é escolhido
@@ -186,6 +195,31 @@ Convenções já estabelecidas nos repositories — manter:
   retomar o episódio com a zona nova (o mesmo da leitura com o app fechado, que relê o
   paciente a cada execução). Como o plano de refeições, os limites não têm histórico:
   os relatórios de dias antigos usam a zona de hoje.
+- **Alergias** (triagem e "Minhas alergias", em Personalizar rotina): `alergiasAlimentos`
+  (lista, o alimento da TACO sem o preparo: "Camarão, Rio Grande, cozido" → "Camarão",
+  "Leite, de vaca, integral" → "Leite de vaca", `nomeDaAlergiaAlimentar`),
+  `alergiasRemedios` (lista de princípios ativos do catálogo de remédios: "Dipirona",
+  achada também pela marca, "Novalgina") e `alergias` (texto livre: "outras alergias",
+  látex, picada de abelha). `medicamentosEmUso` (triagem) é uma lista de `Remedio`
+  (`nome`, `substancias`) escolhida na lista de remédios; contas antigas guardavam um texto
+  livre, que é lido como um remédio por nome (separado por vírgula). O aviso compara **pelo nome**
+  (`domain/alergias/alergias.dart`, sem acento e sem maiúsculas): o alimento avisa quando
+  o nome tem a alergia inteira em sequência ("Paçoca, amendoim" tem "Amendoim"; "Leite, de
+  coco" não tem "Leite de vaca"); o remédio, quando um princípio ativo (ou, sem princípio
+  ativo, o nome digitado) tem a alergia. Ao escolher, a busca marca "ALERGIA A ..." e
+  pergunta antes (`confirmarApesarDaAlergia`, o botão de destaque é "Escolher outro"); o
+  item já escolhido fica marcado em "Minhas refeições" e "Meus remédios". Nenhuma das
+  duas tabelas traz ingredientes, então o aviso não substitui rótulo nem médico. As
+  alergias mudadas em "Minhas alergias" chegam às outras telas de Personalizar rotina
+  por `PacienteDaRotina` (gravadas por `PacienteRepository.salvarAlergias`, update só
+  desses campos).
+- **Catálogo de remédios**: `assets/medicamentos/anvisa.json`, 6.663 medicamentos com
+  registro ativo na Anvisa (dados abertos, `DADOS_ABERTOS_MEDICAMENTOS.csv`, baixado em
+  12/11/2026; a busca cita a fonte), cada um com `nome` e `substancias` (princípios ativos
+  sem o sal: "cloridrato de metformina" → "Metformina"). Embutido no app como a TACO e
+  lido por `RemediosRepository`. Gerado por `assets/medicamentos/gerar_catalogo.py`; o que
+  entra e as regras estão em `assets/medicamentos/LEIAME.md`. Nunca editar à mão: regerar
+  da fonte.
 - **Catálogo de alimentos**: `assets/alimentos/taco.json`, 593 alimentos da TACO 4ª
   edição (NEPA/UNICAMP, 2011; reprodução permitida citando a fonte — a tela de busca
   cita) com kcal, proteína, gordura, carboidrato, fibra e sódio por 100 g. Embutido no
@@ -341,7 +375,20 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    (RF001) e triagem de comorbidades (RF002). ← *cadastro (com telefone opcional), login,
    recuperação de senha (`RecuperarSenhaView`: o Firebase manda o link por e-mail; um
    e-mail sem conta recebe a mesma resposta, para não revelar quais contas existem) e
-   triagem já feitos (`AuthRepository`, `ui/auth/`, `ui/triagem/`)*
+   triagem já feitos (`AuthRepository`, `ui/auth/`, `ui/triagem/`). As perguntas da
+   triagem ficam em `perguntas_triagem.dart` (`PerguntasSobreVoce`, `PerguntasDiabetes`,
+   `PerguntasCardiopatia`, `PerguntasAlergias`, `PerguntaMedicamentosEmUso`), usadas pelo
+   assistente de 4 etapas do primeiro acesso e por **"Meus dados"** (`MeusDadosView`):
+   tocar no perfil do topo do menu lateral abre todas as respostas numa tela só, já
+   preenchidas (`TriagemViewModel(edicao: true)`), para mudar qualquer uma. Salvar
+   (`salvarAlteracoes`) grava só os campos da triagem e as metas
+   (`PacienteRepository.atualizarTriagem`, update de `camposDaTriagem`): refeições,
+   remédios, limites de alerta e `tarefasDiarias` ficam como estão. As metas são
+   calculadas de novo com os dados novos, mantendo o que o paciente ajustou à mão (água,
+   passos, exercício; a água nunca passa da restrição do médico); sem como calcular,
+   ficam as antigas. O painel passa a usar o paciente novo (`atualizarPaciente`: lembretes
+   da glicemia, plano padrão, zona do BPM) e a leitura do BPM com o app aberto, a zona nova
+   (`SincronizacaoBpmViewModel.atualizarCardiopatia`)*
 2. **Módulo de Sincronização IoT** — integração com smartwatch via pacote `health`,
    leitura e histórico de BPM (RF004), validação da zona de segurança cardíaca
    ← *leitura a cada 30 s com o app aberto (`SincronizacaoBpmViewModel`). Leitura com o
@@ -391,8 +438,9 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    meta de `Paciente.metaSonoMinHoras`/`MaxHoras`). Exercício: `CardExercicio` (os de hoje,
    com "Apagar", e o progresso da meta semanal) + `RegistrarExercicioView` (tipo, minutos e
    intensidade em botões, sem digitar). Medicação: `CardMedicacao` (uma linha por dose, com
-   caixa de seleção grande) + `MeusRemediosView` (nome, dose e horários, no molde de
-   "Minhas refeições"). Remédios, refeições e metas se editam em "Personalizar rotina"
+   caixa de seleção grande) + `MeusRemediosView` (remédio escolhido na lista da Anvisa,
+   dose e horários, no molde de "Minhas refeições"). Remédios, refeições, alergias
+   ("Minhas alergias") e metas se editam em "Personalizar rotina"
    (`PersonalizarRotinaView`, menu lateral, logo abaixo de "Minhas metas"), e não nos
    cartões da Rotina; o "Ajustar metas" de "Minhas metas" só aparece na primeira vez,
    logo depois da triagem, quando o paciente ainda não chega ao menu. As telas de registro usam os widgets de `ui/shared/`

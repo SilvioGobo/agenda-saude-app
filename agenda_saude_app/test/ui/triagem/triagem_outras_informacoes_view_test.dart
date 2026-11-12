@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agenda_saude_app/core/theme/app_theme.dart';
 import 'package:agenda_saude_app/data/repositories/paciente_repository.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/triagem/triagem_outras_informacoes_view.dart';
 import 'package:agenda_saude_app/ui/triagem/triagem_viewmodel.dart';
+
+import '../../helpers/catalogo_de_teste.dart';
+import '../shared/escolher_na_busca.dart';
 
 void main() {
   // Triagem com as etapas obrigatorias respondidas, aberta na ultima etapa. O
@@ -15,6 +19,7 @@ void main() {
   Future<List<Paciente>> montarTriagemPreenchida(
     WidgetTester tester, {
     required DateTime dataNascimento,
+    FakeFirebaseFirestore? firestore,
   }) async {
     final pacientesNoPainel = <Paciente>[];
     final viewModel = TriagemViewModel(
@@ -28,7 +33,7 @@ void main() {
         codigoVinculo: 'ABC123',
       ),
       pacienteRepository: PacienteRepository(
-        firestore: FakeFirebaseFirestore(),
+        firestore: firestore ?? FakeFirebaseFirestore(),
       ),
     )
       ..responderDiabetes(false)
@@ -41,6 +46,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.claro,
         home: ChangeNotifierProvider.value(
           value: viewModel,
           child: TriagemOutrasInformacoesView(
@@ -48,11 +54,20 @@ void main() {
               pacientesNoPainel.add(paciente);
               return const Scaffold(body: Text('Painel do paciente'));
             },
+            carregarAlimentos: catalogoDeTeste,
+            carregarRemedios: carregarRemediosPequeno,
           ),
         ),
       ),
     );
     return pacientesNoPainel;
+  }
+
+  Future<void> tocar(WidgetTester tester, String texto) async {
+    await tester.ensureVisible(find.text(texto));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(texto));
+    await tester.pumpAndSettle();
   }
 
   testWidgets(
@@ -83,9 +98,83 @@ void main() {
 
       expect(find.text('Outras Informações'), findsOneWidget);
       expect(find.text('Etapa 4 de 4'), findsOneWidget);
-      expect(find.text('Alergias e restrições alimentares'), findsOneWidget);
+      expect(find.text('Alergia a alimentos'), findsOneWidget);
+      expect(find.text('Alergia a remédios'), findsOneWidget);
+      expect(find.text('Outras alergias ou restrições'), findsOneWidget);
       expect(find.text('Medicamentos em uso contínuo'), findsOneWidget);
       expect(find.text('Concluir'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Deve escolher as alergias e os remédios em uso nas listas e salvar',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      await montarTriagemPreenchida(
+        tester,
+        dataNascimento: DateTime(1960, 5, 10),
+        firestore: firestore,
+      );
+
+      // Alergia a alimento: cada preparo do camarao vira um "Camarão" so.
+      await tocar(tester, 'Adicionar alimento');
+      expect(find.text('Alergia a alimento'), findsOneWidget);
+      await escolherNaBusca(tester, 'camar', 'Camarão');
+      expect(find.text('Camarão'), findsOneWidget);
+
+      // Alergia a remedio: a marca leva ao principio ativo.
+      await tocar(tester, 'Adicionar remédio');
+      await escolherNaBusca(tester, 'novalg', 'Dipirona');
+      expect(find.text('Dipirona'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Ex.: látex, picada de abelha'),
+        'Látex',
+      );
+
+      // O remedio em uso com dipirona avisa da alergia antes de entrar.
+      await tocar(tester, 'Adicionar remédio em uso');
+      await tester.enterText(find.byType(TextField).last, 'novalg');
+      await tester.pumpAndSettle();
+      expect(find.text('ALERGIA A DIPIRONA'), findsOneWidget);
+      await tester.tap(find.text('Novalgina'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Escolher outro'));
+      await tester.pumpAndSettle();
+      await escolherNaBusca(tester, 'losar', 'Losartana potássica');
+      expect(find.text('Losartana potássica'), findsOneWidget);
+
+      await tocar(tester, 'Concluir');
+
+      final salvo =
+          (await firestore.collection('usuarios').doc('paciente_001').get())
+              .data()!;
+      expect(salvo['alergiasAlimentos'], ['Camarão']);
+      expect(salvo['alergiasRemedios'], ['Dipirona']);
+      expect(salvo['alergias'], 'Látex');
+      expect(salvo['medicamentosEmUso'], [
+        {
+          'nome': 'Losartana potássica',
+          'substancias': ['Losartana'],
+        },
+      ]);
+    },
+  );
+
+  testWidgets(
+    'O campo de outras alergias tem uma linha só, com o texto no meio',
+    (tester) async {
+      await montarTriagemPreenchida(
+        tester,
+        dataNascimento: DateTime(1960, 5, 10),
+      );
+
+      final campo = find.widgetWithText(
+        TextFormField,
+        'Ex.: látex, picada de abelha',
+      );
+      // Uma linha de texto (18) e o espaco do tema: antes eram duas linhas.
+      expect(tester.getSize(campo).height, lessThan(64));
     },
   );
 

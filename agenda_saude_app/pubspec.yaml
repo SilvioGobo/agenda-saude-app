@@ -90,6 +90,7 @@ flutter:
 
   assets:
     - assets/alimentos/taco.json
+    - assets/medicamentos/anvisa.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

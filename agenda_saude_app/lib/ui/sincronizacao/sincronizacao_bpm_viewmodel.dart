@@ -114,6 +114,18 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
   // Limites de BPM do paciente (RF 06.1): os do login e, depois, os que o
   // acompanhante salvar, em tempo real.
   late LimitesAlerta? _limites = paciente.limitesAlerta;
+
+  // A cardiopatia muda a zona padrao (60 a 90). Comeca com a do login e muda
+  // quando o paciente responde de novo em "Meus dados".
+  late bool _possuiCardiopatia = paciente.possuiCardiopatia;
+
+  // O paciente mudou a resposta da cardiopatia: como na mudanca dos limites,
+  // a proxima leitura rele a janela e retoma o episodio com a zona nova.
+  void atualizarCardiopatia(bool possuiCardiopatia) {
+    if (possuiCardiopatia == _possuiCardiopatia) return;
+    _possuiCardiopatia = possuiCardiopatia;
+    _carregouGravados = false;
+  }
   StreamSubscription<LimitesAlerta?>? _assinaturaLimites;
 
   // Verifica Health Connect + permissao e, se tudo ok, comeca a sincronizar.
@@ -284,7 +296,7 @@ class SincronizacaoBpmViewModel extends ChangeNotifier
           ..addAll(gravados.map((b) => b.timestamp.millisecondsSinceEpoch));
         _monitor = MonitorZonaSeguranca.retomar(
           pacienteId: paciente.id,
-          possuiCardiopatia: paciente.possuiCardiopatia,
+          possuiCardiopatia: _possuiCardiopatia,
           limites: _limites,
           gravados: gravados,
           alertas: alertas,

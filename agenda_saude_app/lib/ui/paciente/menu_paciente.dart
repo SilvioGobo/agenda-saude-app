@@ -14,8 +14,10 @@ import 'paciente_viewmodel.dart';
 // o paciente usa pouco (metas, personalizar a rotina, codigo de vinculo,
 // conexao do smartwatch, compartilhamento da localizacao, lembretes,
 // acessibilidade, sair) para o painel ficar so com o BPM e os atalhos principais. Itens com 72dp de altura,
-// icone 32 e texto 20, com uma linha de explicacao embaixo (NF004).
+// icone 32 e texto 20, com uma linha de explicacao embaixo (NF004). O perfil,
+// no topo, abre "Meus dados" (as respostas da triagem).
 class MenuPaciente extends StatelessWidget {
+  final VoidCallback aoAbrirMeusDados;
   final VoidCallback aoAbrirMetas;
   final VoidCallback aoAbrirPersonalizarRotina;
   final VoidCallback aoAbrirCodigo;
@@ -27,6 +29,7 @@ class MenuPaciente extends StatelessWidget {
 
   const MenuPaciente({
     super.key,
+    required this.aoAbrirMeusDados,
     required this.aoAbrirMetas,
     required this.aoAbrirPersonalizarRotina,
     required this.aoAbrirCodigo,
@@ -131,7 +134,6 @@ class MenuPaciente extends StatelessWidget {
     final localizacao = context.watch<CompartilhamentoLocalizacaoViewModel>();
     final lembretes = context.watch<LembretesViewModel>();
     final configuracoes = context.watch<ConfiguracoesViewModel>();
-    final colorScheme = Theme.of(context).colorScheme;
     final situacao = _situacaoSmartwatch(context, sincronizacao);
     final situacaoLocalizacao = _situacaoLocalizacao(context, localizacao);
     final situacaoLembretes = _situacaoLembretes(context, lembretes);
@@ -164,46 +166,9 @@ class MenuPaciente extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: colorScheme.primaryContainer,
-                    child: Text(
-                      nome.isEmpty ? '?' : nome[0].toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          nome.isEmpty ? 'Paciente' : nome,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Paciente',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            _Perfil(
+              nome: nome,
+              aoTocar: () => _tocar(context, aoAbrirMeusDados),
             ),
             const Divider(height: 1),
             const SizedBox(height: 8),
@@ -262,6 +227,112 @@ class MenuPaciente extends StatelessWidget {
               aoTocar: () => _tocar(context, aoSair),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// O perfil no topo do menu: a inicial do nome com um lapis, o nome e "Ver e
+// mudar meus dados". A linha toda e o botao (mais facil de acertar que so o
+// circulo) e abre "Meus dados".
+class _Perfil extends StatelessWidget {
+  final String nome;
+  final VoidCallback aoTocar;
+
+  const _Perfil({required this.nome, required this.aoTocar});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final nomeExibido = nome.isEmpty ? 'Paciente' : nome;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Semantics(
+        button: true,
+        label: 'Meus dados, $nomeExibido. Toque para ver e mudar as '
+            'respostas da triagem.',
+        excludeSemantics: true,
+        onTap: aoTocar,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: aoTocar,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              child: Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Text(
+                          nome.isEmpty ? '?' : nome[0].toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colorScheme.surface,
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.edit_rounded,
+                            size: 16,
+                            color: colorScheme.onPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nomeExibido,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Ver e mudar meus dados',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 32,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

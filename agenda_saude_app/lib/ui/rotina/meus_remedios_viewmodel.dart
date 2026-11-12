@@ -1,14 +1,18 @@
 import 'package:flutter/foundation.dart';
 
+import '../../domain/alergias/alergias.dart';
 import '../../domain/medicacao/horario_medicacao.dart';
+import '../../domain/medicacao/remedio.dart';
 import '../../domain/models/medicamento.dart';
 import 'medicacao_viewmodel.dart';
 
-// Remedio enquanto o paciente edita: o nome e a dose mudam a cada letra, e so
+// Remedio enquanto o paciente edita: o nome e os principios ativos vem do
+// catalogo (ou do nome digitado na busca), a dose muda a cada letra, e so
 // viram Medicamento ao salvar.
 class RemedioEmEdicao {
   final String id;
   String nome;
+  List<String> substancias;
   String dose;
   // Em "HH:MM", do mais cedo para o mais tarde.
   final List<String> horarios;
@@ -18,25 +22,29 @@ class RemedioEmEdicao {
   RemedioEmEdicao({
     required this.id,
     this.nome = '',
+    this.substancias = const [],
     this.dose = '',
     List<String>? horarios,
   }) : horarios = horarios ?? [];
 }
 
-// Estado da tela "Meus remedios": o paciente cadastra os remedios que toma, com
-// a dose e os horarios de cada um (RF003, Figura 14). Na rotina ele so marca
-// "tomado". Os horarios vem do seletor de hora, ja em "HH:MM" ("08:00"). Nada
-// e gravado ate "Salvar".
+// Estado da tela "Meus remedios": o paciente escolhe na lista da Anvisa os
+// remedios que toma (`BuscarRemedioView`), com a dose e os horarios de cada um
+// (RF003, Figura 14). Na rotina ele so marca "tomado". Os horarios vem do
+// seletor de hora, ja em "HH:MM" ("08:00"). Os remedios com algo das
+// [alergias] do paciente saem marcados. Nada e gravado ate "Salvar".
 class MeusRemediosViewModel extends ChangeNotifier {
-  static const int tamanhoMaximoNome = 40;
   static const int tamanhoMaximoDose = 20;
 
   final Future<bool> Function(List<Medicamento>) _aoSalvar;
   final String Function() _gerarId;
+  // Alergias a remedios do paciente (Paciente.alergiasRemedios).
+  final List<String> alergias;
 
   MeusRemediosViewModel({
     required List<Medicamento> atual,
     required Future<bool> Function(List<Medicamento>) aoSalvar,
+    this.alergias = const [],
     String Function()? gerarId,
   })  : _aoSalvar = aoSalvar,
         _gerarId = gerarId ?? _idPelaHora {
@@ -45,6 +53,7 @@ class MeusRemediosViewModel extends ChangeNotifier {
         RemedioEmEdicao(
           id: medicamento.id,
           nome: medicamento.nome,
+          substancias: medicamento.substancias,
           dose: medicamento.dose,
           horarios: [...medicamento.horarios],
         ),
@@ -63,22 +72,41 @@ class MeusRemediosViewModel extends ChangeNotifier {
   bool podeAdicionarHorario(RemedioEmEdicao remedio) =>
       remedio.horarios.length < MedicacaoViewModel.maximoHorariosPorRemedio;
 
-  void adicionar() {
+  // Poe na lista o remedio escolhido na busca.
+  void adicionar(Remedio escolhido) {
     if (!podeAdicionar) return;
-    remedios.add(RemedioEmEdicao(id: _gerarId()));
+    remedios.add(
+      RemedioEmEdicao(
+        id: _gerarId(),
+        nome: escolhido.nome,
+        substancias: escolhido.substancias,
+      ),
+    );
     mensagemErro = null;
     notifyListeners();
   }
+
+  // Troca o remedio por outro da busca. O id fica: as doses ja marcadas hoje
+  // continuam ligadas a ele.
+  void trocarRemedio(RemedioEmEdicao remedio, Remedio escolhido) {
+    remedio
+      ..nome = escolhido.nome
+      ..substancias = escolhido.substancias;
+    mensagemErro = null;
+    notifyListeners();
+  }
+
+  // A alergia do paciente que o remedio tem, ou null.
+  String? alergiaDe(RemedioEmEdicao remedio) => alergiaNoRemedio(
+        nome: remedio.nome,
+        substancias: remedio.substancias,
+        alergias: alergias,
+      );
 
   void remover(String id) {
     remedios.removeWhere((remedio) => remedio.id == id);
     mensagemErro = null;
     notifyListeners();
-  }
-
-  void definirNome(RemedioEmEdicao remedio, String valor) {
-    remedio.nome = valor;
-    _limparAviso();
   }
 
   void definirDose(RemedioEmEdicao remedio, String valor) {
@@ -122,7 +150,7 @@ class MeusRemediosViewModel extends ChangeNotifier {
 
   Future<bool> salvar() async {
     if (remedios.any((remedio) => remedio.nome.trim().isEmpty)) {
-      mensagemErro = 'Dê um nome para todos os remédios.';
+      mensagemErro = 'Escolha o nome de todos os remédios.';
       notifyListeners();
       return false;
     }
@@ -143,6 +171,7 @@ class MeusRemediosViewModel extends ChangeNotifier {
           nome: remedio.nome.trim(),
           dose: remedio.dose.trim(),
           horarios: [...remedio.horarios],
+          substancias: [...remedio.substancias],
         ),
     ]);
 

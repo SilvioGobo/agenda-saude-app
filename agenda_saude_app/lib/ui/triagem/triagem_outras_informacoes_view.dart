@@ -2,22 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
+import '../../domain/alimentos/catalogo_alimentos.dart';
+import '../../domain/medicacao/catalogo_remedios.dart';
 import '../../domain/models/paciente.dart';
 import '../metas/metas_view.dart';
 import '../paciente/paciente_view.dart';
 import '../shared/progresso_etapa.dart';
-import '../shared/rotulo_pergunta.dart';
+import 'perguntas_triagem.dart';
 import 'triagem_viewmodel.dart';
 
-// Etapa 4 de 4 (final) do assistente de triagem: informacoes opcionais.
+// Etapa 4 de 4 (final) do assistente de triagem: informacoes opcionais. As
+// alergias a alimentos e a remedios e os remedios em uso sao escolhidos nas
+// listas (como o alimento da refeicao); o que nao esta nelas vai em "Outras
+// alergias".
 class TriagemOutrasInformacoesView extends StatefulWidget {
   // Monta o painel do paciente no fim da triagem. Os testes trocam por uma
   // tela simples: o painel de verdade liga no Firebase e nos sensores.
   final Widget Function(Paciente paciente) construirPainel;
+  // Os catalogos das buscas; null = os do app (os testes passam outros).
+  final Future<CatalogoAlimentos> Function()? carregarAlimentos;
+  final Future<CatalogoRemedios> Function()? carregarRemedios;
 
   const TriagemOutrasInformacoesView({
     super.key,
     this.construirPainel = PacienteView.comProviders,
+    this.carregarAlimentos,
+    this.carregarRemedios,
   });
 
   @override
@@ -27,16 +37,6 @@ class TriagemOutrasInformacoesView extends StatefulWidget {
 
 class _TriagemOutrasInformacoesViewState
     extends State<TriagemOutrasInformacoesView> {
-  final _alergiasController = TextEditingController();
-  final _medicamentosController = TextEditingController();
-
-  @override
-  void dispose() {
-    _alergiasController.dispose();
-    _medicamentosController.dispose();
-    super.dispose();
-  }
-
   Future<void> _concluir(BuildContext context) async {
     final viewModel = context.read<TriagemViewModel>();
     final sucesso = await viewModel.concluirTriagem();
@@ -100,26 +100,13 @@ class _TriagemOutrasInformacoesViewState
                 style: TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 28),
-              const RotuloPergunta('Alergias e restrições alimentares'),
-              TextField(
-                controller: _alergiasController,
-                maxLines: 2,
-                style: const TextStyle(fontSize: 16),
-                decoration: const InputDecoration(
-                  labelText: 'Ex: alergia a dipirona',
-                ),
-                onChanged: viewModel.definirAlergias,
+              PerguntasAlergias(
+                carregarAlimentos: widget.carregarAlimentos,
+                carregarRemedios: widget.carregarRemedios,
               ),
-              const SizedBox(height: 20),
-              const RotuloPergunta('Medicamentos em uso contínuo'),
-              TextField(
-                controller: _medicamentosController,
-                maxLines: 2,
-                style: const TextStyle(fontSize: 16),
-                decoration: const InputDecoration(
-                  labelText: 'Ex: Losartana 50mg',
-                ),
-                onChanged: viewModel.definirMedicamentosEmUso,
+              const SizedBox(height: 24),
+              PerguntaMedicamentosEmUso(
+                carregarRemedios: widget.carregarRemedios,
               ),
               const SizedBox(height: 28),
               if (viewModel.mensagemErro != null)

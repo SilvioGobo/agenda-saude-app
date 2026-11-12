@@ -14,7 +14,9 @@ import 'package:agenda_saude_app/ui/rotina/card_medicacao.dart';
 import 'package:agenda_saude_app/ui/rotina/medicacao_viewmodel.dart';
 import 'package:agenda_saude_app/ui/rotina/meus_remedios_view.dart';
 
+import '../../helpers/catalogo_de_teste.dart';
 import '../shared/escolher_horario.dart';
+import '../shared/escolher_na_busca.dart';
 
 // Leitura do dia que sempre falha (ex.: indice composto nao publicado).
 class _RepositorioSemLeitura extends DadosMedicosRepository {
@@ -115,6 +117,7 @@ void main() {
                           MaterialPageRoute<void>(
                             builder: (_) => MeusRemediosView.comProviders(
                               context.read<MedicacaoViewModel>(),
+                              carregarCatalogo: carregarRemediosPequeno,
                             ),
                           ),
                         ),
@@ -278,9 +281,12 @@ void main() {
       await tester.tap(find.text('Abrir Meus remédios'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Cadastre cada remédio com a dose e os horários em que você toma. Na rotina, você só marca quando tomar.'),
+      expect(
+          find.text('Escolha cada remédio na lista e diga a dose e os '
+              'horários em que você toma. Na rotina, você só marca quando '
+              'tomar.'),
           findsOneWidget);
-      expect(find.widgetWithText(TextFormField, 'Losartana'), findsOneWidget);
+      expect(find.text('Losartana'), findsOneWidget);
 
       await desmontar(tester);
     });
@@ -295,22 +301,23 @@ void main() {
       await montar(tester, medicamentos: const []);
 
       // Cadastra os dois remedios em "Meus remedios".
+      // Os nomes vem da busca; aqui, os digitados ("Usar").
       await tester.tap(find.text('Abrir Meus remédios'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
+      await escolherNaBusca(tester, 'Losartana', 'Usar "Losartana"');
       await tester.tap(find.text('Adicionar remédio'));
       await tester.pumpAndSettle();
+      await escolherNaBusca(tester, 'Metformina', 'Usar "Metformina"');
 
       Finder campo(String rotulo, int posicao) =>
           find.widgetWithText(TextFormField, rotulo).at(posicao);
 
-      await tester.enterText(campo('Nome do remédio', 0), 'Losartana');
       await tester.enterText(campo('Dose (opcional)', 0), '50 mg');
       await tester.tap(find.byTooltip('Adicionar horário').at(0));
       await tester.pumpAndSettle();
       await escolherNoSeletorDeHorario(tester, hora: 8, minuto: 0);
-      await tester.enterText(campo('Nome do remédio', 1), 'Metformina');
       await tester.enterText(campo('Dose (opcional)', 1), '500 mg');
       await tester.tap(find.byTooltip('Adicionar horário').at(1));
       await tester.pumpAndSettle();

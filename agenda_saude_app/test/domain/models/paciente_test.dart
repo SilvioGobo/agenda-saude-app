@@ -4,6 +4,7 @@ import 'package:agenda_saude_app/domain/metas/metas_personalizadas.dart';
 import 'package:agenda_saude_app/domain/models/item_refeicao.dart';
 import 'package:agenda_saude_app/domain/models/limites_alerta.dart';
 import 'package:agenda_saude_app/domain/models/medicamento.dart';
+import 'package:agenda_saude_app/domain/medicacao/remedio.dart';
 import 'package:agenda_saude_app/domain/models/paciente.dart'; // ajuste o import
 import 'package:agenda_saude_app/domain/models/refeicao_planejada.dart';
 
@@ -66,7 +67,8 @@ void main() {
       expect(paciente.pesoKg, 80.0);
       expect(paciente.nivelAtividadeFisica, 'Moderado');
       expect(paciente.alergias, 'Dipirona');
-      expect(paciente.medicamentosEmUso, 'Losartana');
+      // Conta antiga: o texto livre vira um remedio por nome.
+      expect(paciente.medicamentosEmUso.map((r) => r.nome), ['Losartana']);
     });
 
     test('Deve usar valores padrão quando os campos da triagem não existem no JSON', () {
@@ -447,6 +449,58 @@ void main() {
       // Os outros copyWith nao perdem os remedios, e o original nao muda.
       expect(comRemedios.copyWith(pesoKg: 70).medicamentos, hasLength(2));
       expect(semRemedios.medicamentos, isEmpty);
+    });
+
+    test('Deve guardar e ler as alergias pelo JSON e trocá-las no copyWith', () {
+      // Documento antigo, sem as listas.
+      final antigo = Paciente.fromJson({'nome': 'João'}, 'id-1');
+      expect(antigo.alergiasAlimentos, isEmpty);
+      expect(antigo.alergiasRemedios, isEmpty);
+
+      final comAlergias = antigo.copyWith(
+        alergiasAlimentos: const ['Camarão'],
+        alergiasRemedios: const ['Dipirona'],
+        alergias: ' Látex ',
+      );
+      final lido = Paciente.fromJson(comAlergias.toJson(), 'id-1');
+      expect(lido.alergiasAlimentos, ['Camarão']);
+      expect(lido.alergiasRemedios, ['Dipirona']);
+      expect(lido.alergias, 'Látex');
+
+      // Os outros copyWith mantem as alergias; texto vazio apaga as outras.
+      expect(comAlergias.copyWith(pesoKg: 70).alergiasRemedios, ['Dipirona']);
+      expect(comAlergias.copyWith(pesoKg: 70).alergias, 'Látex');
+      expect(comAlergias.copyWith(alergias: '  ').alergias, isNull);
+    });
+
+    test('Deve guardar e ler os remédios em uso da triagem pelo JSON', () {
+      final paciente = Paciente(
+        id: 'id-1',
+        nome: 'João',
+        email: 'joao@email.com',
+        perfil: 'Paciente',
+        possuiDiabetes: false,
+        possuiCardiopatia: false,
+        codigoVinculo: '12345',
+        medicamentosEmUso: const [
+          Remedio(nome: 'Novalgina', substancias: ['Dipirona']),
+          Remedio(nome: 'Xarope caseiro'),
+        ],
+      );
+
+      final lido = Paciente.fromJson(paciente.toJson(), 'id-1');
+
+      expect(lido.medicamentosEmUso.map((r) => r.nome),
+          ['Novalgina', 'Xarope caseiro']);
+      expect(lido.medicamentosEmUso.first.substancias, ['Dipirona']);
+      expect(lido.medicamentosEmUso.last.substancias, isEmpty);
+      expect(
+        Paciente.fromJson({'medicamentosEmUso': 'A, B ,'}, 'x')
+            .medicamentosEmUso
+            .map((r) => r.nome),
+        ['A', 'B'],
+      );
+      expect(Paciente.fromJson({}, 'x').medicamentosEmUso, isEmpty);
     });
 
     test('Deve guardar e ler o telefone pelo JSON e mantê-lo no copyWith', () {
