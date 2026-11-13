@@ -113,8 +113,10 @@ void main() {
       expect(find.text('12:00'), findsOneWidget);
       expect(find.text('20:00'), findsOneWidget);
       expect(find.text('Adicionar remédio'), findsOneWidget);
+      // Salvar e Cancelar na barra de cima, no lugar do Voltar.
       expect(find.text('Salvar'), findsOneWidget);
       expect(find.text('Cancelar'), findsOneWidget);
+      expect(find.text('Voltar'), findsNothing);
       // O relogio de adicionar fica na linha de HORÁRIOS, acima dos horarios.
       final titulo = tester.getCenter(find.text('HORÁRIOS').first);
       final relogio = tester.getCenter(find.byTooltip('Adicionar horário').first);
@@ -335,7 +337,7 @@ void main() {
       expect(find.text('Meus remédios'), findsOneWidget);
     });
 
-    testWidgets('Deve fechar sem salvar nada ao tocar em Cancelar ou Voltar', (
+    testWidgets('Deve fechar sem salvar nada ao tocar em Cancelar ou no voltar do celular', (
       tester,
     ) async {
       await abrir(tester, atual: const [_losartana]);
@@ -347,7 +349,8 @@ void main() {
 
       await tester.tap(find.text('Abrir'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Voltar'));
+      // O "voltar" do Android.
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Meus remédios'), findsNothing);
       expect(salvos, isEmpty);

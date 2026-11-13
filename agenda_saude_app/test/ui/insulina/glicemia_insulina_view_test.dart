@@ -146,10 +146,10 @@ void main() {
 
       await tocar(tester, find.text('AO ACORDAR'));
       await tester.enterText(find.byType(TextField), '112');
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
 
       // Voltou para o checklist.
-      expect(find.text('SALVAR'), findsNothing);
+      expect(find.text('Salvar'), findsNothing);
       expect(find.text(formatarGlicemia(112)), findsOneWidget);
       expect(find.text('NA FAIXA'), findsOneWidget);
       expect(find.text('ANOTADO ÀS 15:00'), findsOneWidget);
@@ -165,12 +165,14 @@ void main() {
 
       await tocar(tester, find.text('ANTES DO JANTAR'));
       await tester.enterText(find.byType(TextField), '5');
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
 
       expect(find.text('DIGITE UM VALOR ENTRE 20 E 600 MG/DL.'), findsOneWidget);
+      // E na faixa de cima, perto do Salvar.
+      expect(find.text('Digite um valor entre 20 e 600 mg/dL.'), findsOneWidget);
       // O erro toma o lugar do exemplo.
       expect(find.text('EXEMPLO: 110'), findsNothing);
-      expect(find.text('SALVAR'), findsOneWidget);
+      expect(find.text('Salvar'), findsOneWidget);
       expect(
         (await fakeFirestore.collection('registros_diarios').get()).docs,
         isEmpty,
@@ -191,7 +193,7 @@ void main() {
       await rolarAte(tester, find.text('4. QUANTAS UNIDADES?'));
       expect(find.text('4. QUANTAS UNIDADES?'), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, '6');
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
 
       expect(find.text(formatarGlicemia(190)), findsOneWidget);
       expect(find.text('ALTA'), findsOneWidget);
@@ -208,7 +210,7 @@ void main() {
       expect(find.textContaining('GLICEMIA?'), findsNothing);
       expect(find.textContaining('QUAL INSULINA?'), findsNothing);
       await tester.enterText(find.byType(TextField), '14');
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
 
       expect(find.text(descreverInsulina('Lenta', 14).toUpperCase()), findsOneWidget);
       // A insulina lenta não conta como medição de glicemia.
@@ -240,7 +242,7 @@ void main() {
       // Abriu a anotacao do mesmo momento.
       expect(find.text('1. QUAL FOI A SUA GLICEMIA?'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '130');
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
 
       expect(find.text(formatarGlicemia(300)), findsNothing);
       expect(find.text(formatarGlicemia(130)), findsOneWidget);
@@ -251,13 +253,13 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Deve deixar o momento pendente se voltar sem anotar depois de corrigir', (tester) async {
+    testWidgets('Deve deixar o momento pendente se cancelar sem anotar depois de corrigir', (tester) async {
       await salvar('Ao acordar', DateTime(2026, 10, 25, 7, 0), glicose: 300);
       await montar(tester);
 
       await tocar(tester, find.text('CORRIGIR'));
       await tocar(tester, find.text('APAGAR E ANOTAR DE NOVO'));
-      await tocar(tester, find.text('Voltar'));
+      await tocar(tester, find.text('Cancelar'));
 
       expect(find.text(formatarGlicemia(300)), findsNothing);
       expect(find.text('TOQUE AQUI PARA ANOTAR'), findsNWidgets(4));
@@ -283,7 +285,7 @@ void main() {
       await tocar(tester, find.text('ANOTAR OUTRA MEDIÇÃO'));
       expect(find.text('OUTRA MEDIÇÃO'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '95');
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
 
       expect(find.text('OUTRA MEDIÇÃO'), findsOneWidget);
       expect(find.text(formatarGlicemia(95)), findsOneWidget);
@@ -334,7 +336,8 @@ void main() {
 
       await tocar(tester, find.text('ANTES DO JANTAR'));
       await tocar(tester, find.text('SIM'));
-      await rolarAte(tester, find.text('SALVAR'));
+      await rolarAte(tester, find.text('4. QUANTAS UNIDADES?'));
+      expect(find.text('Salvar'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await desmontar(tester);

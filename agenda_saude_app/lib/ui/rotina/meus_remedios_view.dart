@@ -6,8 +6,8 @@ import '../../core/theme/app_cores.dart';
 import '../../domain/medicacao/catalogo_remedios.dart';
 import '../../domain/medicacao/remedio.dart';
 import '../shared/aviso_alergia.dart';
-import '../shared/barra_acoes.dart';
-import '../shared/botao_barra_superior.dart';
+import '../shared/barra_superior_formulario.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/erro_formulario.dart';
 import '../shared/seletor_horario.dart';
 import '../shared/titulo_tela.dart';
@@ -19,7 +19,7 @@ import 'meus_remedios_viewmodel.dart';
 // toma, com a dose e os horarios de cada um. Na rotina ele so marca "tomado" a
 // cada dose. O remedio e escolhido na lista da Anvisa (`BuscarRemedioView`) e
 // cada horario no relogio (`mostrarSeletorDeHorario`), sem digitar. Salvar e
-// Cancelar ficam fixos na base, como em "Minhas refeicoes".
+// Cancelar ficam na barra de cima, como em "Minhas refeicoes".
 class MeusRemediosView extends StatelessWidget {
   // Catalogo de remedios da busca; null = o do app (os testes passam outro).
   final Future<CatalogoRemedios> Function()? carregarCatalogo;
@@ -84,39 +84,13 @@ class MeusRemediosView extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(),
       ),
-      bottomNavigationBar: BarraAcoes(
-        children: [
-          if (viewModel.mensagemErro != null)
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                viewModel.mensagemErro!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppCores.perigo,
-                ),
-              ),
-            ),
-          FilledButton.icon(
-            onPressed: viewModel.salvando ? null : () => _salvar(context),
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Salvar'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [

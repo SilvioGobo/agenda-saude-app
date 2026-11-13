@@ -13,12 +13,7 @@ class _RepositorioQueFalha extends PacienteRepository {
     : super(firestore: firestore);
 
   @override
-  Future<void> atualizarMetas(
-    String pacienteId,
-    MetasPersonalizadas metas, {
-    double? pesoKg,
-    String? nivelAtividadeFisica,
-  }) {
+  Future<void> atualizarMetas(String pacienteId, MetasPersonalizadas metas) {
     throw Exception('sem conexao');
   }
 }
@@ -41,7 +36,6 @@ void main() {
     // 150 minutos de exercicio por semana. Ja salva no banco simulado.
     Future<Paciente> criarPaciente({
       int? limiteLiquidoMl,
-      bool ajustada = false,
       String? sexo = 'Feminino',
       double? altura = 155,
     }) async {
@@ -61,8 +55,7 @@ void main() {
         nivelAtividadeFisica: 'Sedentário',
         limiteLiquidoMl: limiteLiquidoMl,
       );
-      var metas = CalculadoraMetas.calcular(semMetas, hoje: hoje);
-      if (ajustada && metas != null) metas = metas.comAjustes(passos: 3000);
+      final metas = CalculadoraMetas.calcular(semMetas, hoje: hoje);
       final paciente = metas == null
           ? semMetas
           : semMetas.copyWith(metas: metas);
@@ -75,7 +68,6 @@ void main() {
         paciente: paciente,
         pacienteRepository: repo ?? repositorio,
         aoAtualizar: atualizacoes.add,
-        agora: () => hoje,
       );
     }
 
@@ -93,7 +85,6 @@ void main() {
       expect(viewModel.metas, isNotNull);
       expect(viewModel.metas!.hidratacaoCopos, 7);
       expect(viewModel.metas!.passos, 4000);
-      expect(viewModel.precisaConfirmarRecalculo, false);
     });
 
     test(
@@ -112,7 +103,6 @@ void main() {
         expect(viewModel.metas!.passos, 5000);
         expect(viewModel.metas!.exercicioMinutosSemana, 120);
         expect(viewModel.metas!.ajustadaManualmente, true);
-        expect(viewModel.precisaConfirmarRecalculo, true);
         expect(viewModel.mensagemErro, isNull);
         expect(atualizacoes.single.metas!.passos, 5000);
 
@@ -190,85 +180,6 @@ void main() {
     );
 
     test(
-      'Deve recalcular com o novo peso e nível de atividade e gravar tudo',
-      () async {
-        final paciente = await criarPaciente();
-        final viewModel = criar(paciente);
-
-        final recalculou = await viewModel.recalcular(
-          pesoTexto: '90,5',
-          nivelAtividade: 'Moderado',
-        );
-
-        expect(recalculou, true);
-        expect(viewModel.paciente.pesoKg, 90.5);
-        expect(viewModel.paciente.nivelAtividadeFisica, 'Moderado');
-        // 30 ml/kg x 90,5 kg = 2715 ml -> 11 copos.
-        expect(viewModel.metas!.hidratacaoMl, 2750);
-        expect(viewModel.metas!.passos, 6000);
-        expect(viewModel.metas!.calorias, isNot(paciente.metas!.calorias));
-        expect(atualizacoes.single.pesoKg, 90.5);
-
-        final doc = await fakeFirestore
-            .collection('usuarios')
-            .doc('paciente_01')
-            .get();
-        expect(doc.data()!['pesoKg'], 90.5);
-        expect(doc.data()!['nivelAtividadeFisica'], 'Moderado');
-        expect((doc.data()!['metas'] as Map)['hidratacaoMl'], 2750);
-      },
-    );
-
-    test('Deve substituir os ajustes manuais ao recalcular', () async {
-      final viewModel = criar(await criarPaciente(ajustada: true));
-      expect(viewModel.precisaConfirmarRecalculo, true);
-
-      await viewModel.recalcular(pesoTexto: '60', nivelAtividade: 'Sedentário');
-
-      expect(viewModel.metas!.passos, 4000);
-      expect(viewModel.metas!.ajustadaManualmente, false);
-      expect(viewModel.precisaConfirmarRecalculo, false);
-    });
-
-    test('Deve respeitar a restrição de líquido ao recalcular', () async {
-      final viewModel = criar(await criarPaciente(limiteLiquidoMl: 1500));
-
-      await viewModel.recalcular(pesoTexto: '90', nivelAtividade: 'Leve');
-
-      expect(viewModel.metas!.hidratacaoMl, 1500);
-    });
-
-    test('Deve recusar um peso inválido sem gravar nada', () async {
-      final viewModel = criar(await criarPaciente());
-
-      for (final peso in ['', 'abc', '10', '500']) {
-        final recalculou = await viewModel.recalcular(
-          pesoTexto: peso,
-          nivelAtividade: 'Leve',
-        );
-
-        expect(recalculou, false, reason: 'peso "$peso"');
-        expect(viewModel.mensagemErro, 'Confira o valor do peso.');
-      }
-      expect(atualizacoes, isEmpty);
-      expect(viewModel.paciente.pesoKg, 60);
-    });
-
-    test('Deve avisar quando faltam dados do cadastro para calcular', () async {
-      final viewModel = criar(await criarPaciente(altura: null));
-      expect(viewModel.metas, isNull);
-
-      final recalculou = await viewModel.recalcular(
-        pesoTexto: '70',
-        nivelAtividade: 'Leve',
-      );
-
-      expect(recalculou, false);
-      expect(viewModel.mensagemErro, contains('Faltam dados do seu cadastro'));
-      expect(atualizacoes, isEmpty);
-    });
-
-    test(
       'Deve mostrar erro e manter as metas quando a gravação falha',
       () async {
         final paciente = await criarPaciente();
@@ -286,14 +197,6 @@ void main() {
         expect(viewModel.mensagemErro, contains('Não foi possível salvar'));
         expect(viewModel.carregando, false);
         expect(viewModel.metas!.passos, 4000);
-
-        final recalculou = await viewModel.recalcular(
-          pesoTexto: '70',
-          nivelAtividade: 'Leve',
-        );
-        expect(recalculou, false);
-        expect(viewModel.mensagemErro, contains('Não foi possível recalcular'));
-        expect(viewModel.paciente.pesoKg, 60);
         expect(atualizacoes, isEmpty);
       },
     );

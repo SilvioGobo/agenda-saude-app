@@ -207,7 +207,7 @@ class Paciente extends Usuario {
   }
 
   // Copia com os campos que mudam depois da triagem: o peso e o nivel de
-  // atividade (atualizados ao recalcular), as metas, o plano de refeicoes, os
+  // atividade (mudados em "Meus dados"), as metas, o plano de refeicoes, os
   // remedios, as alergias e os limites de alerta. [semLimitesAlerta] volta a
   // zona padrao (null em [limitesAlerta] mantem os limites atuais). Em
   // [alergias], texto vazio apaga as outras alergias.

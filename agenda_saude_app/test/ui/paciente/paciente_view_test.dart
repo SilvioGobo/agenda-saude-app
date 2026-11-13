@@ -428,8 +428,8 @@ void main() {
       expect(find.text('SOBRE VOCÊ'), findsOneWidget);
       expect(find.text('ALERGIAS'), findsOneWidget);
 
-      // Voltar cai direto no painel, com o menu ja fechado.
-      await tester.tap(find.text('Voltar'));
+      // Cancelar cai direto no painel, com o menu ja fechado.
+      await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
       expect(find.text('Olá, José'), findsOneWidget);
       expect(find.text('Ver e mudar meus dados'), findsNothing);
@@ -840,7 +840,10 @@ void main() {
 
       // Este paciente nao tem dados fisicos, entao ainda nao ha metas.
       expect(find.text('Minhas metas'), findsOneWidget);
-      expect(find.text('Atualizar meu peso'), findsOneWidget);
+      expect(
+        find.text('Ainda não foi possível calcular suas metas.'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Voltar'));
       await tester.pumpAndSettle();

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../shared/botao_barra_superior.dart';
-import '../shared/botao_salvar.dart';
+import '../shared/barra_superior_formulario.dart';
 import '../shared/botao_selecionavel.dart';
 import '../shared/contador_grande.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/erro_formulario.dart';
 import '../shared/pergunta_formulario.dart';
 import '../shared/titulo_tela.dart';
@@ -15,8 +15,8 @@ import 'registrar_sono_viewmodel.dart';
 // rotina. Duas perguntas, na ordem em que a pessoa responde: quantas horas
 // dormiu (botoes Menos/Mais, sem teclado) e como foi o sono, de 1 a 5, em
 // botoes com a palavra e o rosto de cada nota. Pensada para idosos (NF004):
-// perguntas em caixa alta, botoes grandes e erro com icone. Fecha devolvendo
-// true quando a noite foi salva.
+// perguntas em caixa alta, botoes grandes e erro com icone. Salvar e Cancelar
+// ficam na barra de cima. Fecha devolvendo true quando a noite foi salva.
 class RegistrarSonoView extends StatelessWidget {
   const RegistrarSonoView({super.key});
 
@@ -44,20 +44,19 @@ class RegistrarSonoView extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(false),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(false),
       ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro ?? viewModel.erroQualidade,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
             TituloTela(
               viewModel.editando ? 'Corrigir o sono' : 'Registrar sono',
-              subtitulo: 'Conte como foi a sua noite e toque em SALVAR.',
+              subtitulo: 'Conte como foi a sua noite e toque em Salvar, no alto.',
             ),
             const SizedBox(height: 32),
             const PerguntaFormulario('1. QUANTAS HORAS VOCÊ DORMIU?'),
@@ -96,15 +95,6 @@ class RegistrarSonoView extends StatelessWidget {
               const SizedBox(height: 4),
               ErroFormulario(viewModel.erroQualidade!),
             ],
-            const SizedBox(height: 24),
-            if (viewModel.mensagemErro != null) ...[
-              ErroFormulario(viewModel.mensagemErro!),
-              const SizedBox(height: 16),
-            ],
-            BotaoSalvar(
-              salvando: viewModel.salvando,
-              aoTocar: () => _salvar(context),
-            ),
           ],
         ),
       ),

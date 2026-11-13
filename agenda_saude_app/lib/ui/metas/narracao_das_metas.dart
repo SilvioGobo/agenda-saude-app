@@ -19,7 +19,7 @@ String narrarMetas({
       'Ainda não foi possível calcular suas metas',
       primeiraVez
           ? 'Para seguir, toque em Continuar, embaixo'
-          : 'Embaixo fica o botão Atualizar meu peso',
+          : 'Complete os seus dados: no menu, toque no seu nome',
     ]);
   }
 
@@ -38,7 +38,7 @@ String narrarMetas({
       'Para seguir, toque em Aceitar e continuar, embaixo'
     else ...[
       'Para mudar água, passos ou exercício, use Personalizar rotina, no menu',
-      'Para atualizar o seu peso, toque em Atualizar meu peso, embaixo',
+      'Para atualizar o seu peso, toque no seu nome, no alto do menu',
     ],
   ]);
 }

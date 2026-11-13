@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_cores.dart';
 import '../../domain/alimentos/alimento.dart';
 import '../../domain/metas/metas_personalizadas.dart';
 import '../../domain/refeicoes/refeicoes_padrao.dart';
 import '../shared/aviso_alergia.dart';
-import '../shared/barra_acoes.dart';
-import '../shared/botao_barra_superior.dart';
+import '../shared/barra_superior_formulario.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/titulo_tela.dart';
 import 'buscar_alimento_view.dart';
 import 'formato_nutrientes.dart';
@@ -19,7 +18,7 @@ import 'resumo_nutricional.dart';
 // alimentos (com a quantidade em gramas) que costuma comer nela. Na rotina ele
 // so marca "feito" - nao precisa descrever o que comeu a cada dia (RF03.4). Os
 // nutrientes de cada refeicao e do dia aparecem aqui, na hora, frente as metas.
-// Salvar e Cancelar ficam fixos na base.
+// Salvar e Cancelar ficam na barra de cima.
 class PersonalizarRefeicoesView extends StatelessWidget {
   // Para comparar o plano com o que o paciente deve comer por dia.
   final MetasPersonalizadas? metas;
@@ -64,39 +63,13 @@ class PersonalizarRefeicoesView extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(),
       ),
-      bottomNavigationBar: BarraAcoes(
-        children: [
-          if (viewModel.mensagemErro != null)
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                viewModel.mensagemErro!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppCores.perigo,
-                ),
-              ),
-            ),
-          FilledButton.icon(
-            onPressed: viewModel.salvando ? null : () => _salvar(context),
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Salvar'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [

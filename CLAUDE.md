@@ -117,7 +117,7 @@ lib/
     alertas/        # tela de emergência (overlay vermelho) + lista de notificações (RF006)
     configuracoes/  # acessibilidade: ativar narrador, velocidade da fala (RF007) e ler as telas em voz alta (RF 08.2)
     lembretes/      # "Meus lembretes": ligar/desligar os avisos, permissões e horários da glicemia (RF 07.3)
-    metas/          # "Minhas metas": ver as metas calculadas, ajustar e recalcular
+    metas/          # "Minhas metas": ver as metas calculadas e ajustar
     alergias/       # escolher alergias nas listas (BuscarAlergiaView), SecaoAlergias (triagem e "Minhas alergias")
     shared/         # widgets reutilizáveis acessíveis (BotaoGrande, CardStatus, BotaoOuvirTela, etc.)
 test/               # espelha lib/ (test/domain/models, test/data/repositories, test/ui)
@@ -154,8 +154,8 @@ Convenções já estabelecidas nos repositories — manter:
   (restrição de líquido do médico, perguntada só a cardiopatas). As `metas` saem da
   `CalculadoraMetas` (`domain/metas/`): fórmulas consagradas (Mifflin-St Jeor, OMS,
   Lipschitz para idosos ≥ 60 anos) e **sem IA**, para o resultado ser auditável e
-  testável. São calculadas ao concluir a triagem e recalculadas em "Minhas metas →
-  Atualizar meu peso"; `metas.ajustadaManualmente` marca quando o paciente mexeu em
+  testável. São calculadas ao concluir a triagem e recalculadas em "Meus dados" (o
+  peso e o resto da triagem); `metas.ajustadaManualmente` marca quando o paciente mexeu em
   água/passos/exercício (as metas de alimentação não são editáveis no app). O cálculo
   devolve `null` se faltar dado (contas antigas): as telas caem nos padrões.
   O plano de refeições (RF03.4) fica em `refeicoes` (lista de `RefeicaoPlanejada`:
@@ -444,7 +444,9 @@ vinculado — refletir isso nas security rules do Firestore quando forem escrita
    (`PersonalizarRotinaView`, menu lateral, logo abaixo de "Minhas metas"), e não nos
    cartões da Rotina; o "Ajustar metas" de "Minhas metas" só aparece na primeira vez,
    logo depois da triagem, quando o paciente ainda não chega ao menu. As telas de registro usam os widgets de `ui/shared/`
-   (`PerguntaFormulario`, `ErroFormulario`, `BotaoSalvar`, `ContadorGrande`). Lembretes
+   (`PerguntaFormulario`, `ErroFormulario`, `ContadorGrande`) e, como todas as telas
+   que salvam um formulário, "Cancelar" e "Salvar" na barra de cima
+   (`BarraSuperiorFormulario`, com o erro de salvar logo abaixo dela, `CorpoFormulario`). Lembretes
    (RF 07.3) também feitos (`domain/lembretes/`, `ui/lembretes/`, menu > Meus lembretes):
    o `LembretesViewModel` (criado em `PacienteView.comProviders`, que o atualiza quando os
    remédios mudam) mantém **agendadas no aparelho** as notificações dos próximos 7 dias (no

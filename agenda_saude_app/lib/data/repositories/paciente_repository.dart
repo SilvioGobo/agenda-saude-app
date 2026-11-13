@@ -35,19 +35,14 @@ class PacienteRepository {
     await batch.commit();
   }
 
-  // Grava so as metas do paciente (e, ao recalcular, o peso e o nivel de
-  // atividade que as originaram), sem reescrever o resto do documento.
+  // Grava so as metas do paciente (os ajustes de "Ajustar metas"), sem
+  // reescrever o resto do documento.
   Future<void> atualizarMetas(
     String pacienteId,
-    MetasPersonalizadas metas, {
-    double? pesoKg,
-    String? nivelAtividadeFisica,
-  }) async {
+    MetasPersonalizadas metas,
+  ) async {
     await _firestore.collection('usuarios').doc(pacienteId).update({
       'metas': metas.toJson(),
-      if (pesoKg != null) 'pesoKg': pesoKg,
-      if (nivelAtividadeFisica != null)
-        'nivelAtividadeFisica': nivelAtividadeFisica,
     });
   }
 

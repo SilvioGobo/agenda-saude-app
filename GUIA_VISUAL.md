@@ -88,6 +88,15 @@ Textos longos de orientação usam altura de linha `1.35`.
 ## Botões: qual usar
 
 - `BotaoGrande` (preenchido verde-água): a ação principal da tela. Ex.: "Minha Rotina".
+- **Salvar e Cancelar** (telas que salvam um formulário: registrar sono, exercício e
+  glicemia, meus remédios, minhas refeições, minhas alergias, ajustar metas, meus dados,
+  limites de alerta): ficam na barra de cima (`BarraSuperiorFormulario`), e não no fim da
+  tela. "✓ Salvar" à direita, preenchido em pílula (`BotaoSalvar`, 48dp, vira indicador
+  de progresso enquanto grava); "✕ Cancelar" à esquerda, no lugar do "Voltar", que fazia
+  a mesma coisa (`BotaoBarraSuperior.cancelar`). Os dois com ícone **e** texto. O que
+  impede de salvar aparece numa faixa vermelha fixa logo abaixo da barra
+  (`CorpoFormulario`), perto do botão tocado, mesmo com a tela rolada; a pergunta sem
+  resposta continua marcada também no lugar dela.
 - `BotaoGrande(principal: false)` (tonal, verde-água claro): segunda ação de destaque.
   Ex.: "Falar com Acompanhante", "Copiar código".
 - `FilledButton`: ação principal **dentro de um card**, que precisa se destacar do
@@ -129,7 +138,8 @@ o motivo, o BPM crítico em 76 e o que fazer, e os botões grandes "LIGAR PARA [
   só pelo botão **"Menu" com ícone + texto** (`BotaoBarraSuperior.menu`); o gesto de
   arrastar da borda fica desligado, porque se confunde com o "voltar" do Android.
 - **Subtelas**: barra superior só com "Voltar" escrito (`BotaoBarraSuperior.voltar`) e
-  o título grande no corpo (`TituloTela`), não no AppBar.
+  o título grande no corpo (`TituloTela`), não no AppBar. Nas que salvam um formulário,
+  "Cancelar" no lugar do "Voltar" e "Salvar" à direita (`BarraSuperiorFormulario`).
 - **Nada crítico fica escondido no menu**: alerta de BPM e problema do smartwatch
   aparecem no painel.
 - **Ações que não dá para desfazer de imediato** (sair, desvincular) pedem confirmação
@@ -230,11 +240,13 @@ Telas abertas pelo menu lateral, no mesmo molde das de smartwatch e localizaçã
 | `mostrarDialogoConfirmacao` | pergunta "tem certeza?" com botões grandes                |
 | `mostrarSeletorDeHorario`   | relógio do Flutter para escolher um horário, sem digitar: 24 h, só o relógio (sem o ícone de teclado), título em caixa alta e botões maiores pelo `timePickerTheme`; devolve "HH:MM" |
 | `BotaoSelecionavel`         | escolha entre poucas opções (Sim/Não, perfil)             |
-| `BarraAcoes`                | botões fixos na base (`bottomNavigationBar`) em telas longas, para a ação principal nunca sair da vista |
+| `BarraAcoes`                | botões fixos na base (`bottomNavigationBar`) em telas longas, para a ação principal nunca sair da vista (hoje só "Aceitar e continuar" das metas, logo depois da triagem) |
+| `BarraSuperiorFormulario`   | barra de cima das telas que salvam um formulário: "✕ Cancelar" à esquerda e "✓ Salvar" à direita |
+| `CorpoFormulario`           | corpo dessas telas: faixa vermelha fixa com o que impede de salvar, logo abaixo da barra, e o conteúdo rolando embaixo |
 | `LogoAgendaSaude`           | marca nas telas de entrada                                |
 | `PerguntaFormulario`        | pergunta numerada em caixa alta que abre cada bloco de um formulário da Rotina (sono, exercício) |
 | `ErroFormulario`            | erro de formulário: caixa alta, ícone e vermelho, anunciado pelo leitor de tela |
-| `BotaoSalvar`               | "SALVAR" de 72dp que fecha um formulário da Rotina; vira indicador de progresso enquanto grava |
+| `BotaoSalvar`               | "✓ Salvar" em pílula no canto direito da barra de cima; vira indicador de progresso enquanto grava |
 | `ContadorGrande`            | valor grande com "Menos" / "Mais" de 64dp, para números sem teclado (horas de sono, minutos de exercício); os botões descem um para baixo do outro com a fonte aumentada |
 | `BotaoOuvirTela`            | "Ouvir esta tela": lê em voz alta um resumo curto da tela (só com o narrador ligado; some com o TalkBack); vira "Parar de ouvir" enquanto fala |
 | `rotaComNarrador`           | rota que leva o narrador de voz para a tela aberta por cima (as telas novas não herdam os providers da que as abriu) |
@@ -251,8 +263,8 @@ metas) fica em "Personalizar rotina", no menu lateral, e não nos cartões.
 - **Medicações**: uma linha por dose com **caixa de seleção grande** (44dp), como na
   Figura 14 do TCC; marcada fica com fundo e borda verdes e o texto "Tomado às 08:10".
 - **Telas de registro**: perguntas numeradas em caixa alta (`PerguntaFormulario`), opções
-  em botões de 64dp com check no escolhido (`BotaoSelecionavel`) e "SALVAR" no fim
-  (`BotaoSalvar`). Nada de campo de texto quando uma escolha resolve: o horário de um
+  em botões de 64dp com check no escolhido (`BotaoSelecionavel`) e "Salvar" na barra de
+  cima (`BarraSuperiorFormulario`). Nada de campo de texto quando uma escolha resolve: o horário de um
   remédio (e o de um lembrete) se escolhe no relógio (`mostrarSeletorDeHorario`), e não
   digitando.
 - **Semana de exercício**: começa no domingo, como o calendário dos relatórios.

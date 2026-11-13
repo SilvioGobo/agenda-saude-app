@@ -144,22 +144,6 @@ void main() {
       expect(resultado.codigoVinculo, 'ABC12');
     });
 
-    test('Deve atualizar também o peso e a atividade ao recalcular as metas', () async {
-      await repository.salvarPaciente(criarPaciente());
-
-      await repository.atualizarMetas(
-        'paciente_001',
-        metas,
-        pesoKg: 72.5,
-        nivelAtividadeFisica: 'Moderado',
-      );
-
-      final resultado = await repository.getPaciente('paciente_001');
-      expect(resultado!.pesoKg, 72.5);
-      expect(resultado.nivelAtividadeFisica, 'Moderado');
-      expect(resultado.metas, isNotNull);
-    });
-
     test('Deve substituir as metas antigas por inteiro', () async {
       await repository.salvarPaciente(criarPaciente());
       await repository.atualizarMetas('paciente_001', metas);

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_cores.dart';
 import '../../domain/alimentos/catalogo_alimentos.dart';
 import '../../domain/medicacao/catalogo_remedios.dart';
 import '../../domain/models/paciente.dart';
-import '../shared/barra_acoes.dart';
-import '../shared/botao_barra_superior.dart';
+import '../shared/barra_superior_formulario.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/titulo_tela.dart';
 import 'perguntas_triagem.dart';
 import 'triagem_viewmodel.dart';
@@ -16,7 +15,7 @@ import 'triagem_viewmodel.dart';
 // acesso), ja preenchidas, para o paciente mudar o que precisar. Salvar grava
 // so os campos da triagem e calcula as metas de novo; o resto do paciente
 // (refeicoes, remedios, limites de alerta) fica como esta. Salvar e Cancelar
-// ficam fixos na base, como nas telas de Personalizar rotina.
+// ficam na barra de cima, como nas telas de Personalizar rotina.
 class MeusDadosView extends StatelessWidget {
   // Recebe o paciente com os dados novos, depois de gravado.
   final ValueChanged<Paciente>? aoSalvar;
@@ -63,41 +62,15 @@ class MeusDadosView extends StatelessWidget {
     final viewModel = context.watch<TriagemViewModel>();
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(),
-        ),
-      ),
-      bottomNavigationBar: BarraAcoes(
-        children: [
-          if (viewModel.mensagemErro != null)
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                viewModel.mensagemErro!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppCores.perigo,
-                ),
-              ),
-            ),
-          FilledButton.icon(
-            onPressed: viewModel.carregando ? null : () => _salvar(context),
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Salvar'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.carregando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(),
       ),
       // Uma coluna so (e nao uma lista preguicosa): os campos de texto de cima
       // nao se desmontam ao rolar ate as alergias.
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro,
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           child: Column(
@@ -107,8 +80,8 @@ class MeusDadosView extends StatelessWidget {
                 'Meus dados',
                 subtitulo:
                     'As respostas da sua triagem. Mude o que precisar e '
-                    'toque em Salvar: as metas são calculadas de novo com os '
-                    'dados novos.',
+                    'toque em Salvar, no alto: as metas são calculadas de novo '
+                    'com os dados novos.',
               ),
               const SizedBox(height: 24),
               const _Secao(titulo: 'Sobre você', child: PerguntasSobreVoce()),

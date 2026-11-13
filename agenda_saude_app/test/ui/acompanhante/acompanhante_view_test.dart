@@ -286,7 +286,7 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(find.text('120 BPM'), findsOneWidget);
-    await tester.tap(find.text('SALVAR'));
+    await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
     expect(find.text('Monitoramento'), findsOneWidget);
@@ -303,7 +303,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('120 BPM'), findsOneWidget);
     await tester.tap(find.text('Voltar ao padrão'));
-    await tester.tap(find.text('SALVAR'));
+    await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
     expect(find.text('José Silva voltou para a zona padrão.'), findsOneWidget);

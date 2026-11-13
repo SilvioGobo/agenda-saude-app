@@ -12,12 +12,12 @@ import 'ajustar_metas_view.dart';
 import 'formato_metas.dart';
 import 'metas_viewmodel.dart';
 import 'narracao_das_metas.dart';
-import 'recalcular_metas_view.dart';
 
 // "Minhas metas": o que o app calculou a partir da triagem - rotina do dia,
-// alimentacao e limites - com atalho para atualizar o peso. Ajustar agua,
-// passos e exercicio fica em "Personalizar rotina", no menu lateral (aqui so
-// na primeira vez, quando o menu ainda nao existe). Logo depois da triagem ela
+// alimentacao e limites. Ajustar agua, passos e exercicio fica em
+// "Personalizar rotina", no menu lateral (aqui so na primeira vez, quando o
+// menu ainda nao existe); o peso e o resto da triagem mudam em "Meus dados"
+// (perfil do menu), que calcula as metas de novo. Logo depois da triagem ela
 // abre em modo `aoContinuar` (sem "Voltar"), para o paciente conferir as metas
 // antes de ir ao painel.
 class MetasView extends StatelessWidget {
@@ -55,29 +55,26 @@ class MetasView extends StatelessWidget {
     final primeiraVez = aoContinuar != null;
 
     return Scaffold(
-      // As acoes ficam fixas na base: o paciente nao precisa rolar os cartoes
-      // ate o fim para achar "Aceitar e continuar" ou "Atualizar meu peso".
-      bottomNavigationBar: BarraAcoes(
-        children: [
-          BotaoGrande(
-            rotulo: primeiraVez
-                ? (metas == null ? 'Continuar' : 'Aceitar e continuar')
-                : 'Atualizar meu peso',
-            icone: primeiraVez
-                ? Icons.check_rounded
-                : Icons.monitor_weight_rounded,
-            aoTocar: primeiraVez
-                ? () => aoContinuar!(viewModel.paciente)
-                : () => _abrir(context, const RecalcularMetasView()),
-          ),
-          if (primeiraVez && metas != null)
-            OutlinedButton.icon(
-              onPressed: () => _abrir(context, const AjustarMetasView()),
-              icon: const Icon(Icons.tune_rounded),
-              label: const Text('Ajustar metas'),
-            ),
-        ],
-      ),
+      // Na primeira vez as acoes ficam fixas na base: o paciente nao precisa
+      // rolar os cartoes ate o fim para achar "Aceitar e continuar". Depois a
+      // tela so mostra as metas.
+      bottomNavigationBar: primeiraVez
+          ? BarraAcoes(
+              children: [
+                BotaoGrande(
+                  rotulo: metas == null ? 'Continuar' : 'Aceitar e continuar',
+                  icone: Icons.check_rounded,
+                  aoTocar: () => aoContinuar!(viewModel.paciente),
+                ),
+                if (metas != null)
+                  OutlinedButton.icon(
+                    onPressed: () => _abrir(context, const AjustarMetasView()),
+                    icon: const Icon(Icons.tune_rounded),
+                    label: const Text('Ajustar metas'),
+                  ),
+              ],
+            )
+          : null,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leadingWidth: BotaoBarraSuperior.largura,

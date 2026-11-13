@@ -11,6 +11,8 @@ import 'package:agenda_saude_app/domain/models/paciente.dart';
 import 'package:agenda_saude_app/ui/metas/metas_view.dart';
 import 'package:agenda_saude_app/ui/metas/metas_viewmodel.dart';
 import 'package:agenda_saude_app/ui/configuracoes/configuracoes_viewmodel.dart';
+import 'package:agenda_saude_app/ui/shared/barra_acoes.dart';
+import 'package:agenda_saude_app/ui/shared/barra_superior_formulario.dart';
 
 import '../../core/services/fake_tts_service.dart';
 
@@ -33,7 +35,6 @@ void main() {
     // Idosa de 70 anos, 60 kg, sedentaria: 7 copos, 4000 passos, 1270 kcal.
     Future<Paciente> criarPaciente({
       int? limiteLiquidoMl,
-      bool ajustada = false,
       double? altura = 155,
     }) async {
       final semMetas = Paciente(
@@ -52,8 +53,7 @@ void main() {
         nivelAtividadeFisica: 'Sedentário',
         limiteLiquidoMl: limiteLiquidoMl,
       );
-      var metas = CalculadoraMetas.calcular(semMetas, hoje: hoje);
-      if (ajustada && metas != null) metas = metas.comAjustes(passos: 3000);
+      final metas = CalculadoraMetas.calcular(semMetas, hoje: hoje);
       final paciente = metas == null
           ? semMetas
           : semMetas.copyWith(metas: metas);
@@ -90,7 +90,6 @@ void main() {
                 paciente: paciente,
                 pacienteRepository: repositorio,
                 aoAtualizar: atualizacoes.add,
-                agora: () => hoje,
               ),
               child: MetasView(
                 aoContinuar: primeiraVez ? continuacoes.add : null,
@@ -153,15 +152,17 @@ void main() {
     });
 
     testWidgets(
-      // Fora da primeira vez, ajustar fica em "Personalizar rotina" (menu).
-      'Fora da primeira vez, deve oferecer Voltar e atualizar peso',
+      // Fora da primeira vez, ajustar fica em "Personalizar rotina" (menu) e o
+      // peso muda em "Meus dados" (perfil do menu).
+      'Fora da primeira vez, deve oferecer só o Voltar, sem botões embaixo',
       (tester) async {
         await montar(tester, await criarPaciente());
 
         expect(find.text('Voltar'), findsOneWidget);
-        expect(find.text('Atualizar meu peso'), findsOneWidget);
+        expect(find.text('Atualizar meu peso'), findsNothing);
         expect(find.text('Ajustar metas'), findsNothing);
         expect(find.text('Aceitar e continuar'), findsNothing);
+        expect(find.byType(BarraAcoes), findsNothing);
       },
     );
 
@@ -173,7 +174,6 @@ void main() {
 
         expect(find.text('Suas metas'), findsOneWidget);
         expect(find.text('Voltar'), findsNothing);
-        expect(find.text('Atualizar meu peso'), findsNothing);
         expect(find.text('Ajustar metas'), findsOneWidget);
 
         await tester.tap(find.text('Aceitar e continuar'));
@@ -212,7 +212,7 @@ void main() {
     });
 
     testWidgets(
-      'Sem metas calculadas, deve explicar e só oferecer a atualização do peso',
+      'Sem metas calculadas, deve explicar sem oferecer ajustes',
       (tester) async {
         await montar(tester, await criarPaciente(altura: null));
 
@@ -221,8 +221,8 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Rotina do dia'), findsNothing);
-        expect(find.text('Atualizar meu peso'), findsOneWidget);
         expect(find.text('Ajustar metas'), findsNothing);
+        expect(find.byType(BarraAcoes), findsNothing);
       },
     );
 
@@ -235,6 +235,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Ajustar metas'), findsOneWidget);
         expect(find.text('7 copos'), findsOneWidget);
+        // Salvar e Cancelar na barra de cima, no lugar do Voltar.
+        expect(find.byType(BarraSuperiorFormulario), findsOneWidget);
+        expect(find.text('Voltar'), findsNothing);
 
         await tester.tap(find.byIcon(Icons.add_rounded).at(0));
         await tester.pump();
@@ -299,84 +302,6 @@ void main() {
       expect(find.textContaining('limite do médico: 1.750 ml'), findsOneWidget);
     });
 
-    testWidgets('Deve atualizar o peso e recalcular as metas', (tester) async {
-      await montar(tester, await criarPaciente());
-
-      await tester.tap(find.text('Atualizar meu peso'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Atualizar peso'), findsOneWidget);
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        '60',
-      );
-
-      await tester.enterText(find.byType(TextField), '90');
-      await tester.tap(find.text('Moderado'));
-      await tester.pump();
-      await tester.tap(find.text('Recalcular metas'));
-      await tester.pumpAndSettle();
-
-      // 30 ml/kg x 90 kg = 2700 ml -> 11 copos; moderado, idosa: 6000 passos.
-      expect(find.text('Minhas metas'), findsOneWidget);
-      expect(find.text('11 copos (2.750 ml)'), findsOneWidget);
-      expect(find.text('6.000 por dia'), findsOneWidget);
-      expect(atualizacoes.single.pesoKg, 90);
-
-      final doc = await fakeFirestore
-          .collection('usuarios')
-          .doc('paciente_01')
-          .get();
-      expect(doc.data()!['pesoKg'], 90);
-      expect(doc.data()!['nivelAtividadeFisica'], 'Moderado');
-    });
-
-    testWidgets('Deve mostrar erro para um peso inválido e ficar na tela', (
-      tester,
-    ) async {
-      await montar(tester, await criarPaciente());
-
-      await tester.tap(find.text('Atualizar meu peso'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'abc');
-      await tester.tap(find.text('Recalcular metas'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Confira o valor do peso.'), findsOneWidget);
-      expect(find.text('Atualizar peso'), findsOneWidget);
-      expect(atualizacoes, isEmpty);
-    });
-
-    testWidgets(
-      'Deve pedir confirmação antes de recalcular sobre ajustes manuais',
-      (tester) async {
-        await montar(tester, await criarPaciente(ajustada: true));
-        expect(find.text('3.000 por dia'), findsOneWidget);
-
-        await tester.tap(find.text('Atualizar meu peso'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Recalcular metas'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Trocar seus ajustes?'), findsOneWidget);
-
-        // Cancelar mantem tudo como estava.
-        await tester.tap(find.text('Cancelar').last);
-        await tester.pumpAndSettle();
-        expect(find.text('Atualizar peso'), findsOneWidget);
-        expect(atualizacoes, isEmpty);
-
-        await tester.tap(find.text('Recalcular metas'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Recalcular'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Minhas metas'), findsOneWidget);
-        expect(find.text('4.000 por dia'), findsOneWidget);
-        expect((await metasSalvas())['ajustadaManualmente'], false);
-      },
-    );
-
     testWidgets('Não deve estourar o layout com a fonte do celular em 200%', (
       tester,
     ) async {
@@ -403,8 +328,6 @@ void main() {
         escalaTexto: 2,
         tamanhoTela: const Size(360, 740),
       );
-      await tester.tap(find.text('Atualizar meu peso'));
-      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   });

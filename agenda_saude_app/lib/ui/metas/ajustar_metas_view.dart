@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/meta_hidratacao.dart';
-import '../../core/theme/app_cores.dart';
-import '../shared/barra_acoes.dart';
-import '../shared/botao_barra_superior.dart';
+import '../shared/barra_superior_formulario.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/titulo_tela.dart';
 import 'formato_metas.dart';
 import 'metas_viewmodel.dart';
@@ -50,45 +49,19 @@ class _AjustarMetasViewState extends State<AjustarMetasView> {
     final copos = _hidratacaoMl ~/ MetaHidratacao.mlPorCopo;
 
     return Scaffold(
-      bottomNavigationBar: BarraAcoes(
-        children: [
-          if (viewModel.mensagemErro != null)
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                viewModel.mensagemErro!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppCores.perigo,
-                ),
-              ),
-            ),
-          FilledButton.icon(
-            onPressed: viewModel.carregando ? null : _salvar,
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Salvar'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.carregando,
+        aoSalvar: _salvar,
+        aoCancelar: () => Navigator.of(context).pop(),
       ),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
             const TituloTela(
               'Ajustar metas',
-              subtitulo: 'Mude o que precisar e toque em Salvar.',
+              subtitulo: 'Mude o que precisar e toque em Salvar, no alto.',
             ),
             const SizedBox(height: 24),
             _Ajuste(
