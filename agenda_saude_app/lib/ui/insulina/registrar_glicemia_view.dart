@@ -6,8 +6,9 @@ import '../../core/constants/momentos_glicemia.dart';
 import '../../core/theme/app_cores.dart';
 import '../../data/repositories/dados_repository.dart';
 import '../../domain/models/paciente.dart';
-import '../shared/botao_barra_superior.dart';
+import '../shared/barra_superior_formulario.dart';
 import '../shared/botao_selecionavel.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/titulo_tela.dart';
 import 'registrar_glicemia_viewmodel.dart';
 
@@ -16,7 +17,8 @@ import 'registrar_glicemia_viewmodel.dart';
 // vez na ordem em que a pessoa faz as coisas; campos grandes com borda bem
 // visivel, que ficam claramente vazios ate a pessoa digitar (o exemplo fica
 // fora do campo); respostas em botoes grandes; erros em caixa alta com icone.
-// Fecha devolvendo true quando o registro foi salvo.
+// Salvar e Cancelar ficam na barra de cima. Fecha devolvendo true quando o
+// registro foi salvo.
 class RegistrarGlicemiaView extends StatefulWidget {
   const RegistrarGlicemiaView({super.key});
 
@@ -67,28 +69,30 @@ class _RegistrarGlicemiaViewState extends State<RegistrarGlicemiaView> {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<RegistrarGlicemiaViewModel>();
-    final colorScheme = Theme.of(context).colorScheme;
     // As perguntas visiveis sao numeradas na ordem em que aparecem.
     var numero = 0;
     String pergunta(String texto) => '${++numero}. $texto';
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(false),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: _salvar,
+        aoCancelar: () => Navigator.of(context).pop(false),
       ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro ??
+            viewModel.erroGlicemia ??
+            viewModel.erroInsulina ??
+            viewModel.erroDose,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
             TituloTela(
               viewModel.momento.rotulo,
               subtitulo: viewModel.pedeGlicemia
-                  ? 'Responda e toque em SALVAR.'
-                  : 'Digite a dose de insulina lenta e toque em SALVAR.',
+                  ? 'Responda e toque em Salvar, no alto.'
+                  : 'Digite a dose de insulina lenta e toque em Salvar, no '
+                      'alto.',
             ),
             const SizedBox(height: 32),
             if (viewModel.pedeGlicemia) ...[
@@ -152,35 +156,7 @@ class _RegistrarGlicemiaViewState extends State<RegistrarGlicemiaView> {
                 erro: viewModel.erroDose,
                 permiteDecimal: true,
               ),
-              const SizedBox(height: 32),
             ],
-            if (viewModel.mensagemErro != null) ...[
-              _TextoErro(viewModel.mensagemErro!),
-              const SizedBox(height: 16),
-            ],
-            FilledButton.icon(
-              onPressed: viewModel.salvando ? null : _salvar,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(72),
-                textStyle: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-                iconSize: 32,
-              ),
-              icon: viewModel.salvando
-                  ? SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: colorScheme.onPrimary,
-                      ),
-                    )
-                  : const Icon(Icons.check_rounded),
-              label: const Text('SALVAR'),
-            ),
           ],
         ),
       ),

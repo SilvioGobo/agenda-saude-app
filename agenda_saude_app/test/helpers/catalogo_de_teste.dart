@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:agenda_saude_app/data/repositories/alimentos_repository.dart';
+import 'package:agenda_saude_app/data/repositories/remedios_repository.dart';
 import 'package:agenda_saude_app/domain/alimentos/catalogo_alimentos.dart';
+import 'package:agenda_saude_app/domain/medicacao/catalogo_remedios.dart';
+import 'package:agenda_saude_app/domain/medicacao/remedio.dart';
 
 // Os testes usam o catalogo real (`assets/alimentos/taco.json`), lido do disco:
 // assim as contas conferidas nos testes usam os mesmos valores da TACO que o
@@ -31,3 +34,31 @@ const int idPaoFrances = 53;
 const int idBananaPrata = 182;
 const int idFrangoGrelhado = 410;
 const int idFeijaoCarioca = 561;
+
+// O catalogo de remedios de verdade (`assets/medicamentos/anvisa.json`), lido
+// do disco como o de alimentos.
+const String arquivoDeRemedios = 'assets/medicamentos/anvisa.json';
+
+final String _textoDeRemedios = File(arquivoDeRemedios).readAsStringSync();
+
+RemediosRepository remediosRepositoryDeTeste() {
+  return RemediosRepository(lerTexto: () async => _textoDeRemedios);
+}
+
+// Um catalogo pequeno, para as telas: a busca fica previsivel nos testes.
+CatalogoRemedios catalogoDeRemediosPequeno() {
+  return CatalogoRemedios(const [
+    Remedio(nome: 'Cloridrato de metformina', substancias: ['Metformina']),
+    Remedio(nome: 'Dipirona', substancias: ['Dipirona']),
+    Remedio(
+      nome: 'Dorflex',
+      substancias: ['Cafeína', 'Dipirona', 'Orfenadrina'],
+    ),
+    Remedio(nome: 'Glifage XR', substancias: ['Metformina']),
+    Remedio(nome: 'Losartana potássica', substancias: ['Losartana']),
+    Remedio(nome: 'Novalgina', substancias: ['Dipirona']),
+  ]);
+}
+
+Future<CatalogoRemedios> carregarRemediosPequeno() =>
+    Future.value(catalogoDeRemediosPequeno());

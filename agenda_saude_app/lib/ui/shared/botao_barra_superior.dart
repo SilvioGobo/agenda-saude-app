@@ -29,6 +29,12 @@ class BotaoBarraSuperior extends StatelessWidget {
       : icone = Icons.arrow_back_rounded,
         rotulo = 'Voltar';
 
+  // No lugar do "Voltar" nas telas que salvam um formulario
+  // (`BarraSuperiorFormulario`): sair dali e desistir do que mudou.
+  const BotaoBarraSuperior.cancelar({super.key, required this.aoTocar})
+      : icone = Icons.close_rounded,
+        rotulo = 'Cancelar';
+
   @override
   Widget build(BuildContext context) {
     return Padding(

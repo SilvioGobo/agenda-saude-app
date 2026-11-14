@@ -96,6 +96,10 @@ void main() {
     expect(find.text('90 BPM'), findsOneWidget);
     expect(find.text('ZONA PADRÃO: 60 A 90 BPM'), findsOneWidget);
     expect(find.text('Usando a zona padrão'), findsOneWidget);
+    // Salvar e Cancelar na barra de cima, no lugar do Voltar.
+    expect(find.text('Salvar'), findsOneWidget);
+    expect(find.text('Cancelar'), findsOneWidget);
+    expect(find.text('Voltar'), findsNothing);
     await tester.scrollUntilVisible(find.textContaining('5 minutos'), 200);
     expect(find.textContaining('médico de Maria'), findsOneWidget);
   });
@@ -152,8 +156,7 @@ void main() {
     await tester.ensureVisible(find.text('Mais').last);
     await tester.tap(find.text('Mais').last);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('SALVAR'), 200);
-    await tester.tap(find.text('SALVAR'));
+    await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
     expect(resultados, [true]);
@@ -164,12 +167,12 @@ void main() {
     expect(doc.data()!['limitesAlerta']['bpmMaximo'], 95);
   });
 
-  testWidgets('"Voltar" fecha sem salvar', (tester) async {
+  testWidgets('"Cancelar" fecha sem salvar', (tester) async {
     final resultados = await abrir(tester, formulario());
 
     await tester.ensureVisible(find.text('Mais').last);
     await tester.tap(find.text('Mais').last);
-    await tester.tap(find.text('Voltar'));
+    await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
 
     expect(resultados, [false]);
@@ -188,7 +191,8 @@ void main() {
     await abrir(tester, formulario(), escalaDaFonte: 2);
 
     await tester.scrollUntilVisible(find.text('ZONA PADRÃO: 60 A 90 BPM'), 200);
-    await tester.scrollUntilVisible(find.text('SALVAR'), 200);
-    expect(find.text('SALVAR'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('médico de Maria'), 200);
+    expect(find.text('Salvar'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

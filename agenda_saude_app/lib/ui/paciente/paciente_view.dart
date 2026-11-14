@@ -30,6 +30,7 @@ import '../sincronizacao/card_smartwatch.dart';
 import '../sincronizacao/explicacao_batimentos.dart';
 import '../sincronizacao/sincronizacao_bpm_viewmodel.dart';
 import '../sincronizacao/smartwatch_view.dart';
+import '../triagem/meus_dados_view.dart';
 import 'card_batimentos.dart';
 import 'codigo_vinculo_view.dart';
 import 'falar_com_acompanhante_view.dart';
@@ -127,6 +128,24 @@ class PacienteView extends StatelessWidget {
       RelatoriosView.comProviders(
         context.read<PacienteViewModel>().paciente,
         relatoriosRepository: relatoriosRepository,
+      ),
+    );
+  }
+
+  // "Meus dados" (perfil do menu): a triagem para mudar. O painel passa a
+  // usar o paciente novo (lembretes da glicemia, plano de refeicoes padrao,
+  // zona do BPM) e a leitura do BPM com o app aberto, a zona nova.
+  void _abrirMeusDados(BuildContext context) {
+    final viewModel = context.read<PacienteViewModel>();
+    final sincronizacao = context.read<SincronizacaoBpmViewModel>();
+    _abrir(
+      context,
+      MeusDadosView.comProviders(
+        viewModel.paciente,
+        aoSalvar: (paciente) {
+          viewModel.atualizarPaciente(paciente);
+          sincronizacao.atualizarCardiopatia(paciente.possuiCardiopatia);
+        },
       ),
     );
   }
@@ -333,6 +352,7 @@ class PacienteView extends StatelessWidget {
       // com o "voltar" do Android e abriria o menu sem querer.
       drawerEnableOpenDragGesture: false,
       drawer: MenuPaciente(
+        aoAbrirMeusDados: () => _abrirMeusDados(context),
         aoAbrirMetas: () => _abrirMinhasMetas(context),
         aoAbrirPersonalizarRotina: () => _abrirPersonalizarRotina(context),
         aoAbrirCodigo: () => _abrir(

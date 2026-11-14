@@ -1,21 +1,59 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 
 import '../../data/repositories/paciente_repository.dart';
+import '../../domain/alergias/alergias.dart';
+import '../../domain/medicacao/remedio.dart';
 import '../../domain/metas/calculadora_metas.dart';
+import '../../domain/metas/metas_personalizadas.dart';
 import '../../domain/models/paciente.dart';
 
+// Estado da triagem (RF002). Serve ao assistente de 4 etapas do primeiro
+// acesso e a "Meus dados" (menu > perfil), que abre com as respostas que o
+// paciente ja deu (`edicao: true`) para ele mudar o que precisar.
 class TriagemViewModel extends ChangeNotifier {
   static const double limiteLiquidoMinimoLitros = 0.5;
   static const double limiteLiquidoMaximoLitros = 5;
 
-  final PacienteRepository _pacienteRepository;
+  // Criado so ao gravar: abrir "Meus dados" nao depende do Firestore.
+  PacienteRepository? _pacienteRepositoryInjetado;
+  PacienteRepository get _pacienteRepository =>
+      _pacienteRepositoryInjetado ??= PacienteRepository();
   final Paciente _pacienteOriginal;
 
   TriagemViewModel({
     required Paciente paciente,
     PacienteRepository? pacienteRepository,
+    bool edicao = false,
   })  : _pacienteOriginal = paciente,
-        _pacienteRepository = pacienteRepository ?? PacienteRepository();
+        _pacienteRepositoryInjetado = pacienteRepository {
+    if (edicao) _preencherCom(paciente);
+  }
+
+  // As respostas que o paciente ja deu, para "Meus dados".
+  void _preencherCom(Paciente paciente) {
+    possuiDiabetes = paciente.possuiDiabetes;
+    tipoDiabetes = paciente.tipoDiabetes;
+    usaInsulina = paciente.usaInsulina;
+    tipoInsulina = paciente.tipoInsulina ?? '';
+    possuiCardiopatia = paciente.possuiCardiopatia;
+    tipoCardiopatia = paciente.tipoCardiopatia ?? '';
+    usaMarcapasso = paciente.usaMarcapasso;
+    final limiteMl = paciente.limiteLiquidoMl;
+    possuiRestricaoLiquido =
+        paciente.possuiCardiopatia ? limiteMl != null : null;
+    limiteLiquidoLitros = limiteMl == null ? null : limiteMl / 1000;
+    dataNascimento = paciente.dataNascimento;
+    sexoBiologico = paciente.sexoBiologico;
+    alturaCm = paciente.alturaCm;
+    pesoKg = paciente.pesoKg;
+    nivelAtividadeFisica = paciente.nivelAtividadeFisica;
+    alergiasAlimentos = [...paciente.alergiasAlimentos];
+    alergiasRemedios = [...paciente.alergiasRemedios];
+    outrasAlergias = paciente.alergias ?? '';
+    medicamentosEmUso = [...paciente.medicamentosEmUso];
+  }
 
   // Diabetes
   bool? possuiDiabetes;
@@ -39,16 +77,19 @@ class TriagemViewModel extends ChangeNotifier {
   double? pesoKg;
   String? nivelAtividadeFisica;
 
-  // Outras informacoes (opcionais)
-  String alergias = '';
-  String medicamentosEmUso = '';
+  // Outras informacoes (opcionais). As alergias a alimentos e a remedios e os
+  // remedios em uso sao escolhidos nas listas (TACO e Anvisa); as outras
+  // alergias, em texto livre.
+  List<String> alergiasAlimentos = [];
+  List<String> alergiasRemedios = [];
+  String outrasAlergias = '';
+  List<Remedio> medicamentosEmUso = [];
 
   bool carregando = false;
   String? mensagemErro;
 
-  // Disponível para a tela apos concluirTriagem() ter sucesso, para navegar
-  // ja com os dados atualizados (ex: possuiCardiopatia) para o painel do
-  // paciente.
+  // Disponível para a tela apos concluirTriagem() ou salvarAlteracoes() ter
+  // sucesso, para seguir ja com os dados atualizados (ex: possuiCardiopatia).
   Paciente? pacienteAtualizado;
 
   void responderDiabetes(bool valor) {
@@ -138,13 +179,48 @@ class TriagemViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void definirAlergias(String valor) {
-    alergias = valor;
+  void adicionarAlergiaAlimento(String nome) {
+    alergiasAlimentos = comAlergia(alergiasAlimentos, nome);
+    notifyListeners();
   }
 
-  void definirMedicamentosEmUso(String valor) {
-    medicamentosEmUso = valor;
+  void tirarAlergiaAlimento(String nome) {
+    alergiasAlimentos = [...alergiasAlimentos]..remove(nome);
+    notifyListeners();
   }
+
+  void adicionarAlergiaRemedio(String nome) {
+    alergiasRemedios = comAlergia(alergiasRemedios, nome);
+    notifyListeners();
+  }
+
+  void tirarAlergiaRemedio(String nome) {
+    alergiasRemedios = [...alergiasRemedios]..remove(nome);
+    notifyListeners();
+  }
+
+  void definirOutrasAlergias(String valor) {
+    outrasAlergias = valor;
+  }
+
+  // O mesmo remedio (pelo nome) nao entra duas vezes.
+  void adicionarMedicamentoEmUso(Remedio remedio) {
+    if (medicamentosEmUso.any((emUso) => emUso.nome == remedio.nome)) return;
+    medicamentosEmUso = [...medicamentosEmUso, remedio];
+    notifyListeners();
+  }
+
+  void tirarMedicamentoEmUso(Remedio remedio) {
+    medicamentosEmUso = [...medicamentosEmUso]..remove(remedio);
+    notifyListeners();
+  }
+
+  // A alergia (das escolhidas acima) que o remedio em uso tem, ou null.
+  String? alergiaDoMedicamentoEmUso(Remedio remedio) => alergiaNoRemedio(
+        nome: remedio.nome,
+        substancias: remedio.substancias,
+        alergias: alergiasRemedios,
+      );
 
   // Cada etapa do assistente valida só os campos que ela mesma mostra, e
   // guarda o erro em mensagemErro para a tela exibir. Retorna true quando
@@ -213,7 +289,23 @@ class TriagemViewModel extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> concluirTriagem() async {
+  // Primeiro acesso: grava o paciente inteiro (o documento vem do cadastro).
+  Future<bool> concluirTriagem() => _salvar(
+        _pacienteRepository.salvarPaciente,
+        erro: 'Não foi possível salvar a triagem. Tente novamente.',
+      );
+
+  // "Meus dados": grava so os campos da triagem e as metas, sem mexer no resto
+  // do documento (refeicoes, remedios, limites de alerta, tarefas do dia).
+  Future<bool> salvarAlteracoes() => _salvar(
+        _pacienteRepository.atualizarTriagem,
+        erro: 'Não foi possível salvar seus dados. Tente de novo.',
+      );
+
+  Future<bool> _salvar(
+    Future<void> Function(Paciente) gravar, {
+    required String erro,
+  }) async {
     if (!validarEAvancarSobreVoce()) return false;
     if (!validarEAvancarDiabetes()) return false;
     if (!validarEAvancarCardiopatia()) return false;
@@ -223,64 +315,92 @@ class TriagemViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final pacienteSemMetas = Paciente(
-        id: _pacienteOriginal.id,
-        nome: _pacienteOriginal.nome,
-        email: _pacienteOriginal.email,
-        perfil: _pacienteOriginal.perfil,
-        // O que o cadastro e a rotina ja gravaram: o paciente inteiro e
-        // gravado por cima do documento, entao nao pode se perder aqui.
-        telefone: _pacienteOriginal.telefone,
-        medicamentos: _pacienteOriginal.medicamentos,
-        limitesAlerta: _pacienteOriginal.limitesAlerta,
-        possuiDiabetes: possuiDiabetes!,
-        tipoDiabetes: possuiDiabetes! ? tipoDiabetes : null,
-        usaInsulina: possuiDiabetes! ? usaInsulina : null,
-        tipoInsulina:
-            (possuiDiabetes! && usaInsulina == true && tipoInsulina.trim().isNotEmpty)
-                ? tipoInsulina.trim()
-                : null,
-        possuiCardiopatia: possuiCardiopatia!,
-        tipoCardiopatia:
-            (possuiCardiopatia! && tipoCardiopatia.trim().isNotEmpty)
-                ? tipoCardiopatia.trim()
-                : null,
-        usaMarcapasso: possuiCardiopatia! ? usaMarcapasso : null,
-        codigoVinculo: _pacienteOriginal.codigoVinculo,
-        acompanhantesVinculadosIds: _pacienteOriginal.acompanhantesVinculadosIds,
-        triagemConcluida: true,
-        dataNascimento: dataNascimento,
-        sexoBiologico: sexoBiologico,
-        alturaCm: alturaCm,
-        pesoKg: pesoKg,
-        nivelAtividadeFisica: nivelAtividadeFisica,
-        alergias: alergias.trim().isNotEmpty ? alergias.trim() : null,
-        medicamentosEmUso: medicamentosEmUso.trim().isNotEmpty
-            ? medicamentosEmUso.trim()
-            : null,
-        limiteLiquidoMl: possuiRestricaoLiquido == true
-            ? (limiteLiquidoLitros! * 1000).round()
-            : null,
-      );
+      final comRespostas = _pacienteComRespostas();
+      final metas = _metasPara(comRespostas);
+      final pacienteAtualizado =
+          metas == null ? comRespostas : comRespostas.copyWith(metas: metas);
 
-      // As metas saem junto com a triagem. Sem elas (ex.: data de nascimento
-      // de menor de idade) o paciente segue com os valores padrao.
-      final metas = CalculadoraMetas.calcular(pacienteSemMetas);
-      final pacienteAtualizado = metas == null
-          ? pacienteSemMetas
-          : pacienteSemMetas.copyWith(metas: metas);
-
-      await _pacienteRepository.salvarPaciente(pacienteAtualizado);
+      await gravar(pacienteAtualizado);
 
       this.pacienteAtualizado = pacienteAtualizado;
       carregando = false;
       notifyListeners();
       return true;
     } catch (_) {
-      mensagemErro = 'Não foi possível salvar a triagem. Tente novamente.';
+      mensagemErro = erro;
       carregando = false;
       notifyListeners();
       return false;
     }
+  }
+
+  // O paciente com as respostas por cima. O que nao e da triagem (telefone,
+  // remedios, refeicoes, metas, limites de alerta, vinculos) vem como estava:
+  // no primeiro acesso o paciente inteiro e gravado por cima do documento,
+  // entao nada disso pode se perder aqui.
+  Paciente _pacienteComRespostas() {
+    final original = _pacienteOriginal;
+    return Paciente(
+      id: original.id,
+      nome: original.nome,
+      email: original.email,
+      perfil: original.perfil,
+      telefone: original.telefone,
+      medicamentos: original.medicamentos,
+      refeicoes: original.refeicoes,
+      metas: original.metas,
+      limitesAlerta: original.limitesAlerta,
+      codigoVinculo: original.codigoVinculo,
+      acompanhantesVinculadosIds: original.acompanhantesVinculadosIds,
+      possuiDiabetes: possuiDiabetes!,
+      tipoDiabetes: possuiDiabetes! ? tipoDiabetes : null,
+      usaInsulina: possuiDiabetes! ? usaInsulina : null,
+      tipoInsulina:
+          (possuiDiabetes! && usaInsulina == true && tipoInsulina.trim().isNotEmpty)
+              ? tipoInsulina.trim()
+              : null,
+      possuiCardiopatia: possuiCardiopatia!,
+      tipoCardiopatia:
+          (possuiCardiopatia! && tipoCardiopatia.trim().isNotEmpty)
+              ? tipoCardiopatia.trim()
+              : null,
+      usaMarcapasso: possuiCardiopatia! ? usaMarcapasso : null,
+      triagemConcluida: true,
+      dataNascimento: dataNascimento,
+      sexoBiologico: sexoBiologico,
+      alturaCm: alturaCm,
+      pesoKg: pesoKg,
+      nivelAtividadeFisica: nivelAtividadeFisica,
+      alergias:
+          outrasAlergias.trim().isNotEmpty ? outrasAlergias.trim() : null,
+      alergiasAlimentos: alergiasAlimentos,
+      alergiasRemedios: alergiasRemedios,
+      medicamentosEmUso: medicamentosEmUso,
+      limiteLiquidoMl: possuiRestricaoLiquido == true
+          ? (limiteLiquidoLitros! * 1000).round()
+          : null,
+    );
+  }
+
+  // As metas saem das respostas (CalculadoraMetas). Sem como calcular (ex.:
+  // data de nascimento de menor de idade), ficam as que o paciente ja tinha
+  // (nenhuma, no primeiro acesso: valem os padroes). O que ele ajustou a mao
+  // em "Minhas metas" (agua, passos, exercicio) continua valendo, so a agua
+  // nunca passa da restricao do medico.
+  MetasPersonalizadas? _metasPara(Paciente paciente) {
+    final calculadas = CalculadoraMetas.calcular(paciente);
+    final anteriores = _pacienteOriginal.metas;
+    if (calculadas == null) return anteriores;
+    if (anteriores == null || !anteriores.ajustadaManualmente) {
+      return calculadas;
+    }
+    final limite = paciente.limiteLiquidoMl;
+    return calculadas.comAjustes(
+      hidratacaoMl: limite == null
+          ? anteriores.hidratacaoMl
+          : math.min(anteriores.hidratacaoMl, limite),
+      passos: anteriores.passos,
+      exercicioMinutosSemana: anteriores.exercicioMinutosSemana,
+    );
   }
 }

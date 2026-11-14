@@ -43,7 +43,9 @@ void main() {
 
       expect(texto, contains('São sugestões'));
       expect(texto, contains('Personalizar rotina, no menu.'));
-      expect(texto, contains('Atualizar meu peso'));
+      // O peso muda em "Meus dados", o nome no alto do menu.
+      expect(texto, contains('Para atualizar o seu peso, toque no seu nome'));
+      expect(texto, isNot(contains('Atualizar meu peso')));
     });
 
     test('Deve lembrar do limite de água do médico quando há um', () {

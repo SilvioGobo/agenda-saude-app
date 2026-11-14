@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:agenda_saude_app/domain/medicacao/remedio.dart';
 import 'package:agenda_saude_app/domain/models/medicamento.dart';
 import 'package:agenda_saude_app/ui/rotina/meus_remedios_viewmodel.dart';
 
@@ -15,6 +16,12 @@ const _metformina = Medicamento(
   dose: '500 mg',
   horarios: ['12:00', '20:00'],
 );
+// Escolhidos na busca (catalogo da Anvisa).
+const _losartanaDoCatalogo = Remedio(
+  nome: 'Losartana potássica',
+  substancias: ['Losartana'],
+);
+const _novalgina = Remedio(nome: 'Novalgina', substancias: ['Dipirona']);
 
 void main() {
   group('MeusRemediosViewModel Testes', () {
@@ -26,7 +33,10 @@ void main() {
       gravaComSucesso = true;
     });
 
-    MeusRemediosViewModel criar({List<Medicamento> atual = const []}) {
+    MeusRemediosViewModel criar({
+      List<Medicamento> atual = const [],
+      List<String> alergias = const [],
+    }) {
       var contador = 0;
       return MeusRemediosViewModel(
         atual: atual,
@@ -34,6 +44,7 @@ void main() {
           if (gravaComSucesso) salvos.add(lista);
           return gravaComSucesso;
         },
+        alergias: alergias,
         gerarId: () => 'novo${++contador}',
       );
     }
@@ -60,9 +71,14 @@ void main() {
     test('Deve adicionar e remover remédios', () {
       final viewModel = criar();
 
-      viewModel.adicionar();
-      viewModel.adicionar();
+      viewModel.adicionar(_losartanaDoCatalogo);
+      viewModel.adicionar(_novalgina);
       expect(viewModel.remedios.map((r) => r.id), ['novo1', 'novo2']);
+      expect(
+        viewModel.remedios.map((r) => r.nome),
+        ['Losartana potássica', 'Novalgina'],
+      );
+      expect(viewModel.remedios.first.substancias, ['Losartana']);
 
       viewModel.remover('novo1');
       expect(viewModel.remedios.map((r) => r.id), ['novo2']);
@@ -72,7 +88,7 @@ void main() {
       final viewModel = criar();
 
       for (var i = 0; i < 20; i++) {
-        viewModel.adicionar();
+        viewModel.adicionar(_losartanaDoCatalogo);
       }
 
       expect(viewModel.remedios.length, 10);
@@ -125,7 +141,7 @@ void main() {
 
     test('Deve limitar os horários de cada remédio', () {
       final viewModel = criar();
-      viewModel.adicionar();
+      viewModel.adicionar(_losartanaDoCatalogo);
       final remedio = viewModel.remedios.single;
 
       for (final horario in ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00']) {
@@ -147,21 +163,21 @@ void main() {
     });
 
     test('Deve pedir o nome de todos os remédios antes de salvar', () async {
-      final viewModel = criar();
-      viewModel.adicionar();
-      viewModel.adicionarHorario(viewModel.remedios.single, '08:00');
+      // Um remedio sem nome so vem de dados antigos: o novo sai da busca.
+      final viewModel = criar(
+        atual: const [Medicamento(id: 'm9', nome: '', horarios: ['08:00'])],
+      );
 
       final salvou = await viewModel.salvar();
 
       expect(salvou, isFalse);
-      expect(viewModel.mensagemErro, 'Dê um nome para todos os remédios.');
+      expect(viewModel.mensagemErro, 'Escolha o nome de todos os remédios.');
       expect(salvos, isEmpty);
     });
 
     test('Deve pedir pelo menos um horário para cada remédio antes de salvar', () async {
       final viewModel = criar();
-      viewModel.adicionar();
-      viewModel.definirNome(viewModel.remedios.single, 'Losartana');
+      viewModel.adicionar(_losartanaDoCatalogo);
 
       final salvou = await viewModel.salvar();
 
@@ -173,11 +189,10 @@ void main() {
       expect(salvos, isEmpty);
     });
 
-    test('Deve salvar os remédios com o nome e a dose sem espaços sobrando', () async {
+    test('Deve salvar os remédios com o nome, o princípio ativo e a dose sem espaços sobrando', () async {
       final viewModel = criar(atual: const [_metformina]);
-      viewModel.adicionar();
+      viewModel.adicionar(_losartanaDoCatalogo);
       final novo = viewModel.remedios.last;
-      viewModel.definirNome(novo, '  Losartana ');
       viewModel.definirDose(novo, ' 50 mg ');
       viewModel.adicionarHorario(novo, '08:00');
 
@@ -187,7 +202,9 @@ void main() {
       expect(viewModel.mensagemErro, isNull);
       expect(viewModel.salvando, isFalse);
       final lista = salvos.single;
-      expect(lista.map((m) => m.nome), ['Metformina', 'Losartana']);
+      expect(lista.map((m) => m.nome), ['Metformina', 'Losartana potássica']);
+      expect(lista.last.substancias, ['Losartana']);
+      expect(lista.first.substancias, isEmpty);
       expect(lista.last.id, 'novo1');
       expect(lista.last.dose, '50 mg');
       expect(lista.last.horarios, ['08:00']);
@@ -221,13 +238,43 @@ void main() {
 
     test('Deve limpar o aviso do "Salvar" quando a pessoa edita', () async {
       final viewModel = criar();
-      viewModel.adicionar();
+      viewModel.adicionar(_losartanaDoCatalogo);
       await viewModel.salvar();
       expect(viewModel.mensagemErro, isNotNull);
 
-      viewModel.definirNome(viewModel.remedios.single, 'L');
+      viewModel.definirDose(viewModel.remedios.single, '5');
 
       expect(viewModel.mensagemErro, isNull);
+    });
+
+    test('Deve trocar o remédio mantendo o id, a dose e os horários', () {
+      final viewModel = criar(atual: const [_losartana]);
+      final remedio = viewModel.remedios.single;
+
+      viewModel.trocarRemedio(remedio, _losartanaDoCatalogo);
+
+      expect(remedio.id, 'm1');
+      expect(remedio.nome, 'Losartana potássica');
+      expect(remedio.substancias, ['Losartana']);
+      expect(remedio.dose, '50 mg');
+      expect(remedio.horarios, ['08:00']);
+    });
+
+    test('Deve apontar o remédio que tem algo das alergias do paciente', () {
+      final viewModel = criar(
+        atual: const [
+          _losartana,
+          // Cadastrado antes do catalogo: compara pelo nome.
+          Medicamento(id: 'm3', nome: 'Dipirona 1 g', horarios: ['08:00']),
+        ],
+        alergias: const ['Dipirona'],
+      );
+      viewModel.adicionar(_novalgina);
+
+      expect(
+        viewModel.remedios.map(viewModel.alergiaDe),
+        [null, 'Dipirona', 'Dipirona'],
+      );
     });
   });
 }

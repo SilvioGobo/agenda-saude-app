@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_cores.dart';
 import '../../domain/alimentos/alimento.dart';
 import '../../domain/metas/metas_personalizadas.dart';
 import '../../domain/refeicoes/refeicoes_padrao.dart';
-import '../shared/barra_acoes.dart';
-import '../shared/botao_barra_superior.dart';
+import '../shared/aviso_alergia.dart';
+import '../shared/barra_superior_formulario.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/titulo_tela.dart';
 import 'buscar_alimento_view.dart';
 import 'formato_nutrientes.dart';
@@ -18,15 +18,20 @@ import 'resumo_nutricional.dart';
 // alimentos (com a quantidade em gramas) que costuma comer nela. Na rotina ele
 // so marca "feito" - nao precisa descrever o que comeu a cada dia (RF03.4). Os
 // nutrientes de cada refeicao e do dia aparecem aqui, na hora, frente as metas.
-// Salvar e Cancelar ficam fixos na base.
+// Salvar e Cancelar ficam na barra de cima.
 class PersonalizarRefeicoesView extends StatelessWidget {
   // Para comparar o plano com o que o paciente deve comer por dia.
   final MetasPersonalizadas? metas;
 
   const PersonalizarRefeicoesView({super.key, this.metas});
 
-  // Abre a tela editando o plano que a rotina esta mostrando.
-  static Widget comProviders(RefeicoesViewModel rotina) {
+  // Abre a tela editando o plano que a rotina esta mostrando. [alergias] vem
+  // de quem abre quando o paciente pode te-las mudado depois de a rotina ser
+  // criada ("Minhas alergias", na mesma tela de Personalizar rotina).
+  static Widget comProviders(
+    RefeicoesViewModel rotina, {
+    List<String>? alergias,
+  }) {
     return ChangeNotifierProvider(
       create: (_) => PersonalizarRefeicoesViewModel(
         atual: rotina.refeicoes,
@@ -35,6 +40,7 @@ class PersonalizarRefeicoesView extends StatelessWidget {
         ),
         aoSalvar: rotina.salvarPlano,
         catalogo: rotina.catalogo,
+        alergias: alergias ?? rotina.paciente.alergiasAlimentos,
       ),
       child: PersonalizarRefeicoesView(metas: rotina.metas),
     );
@@ -57,39 +63,13 @@ class PersonalizarRefeicoesView extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(),
       ),
-      bottomNavigationBar: BarraAcoes(
-        children: [
-          if (viewModel.mensagemErro != null)
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                viewModel.mensagemErro!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppCores.perigo,
-                ),
-              ),
-            ),
-          FilledButton.icon(
-            onPressed: viewModel.salvando ? null : () => _salvar(context),
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Salvar'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
@@ -178,7 +158,10 @@ class _EditorRefeicao extends StatelessWidget {
     if (catalogo == null) return;
     final alimento = await Navigator.of(context).push<Alimento>(
       MaterialPageRoute(
-        builder: (_) => BuscarAlimentoView.comProviders(catalogo),
+        builder: (_) => BuscarAlimentoView.comProviders(
+          catalogo,
+          alergias: viewModel.alergias,
+        ),
       ),
     );
     if (alimento != null && context.mounted) {
@@ -318,6 +301,7 @@ class _EditorAlimento extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.read<PersonalizarRefeicoesViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
+    final alergia = viewModel.alergiaDoItem(item);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -336,6 +320,10 @@ class _EditorAlimento extends StatelessWidget {
               color: colorScheme.onSurface,
             ),
           ),
+          if (alergia != null) ...[
+            const SizedBox(height: 8),
+            SeloAlergia(alergia),
+          ],
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

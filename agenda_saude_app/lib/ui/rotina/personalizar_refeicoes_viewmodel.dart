@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../domain/alergias/alergias.dart';
 import '../../domain/alimentos/alimento.dart';
 import '../../domain/alimentos/catalogo_alimentos.dart';
 import '../../domain/alimentos/nutrientes.dart';
@@ -41,7 +42,8 @@ class RefeicaoEmEdicao {
 // Estado da tela "Minhas refeicoes": o paciente escolhe quantas refeicoes tem,
 // o nome de cada uma e os alimentos (com a quantidade em gramas) que costuma
 // comer nela. Os nutrientes de cada refeicao e do dia aparecem na hora, a
-// partir do catalogo. Nada e gravado ate "Salvar".
+// partir do catalogo. Os alimentos com algo das [alergias] do paciente saem
+// marcados. Nada e gravado ate "Salvar".
 class PersonalizarRefeicoesViewModel extends ChangeNotifier {
   static const int tamanhoMaximoNome = 30;
   static const int maximoAlimentosPorRefeicao = 15;
@@ -53,6 +55,8 @@ class PersonalizarRefeicoesViewModel extends ChangeNotifier {
   final Future<bool> Function(List<RefeicaoPlanejada>) _aoSalvar;
   final String Function() _gerarId;
   final CatalogoAlimentos? catalogo;
+  // Alergias a alimentos do paciente (Paciente.alergiasAlimentos).
+  final List<String> alergias;
   int _proximaChave = 0;
 
   PersonalizarRefeicoesViewModel({
@@ -60,6 +64,7 @@ class PersonalizarRefeicoesViewModel extends ChangeNotifier {
     required List<RefeicaoPlanejada> padrao,
     required Future<bool> Function(List<RefeicaoPlanejada>) aoSalvar,
     this.catalogo,
+    this.alergias = const [],
     String Function()? gerarId,
   }) : _padrao = padrao,
        _aoSalvar = aoSalvar,
@@ -163,6 +168,10 @@ class PersonalizarRefeicoesViewModel extends ChangeNotifier {
     mensagemErro = null;
     notifyListeners();
   }
+
+  // A alergia do paciente que o alimento pode ter, ou null.
+  String? alergiaDoItem(ItemEmEdicao item) =>
+      alergiaNoAlimento(item.nome, alergias);
 
   Nutrientes nutrientesDoItem(ItemEmEdicao item) {
     return catalogo?.porId(item.alimentoId)?.paraGramas(item.quantidadeG) ??

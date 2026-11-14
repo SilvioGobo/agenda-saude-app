@@ -2,32 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_cores.dart';
-import '../shared/perguntas_aninhadas.dart';
 import '../shared/progresso_etapa.dart';
-import '../shared/rotulo_pergunta.dart';
-import '../shared/seletor_sim_nao.dart';
+import 'perguntas_triagem.dart';
 import 'triagem_outras_informacoes_view.dart';
 import 'triagem_viewmodel.dart';
 
 // Etapa 3 de 4 do assistente de triagem: cardiopatia.
-class TriagemCardiopatiaView extends StatefulWidget {
+class TriagemCardiopatiaView extends StatelessWidget {
   const TriagemCardiopatiaView({super.key});
-
-  @override
-  State<TriagemCardiopatiaView> createState() =>
-      _TriagemCardiopatiaViewState();
-}
-
-class _TriagemCardiopatiaViewState extends State<TriagemCardiopatiaView> {
-  final _tipoCardiopatiaController = TextEditingController();
-  final _limiteLiquidoController = TextEditingController();
-
-  @override
-  void dispose() {
-    _tipoCardiopatiaController.dispose();
-    _limiteLiquidoController.dispose();
-    super.dispose();
-  }
 
   void _proximo(BuildContext context) {
     final viewModel = context.read<TriagemViewModel>();
@@ -62,63 +44,7 @@ class _TriagemCardiopatiaViewState extends State<TriagemCardiopatiaView> {
                 style: TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 28),
-              const RotuloPergunta('Você possui alguma cardiopatia?'),
-              SeletorSimNao(
-                valor: viewModel.possuiCardiopatia,
-                aoResponder: viewModel.responderCardiopatia,
-              ),
-              if (viewModel.possuiCardiopatia == true) ...[
-                const SizedBox(height: 16),
-                PerguntasAninhadas(
-                  children: [
-                    TextField(
-                      controller: _tipoCardiopatiaController,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Qual? (opcional)',
-                      ),
-                      onChanged: viewModel.definirTipoCardiopatia,
-                    ),
-                    const SizedBox(height: 20),
-                    const RotuloPergunta('Usa marcapasso?', pequeno: true),
-                    SeletorSimNao(
-                      valor: viewModel.usaMarcapasso,
-                      aoResponder: viewModel.responderUsaMarcapasso,
-                      pequeno: true,
-                    ),
-                    const SizedBox(height: 20),
-                    const RotuloPergunta(
-                      'Seu médico limitou a quantidade de líquido por dia?',
-                      pequeno: true,
-                    ),
-                    SeletorSimNao(
-                      valor: viewModel.possuiRestricaoLiquido,
-                      aoResponder: viewModel.responderRestricaoLiquido,
-                      pequeno: true,
-                    ),
-                    if (viewModel.possuiRestricaoLiquido == true) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _limiteLiquidoController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Quantos litros por dia? (ex.: 1,5)',
-                        ),
-                        onChanged: viewModel.definirLimiteLiquido,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+              const PerguntasCardiopatia(),
               const SizedBox(height: 28),
               if (viewModel.mensagemErro != null)
                 Padding(

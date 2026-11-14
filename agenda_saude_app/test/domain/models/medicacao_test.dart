@@ -9,17 +9,19 @@ void main() {
     test('Deve ir para o JSON e voltar sem perder nada', () {
       const medicamento = Medicamento(
         id: 'm1',
-        nome: 'Losartana',
+        nome: 'Losartana potássica',
         dose: '50 mg',
         horarios: ['08:00', '20:00'],
+        substancias: ['Losartana'],
       );
 
       final lido = Medicamento.fromJson(medicamento.toJson());
 
       expect(lido.id, 'm1');
-      expect(lido.nome, 'Losartana');
+      expect(lido.nome, 'Losartana potássica');
       expect(lido.dose, '50 mg');
       expect(lido.horarios, ['08:00', '20:00']);
+      expect(lido.substancias, ['Losartana']);
     });
 
     test('Deve tratar campos que faltam como vazios', () {
@@ -27,6 +29,8 @@ void main() {
 
       expect(lido.dose, '');
       expect(lido.horarios, isEmpty);
+      // Remedio cadastrado antes do catalogo de remedios.
+      expect(lido.substancias, isEmpty);
       expect(Medicamento.fromJson({}).id, '');
     });
 

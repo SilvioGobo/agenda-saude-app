@@ -197,7 +197,8 @@ void main() {
       await abrirEditor(tester);
 
       expect(find.text('Minhas refeições'), findsOneWidget);
-      expect(find.text('Voltar'), findsOneWidget);
+      // Salvar e Cancelar na barra de cima, no lugar do Voltar.
+      expect(find.text('Voltar'), findsNothing);
       expect(campos(), findsNWidgets(4));
       expect(find.text('Café da manhã'), findsOneWidget);
       expect(find.text('Almoço'), findsOneWidget);

@@ -414,6 +414,29 @@ void main() {
       await desmontar(tester);
     });
 
+    testWidgets('Deve abrir "Meus dados" pelo perfil do menu', (tester) async {
+      await montar(tester);
+
+      await tester.tap(find.text('Menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ver e mudar meus dados'), findsOneWidget);
+
+      await tester.tap(find.text('José Silva'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Meus dados'), findsOneWidget);
+      expect(find.text('SOBRE VOCÊ'), findsOneWidget);
+      expect(find.text('ALERGIAS'), findsOneWidget);
+
+      // Cancelar cai direto no painel, com o menu ja fechado.
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Olá, José'), findsOneWidget);
+      expect(find.text('Ver e mudar meus dados'), findsNothing);
+
+      await desmontar(tester);
+    });
+
     testWidgets('Deve abrir a tela do smartwatch pelo menu', (tester) async {
       await montar(tester);
 
@@ -817,7 +840,10 @@ void main() {
 
       // Este paciente nao tem dados fisicos, entao ainda nao ha metas.
       expect(find.text('Minhas metas'), findsOneWidget);
-      expect(find.text('Atualizar meu peso'), findsOneWidget);
+      expect(
+        find.text('Ainda não foi possível calcular suas metas.'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Voltar'));
       await tester.pumpAndSettle();

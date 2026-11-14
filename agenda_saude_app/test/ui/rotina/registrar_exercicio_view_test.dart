@@ -122,7 +122,10 @@ void main() {
       expect(find.text('Leve'), findsOneWidget);
       expect(find.text('Moderada'), findsOneWidget);
       expect(find.text('Intensa'), findsOneWidget);
-      expect(find.text('SALVAR'), findsOneWidget);
+      // Salvar e Cancelar na barra de cima, no lugar do Voltar.
+      expect(find.text('Salvar'), findsOneWidget);
+      expect(find.text('Cancelar'), findsOneWidget);
+      expect(find.text('Voltar'), findsNothing);
     });
 
     testWidgets('Deve explicar cada intensidade pelo teste da conversa', (
@@ -154,7 +157,7 @@ void main() {
     ) async {
       await abrir(tester);
 
-      await tester.tap(find.text('SALVAR'));
+      await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
       expect(find.text('ESCOLHA QUAL EXERCÍCIO VOCÊ FEZ.'), findsOneWidget);
@@ -162,6 +165,13 @@ void main() {
       expect(find.text('Registrar exercício'), findsOneWidget);
       expect(resultado, isNull);
       expect(await gravados(), isEmpty);
+
+      // A faixa de cima mostra o que falta, um de cada vez.
+      expect(find.text('Escolha qual exercício você fez.'), findsOneWidget);
+      await tester.tap(find.text('Caminhada'));
+      await tester.pump();
+      expect(find.text('Escolha qual exercício você fez.'), findsNothing);
+      expect(find.text('Escolha como foi a intensidade.'), findsOneWidget);
     });
 
     testWidgets('Deve marcar com um check o exercício e a intensidade escolhidos', (
@@ -186,7 +196,7 @@ void main() {
       await tester.tap(find.text('Mais'));
       await tester.tap(find.text('Leve'));
       await tester.pump();
-      await tester.tap(find.text('SALVAR'));
+      await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
       expect(resultado, isTrue);
@@ -198,10 +208,12 @@ void main() {
       expect(dados['intensidade'], 'Leve');
     });
 
-    testWidgets('Deve voltar sem salvar ao tocar em "Voltar"', (tester) async {
+    testWidgets('Deve fechar sem salvar ao tocar em "Cancelar"', (tester) async {
       await abrir(tester);
 
-      await tester.tap(find.text('Voltar'));
+      await tester.tap(find.text('Caminhada'));
+      await tester.pump();
+      await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
 
       expect(resultado, isFalse);
@@ -217,10 +229,10 @@ void main() {
       await tester.tap(find.text('Caminhada'));
       await tester.tap(find.text('Leve'));
       await tester.pump();
-      await tester.tap(find.text('SALVAR'));
+      await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
-      expect(find.text('NÃO FOI POSSÍVEL SALVAR. TENTE DE NOVO.'),
+      expect(find.text('Não foi possível salvar. Tente de novo.'),
           findsOneWidget);
       expect(find.text('Registrar exercício'), findsOneWidget);
       expect(resultado, isNull);
@@ -231,15 +243,20 @@ void main() {
       // vira erro e reprova o teste.
       await abrir(tester, escalaTexto: 2, tamanho: const Size(360, 640));
 
+      expect(find.text('Salvar'), findsOneWidget);
+      expect(find.text('Cancelar'), findsOneWidget);
+
+      // Com a faixa de erro em cima, rolando ate a ultima intensidade.
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('SALVAR'),
+        find.text('Intensa'),
         400,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.ensureVisible(find.text('SALVAR'));
       await tester.pumpAndSettle();
 
-      expect(find.text('SALVAR'), findsOneWidget);
+      expect(find.text('Escolha qual exercício você fez.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

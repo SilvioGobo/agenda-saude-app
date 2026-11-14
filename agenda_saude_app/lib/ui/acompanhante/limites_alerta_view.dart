@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/zona_seguranca_cardiaca.dart';
-import '../shared/botao_barra_superior.dart';
-import '../shared/botao_salvar.dart';
+import '../shared/barra_superior_formulario.dart';
 import '../shared/contador_grande.dart';
-import '../shared/erro_formulario.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/pergunta_formulario.dart';
 import '../shared/titulo_tela.dart';
 import 'limites_alerta_viewmodel.dart';
 
 // Tela de ajuste dos limites de alerta de um paciente (RF 06.1), aberta pelo
 // botao "Limites de alerta" do card no painel do acompanhante. Duas perguntas,
-// o minimo e o maximo de BPM, com os botoes Menos/Mais (sem teclado), a zona
-// padrao da triagem para comparar e voltar a ela, e o SALVAR. Fecha
-// devolvendo true quando os limites foram salvos.
+// o minimo e o maximo de BPM, com os botoes Menos/Mais (sem teclado), e a
+// zona padrao da triagem para comparar e voltar a ela. Salvar e Cancelar
+// ficam na barra de cima. Fecha devolvendo true quando os limites foram
+// salvos.
 class LimitesAlertaView extends StatelessWidget {
   const LimitesAlertaView({super.key});
 
@@ -49,14 +49,13 @@ class LimitesAlertaView extends StatelessWidget {
     final minutos = ZonaSegurancaCardiaca.tempoProlongadoParaAlerta.inMinutes;
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(false),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(false),
       ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
@@ -107,15 +106,6 @@ class LimitesAlertaView extends StatelessWidget {
               'na hora e um alerta de emergência se continuar assim por '
               '$minutos minutos. Combine os valores com o médico de $nome.',
               style: textoDeApoio,
-            ),
-            const SizedBox(height: 24),
-            if (viewModel.mensagemErro != null) ...[
-              ErroFormulario(viewModel.mensagemErro!),
-              const SizedBox(height: 16),
-            ],
-            BotaoSalvar(
-              salvando: viewModel.salvando,
-              aoTocar: () => _salvar(context),
             ),
           ],
         ),

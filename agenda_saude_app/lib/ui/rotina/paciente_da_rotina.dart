@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/models/paciente.dart';
 
-// O paciente que a "Minha Rotina" repassa ao painel. Dois cartoes mudam o
-// paciente - o plano de refeicoes e os remedios - e cada ViewModel guarda a sua
-// copia dele. Sem esta classe, salvar as refeicoes depois dos remedios (ou o
+// O paciente que a "Minha Rotina" repassa ao painel. Varias telas mudam o
+// paciente - o plano de refeicoes, os remedios, as metas e as alergias - e cada
+// ViewModel guarda a sua copia dele. Sem esta classe, salvar as refeicoes depois dos remedios (ou o
 // contrario) devolveria ao painel a lista antiga do outro cartao, e a proxima
 // abertura da Rotina mostraria como pendente algo que ja foi mudado. Cada
 // aviso entra por cima do paciente mais recente que o painel recebeu.
@@ -33,6 +33,16 @@ class PacienteDaRotina {
   // O paciente ajustou as metas de agua, passos ou exercicio.
   void metasMudaram(Paciente novo) {
     _atual = _atual.copyWith(metas: novo.metas);
+    _aoAtualizar?.call(_atual);
+  }
+
+  // O paciente mudou as alergias ("Minhas alergias").
+  void alergiasMudaram(Paciente novo) {
+    _atual = _atual.copyWith(
+      alergiasAlimentos: novo.alergiasAlimentos,
+      alergiasRemedios: novo.alergiasRemedios,
+      alergias: novo.alergias ?? '',
+    );
     _aoAtualizar?.call(_atual);
   }
 }

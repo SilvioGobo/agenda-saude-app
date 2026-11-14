@@ -29,6 +29,7 @@ void main() {
     PersonalizarRefeicoesViewModel criar({
       List<RefeicaoPlanejada>? atual,
       bool comCatalogo = true,
+      List<String> alergias = const [],
     }) {
       return PersonalizarRefeicoesViewModel(
         atual:
@@ -53,9 +54,19 @@ void main() {
           return salvarComSucesso;
         },
         catalogo: comCatalogo ? catalogo : null,
+        alergias: alergias,
         gerarId: () => 'novo_${proximoId++}',
       );
     }
+
+    test('Deve apontar o alimento da refeição que tem algo das alergias', () {
+      final viewModel = criar(alergias: const ['Farinha de trigo', 'Pão']);
+      final cafe = viewModel.refeicoes.first;
+
+      expect(viewModel.alergiaDoItem(cafe.itens.single), 'Pão');
+      expect(criar().alergiaDoItem(criar().refeicoes.first.itens.single),
+          isNull);
+    });
 
     test('Deve começar com uma cópia editável do plano atual', () {
       final viewModel = criar();

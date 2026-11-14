@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../domain/models/paciente.dart';
+import '../alergias/minhas_alergias_view.dart';
 import '../metas/ajustar_metas_view.dart';
 import '../metas/metas_viewmodel.dart';
 import '../shared/botao_barra_superior.dart';
@@ -13,15 +14,17 @@ import 'personalizar_refeicoes_view.dart';
 import 'refeicoes_viewmodel.dart';
 
 // "Personalizar rotina", aberta pelo menu lateral: junta num lugar so o que o
-// paciente configura de vez em quando - os remedios, o plano de refeicoes e as
-// metas de agua, passos e exercicio. A "Minha Rotina" fica so com o checklist
-// do dia.
+// paciente configura de vez em quando - os remedios, o plano de refeicoes, as
+// alergias e as metas de agua, passos e exercicio. A "Minha Rotina" fica so com
+// o checklist do dia.
 class PersonalizarRotinaView extends StatelessWidget {
   const PersonalizarRotinaView({super.key});
 
-  // `aoAtualizarPaciente` avisa o painel quando os remedios, as refeicoes ou as
-  // metas mudam. Cada ViewModel guarda a sua copia do paciente; o painel recebe
-  // sempre o paciente com todas as mudancas (ver PacienteDaRotina).
+  // `aoAtualizarPaciente` avisa o painel quando os remedios, as refeicoes, as
+  // alergias ou as metas mudam. Cada ViewModel guarda a sua copia do paciente;
+  // o painel recebe sempre o paciente com todas as mudancas (ver
+  // PacienteDaRotina), que e tambem de onde saem as alergias atuais para os
+  // avisos em "Meus remedios" e "Minhas refeicoes".
   static Widget comProviders(
     Paciente paciente, {
     ValueChanged<Paciente>? aoAtualizarPaciente,
@@ -30,6 +33,7 @@ class PersonalizarRotinaView extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        Provider.value(value: doPainel),
         ChangeNotifierProvider(
           create: (_) => MedicacaoViewModel(
             paciente: paciente,
@@ -62,6 +66,7 @@ class PersonalizarRotinaView extends StatelessWidget {
     final medicacao = context.read<MedicacaoViewModel>();
     final refeicoes = context.read<RefeicoesViewModel>();
     final metas = context.watch<MetasViewModel>();
+    final doPainel = context.read<PacienteDaRotina>();
 
     return Scaffold(
       appBar: AppBar(
@@ -81,8 +86,13 @@ class PersonalizarRotinaView extends StatelessWidget {
               icone: Icons.medication_rounded,
               rotulo: 'Meus remédios',
               descricao: 'Nome, dose e horários',
-              aoTocar: () =>
-                  _abrir(context, MeusRemediosView.comProviders(medicacao)),
+              aoTocar: () => _abrir(
+                context,
+                MeusRemediosView.comProviders(
+                  medicacao,
+                  alergias: doPainel.atual.alergiasRemedios,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             _Opcao(
@@ -91,7 +101,23 @@ class PersonalizarRotinaView extends StatelessWidget {
               descricao: 'Refeições do dia e alimentos',
               aoTocar: () => _abrir(
                 context,
-                PersonalizarRefeicoesView.comProviders(refeicoes),
+                PersonalizarRefeicoesView.comProviders(
+                  refeicoes,
+                  alergias: doPainel.atual.alergiasAlimentos,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _Opcao(
+              icone: Icons.no_food_rounded,
+              rotulo: 'Minhas alergias',
+              descricao: 'Alimentos e remédios',
+              aoTocar: () => _abrir(
+                context,
+                MinhasAlergiasView.comProviders(
+                  doPainel.atual,
+                  aoSalvar: doPainel.alergiasMudaram,
+                ),
               ),
             ),
             // Sem metas calculadas (triagem incompleta) nao ha o que ajustar.

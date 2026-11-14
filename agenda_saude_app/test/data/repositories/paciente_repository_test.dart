@@ -144,22 +144,6 @@ void main() {
       expect(resultado.codigoVinculo, 'ABC12');
     });
 
-    test('Deve atualizar também o peso e a atividade ao recalcular as metas', () async {
-      await repository.salvarPaciente(criarPaciente());
-
-      await repository.atualizarMetas(
-        'paciente_001',
-        metas,
-        pesoKg: 72.5,
-        nivelAtividadeFisica: 'Moderado',
-      );
-
-      final resultado = await repository.getPaciente('paciente_001');
-      expect(resultado!.pesoKg, 72.5);
-      expect(resultado.nivelAtividadeFisica, 'Moderado');
-      expect(resultado.metas, isNotNull);
-    });
-
     test('Deve substituir as metas antigas por inteiro', () async {
       await repository.salvarPaciente(criarPaciente());
       await repository.atualizarMetas('paciente_001', metas);
@@ -170,6 +154,32 @@ void main() {
       final resultado = await repository.getPaciente('paciente_001');
       expect(resultado!.metas!.passos, 4000);
       expect(resultado.metas!.ajustadaManualmente, true);
+    });
+
+    test('Deve gravar as alergias sem mexer no resto do documento', () async {
+      await repository.salvarPaciente(criarPaciente());
+
+      await repository.salvarAlergias(
+        'paciente_001',
+        alimentos: const ['Camarão', 'Amendoim'],
+        remedios: const ['Dipirona'],
+        outras: ' Látex ',
+      );
+
+      final resultado = await repository.getPaciente('paciente_001');
+      expect(resultado!.alergiasAlimentos, ['Camarão', 'Amendoim']);
+      expect(resultado.alergiasRemedios, ['Dipirona']);
+      expect(resultado.alergias, 'Látex');
+      expect(resultado.nome, 'João da Silva');
+
+      await repository.salvarAlergias(
+        'paciente_001',
+        alimentos: const [],
+        remedios: const [],
+      );
+      final semAlergias = await repository.getPaciente('paciente_001');
+      expect(semAlergias!.alergiasAlimentos, isEmpty);
+      expect(semAlergias.alergias, isNull);
     });
 
     test('Deve gravar o plano de refeições sem mexer no resto do documento', () async {

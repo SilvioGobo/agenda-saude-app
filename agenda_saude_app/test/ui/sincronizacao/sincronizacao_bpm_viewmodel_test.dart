@@ -575,6 +575,31 @@ void main() {
       expect(emergencias.single['mensagem'], contains('há 7 minutos'));
       viewModel.dispose();
     });
+
+    test('Deve passar a usar a zona de cardiopata quando o paciente muda a resposta', () async {
+      // 95 e 96 BPM: dentro da zona padrao (ate 100), fora da de cardiopata
+      // (ate 90).
+      healthService.leituras = [
+        LeituraBpm(bpm: 95, timestamp: agora.subtract(const Duration(minutes: 8))),
+        LeituraBpm(bpm: 96, timestamp: agora.subtract(const Duration(minutes: 2))),
+      ];
+      final viewModel = criarViewModel();
+      await viewModel.iniciar();
+      expect(await totalAlertas(), 0);
+
+      // Em "Meus dados", o paciente passa a dizer que tem cardiopatia.
+      viewModel.atualizarCardiopatia(true);
+      healthService.leituras = [
+        ...healthService.leituras,
+        LeituraBpm(bpm: 97, timestamp: agora.subtract(const Duration(minutes: 1))),
+      ];
+      await viewModel.sincronizarAgora();
+
+      final emergencias = await alertasDoTipo(Alerta.tipoEmergencia);
+      expect(emergencias, hasLength(1));
+      expect(emergencias.single['mensagem'], contains('há 7 minutos'));
+      viewModel.dispose();
+    });
   });
 
   group('SincronizacaoBpmViewModel leitura com o app fechado (B7) Testes', () {

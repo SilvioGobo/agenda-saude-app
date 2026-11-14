@@ -215,7 +215,7 @@ void main() {
       await tocar(tester, find.text('AO ACORDAR'));
       await tester.enterText(find.byType(TextField), '112');
       await tocar(tester, find.text('NÃO'));
-      await tocar(tester, find.text('SALVAR'));
+      await tocar(tester, find.text('Salvar'));
       expect(find.text('ANOTADO ÀS 15:00'), findsOneWidget);
 
       await tocar(tester, find.text('Voltar'));

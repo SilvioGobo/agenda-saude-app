@@ -70,6 +70,23 @@ void main() {
       expect(paciente.atual.medicamentos, hasLength(1));
     });
 
+    test('Mudar as alergias não deve desfazer os remédios já salvos', () {
+      paciente.medicamentosMudaram(copiaDoCartaoDeMedicacoes());
+      paciente.alergiasMudaram(
+        original.copyWith(
+          alergiasAlimentos: const ['Camarão'],
+          alergiasRemedios: const ['Dipirona'],
+          alergias: 'Látex',
+        ),
+      );
+
+      final ultimo = avisados.last;
+      expect(ultimo.alergiasAlimentos, ['Camarão']);
+      expect(ultimo.alergiasRemedios, ['Dipirona']);
+      expect(ultimo.alergias, 'Látex');
+      expect(ultimo.medicamentos.map((m) => m.nome), ['Losartana']);
+    });
+
     test('Deve funcionar sem ninguém para avisar', () {
       final semPainel = PacienteDaRotina(original, null);
 

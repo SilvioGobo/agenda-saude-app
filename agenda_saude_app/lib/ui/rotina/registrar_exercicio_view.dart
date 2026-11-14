@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/meta_exercicio.dart';
-import '../shared/botao_barra_superior.dart';
-import '../shared/botao_salvar.dart';
+import '../shared/barra_superior_formulario.dart';
 import '../shared/botao_selecionavel.dart';
 import '../shared/contador_grande.dart';
+import '../shared/corpo_formulario.dart';
 import '../shared/erro_formulario.dart';
 import '../shared/pergunta_formulario.dart';
 import '../shared/titulo_tela.dart';
@@ -17,7 +17,8 @@ import 'registrar_exercicio_viewmodel.dart';
 // exercicio fez (botoes grandes, sem digitar), por quantos minutos (botoes
 // Menos/Mais) e como foi a intensidade, explicada pelo "teste da conversa".
 // Pensada para idosos (NF004): perguntas em caixa alta, botoes grandes e erro
-// com icone. Fecha devolvendo true quando o exercicio foi salvo.
+// com icone. Salvar e Cancelar ficam na barra de cima. Fecha devolvendo true
+// quando o exercicio foi salvo.
 class RegistrarExercicioView extends StatelessWidget {
   const RegistrarExercicioView({super.key});
 
@@ -44,20 +45,21 @@ class RegistrarExercicioView extends StatelessWidget {
     final viewModel = context.watch<RegistrarExercicioViewModel>();
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leadingWidth: BotaoBarraSuperior.largura,
-        leading: BotaoBarraSuperior.voltar(
-          aoTocar: () => Navigator.of(context).pop(false),
-        ),
+      appBar: BarraSuperiorFormulario(
+        salvando: viewModel.salvando,
+        aoSalvar: () => _salvar(context),
+        aoCancelar: () => Navigator.of(context).pop(false),
       ),
-      body: SafeArea(
+      body: CorpoFormulario(
+        erro: viewModel.mensagemErro ??
+            viewModel.erroTipo ??
+            viewModel.erroIntensidade,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
             const TituloTela(
               'Registrar exercício',
-              subtitulo: 'Conte o que você fez e toque em SALVAR.',
+              subtitulo: 'Conte o que você fez e toque em Salvar, no alto.',
             ),
             const SizedBox(height: 32),
             const PerguntaFormulario('1. QUE EXERCÍCIO VOCÊ FEZ?'),
@@ -106,15 +108,6 @@ class RegistrarExercicioView extends StatelessWidget {
               const SizedBox(height: 4),
               ErroFormulario(viewModel.erroIntensidade!),
             ],
-            const SizedBox(height: 24),
-            if (viewModel.mensagemErro != null) ...[
-              ErroFormulario(viewModel.mensagemErro!),
-              const SizedBox(height: 16),
-            ],
-            BotaoSalvar(
-              salvando: viewModel.salvando,
-              aoTocar: () => _salvar(context),
-            ),
           ],
         ),
       ),

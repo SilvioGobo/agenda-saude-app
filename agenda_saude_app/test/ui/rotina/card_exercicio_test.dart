@@ -185,7 +185,7 @@ void main() {
       await tester.tap(find.text('Mais'));
       await tester.tap(find.text('Intensa'));
       await tester.pump();
-      await tester.tap(find.text('SALVAR'));
+      await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
       // De volta à Rotina: o aviso, e o cartão já com o exercício novo.
@@ -199,12 +199,12 @@ void main() {
       await desmontar(tester);
     });
 
-    testWidgets('Não deve avisar nada ao voltar sem salvar', (tester) async {
+    testWidgets('Não deve avisar nada ao cancelar', (tester) async {
       await montar(tester);
 
       await tester.tap(find.text('Registrar exercício'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Voltar'));
+      await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
 
       expect(find.text('Exercício registrado.'), findsNothing);

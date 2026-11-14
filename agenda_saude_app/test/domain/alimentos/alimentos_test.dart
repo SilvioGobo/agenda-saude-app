@@ -210,5 +210,17 @@ void main() {
     test('Não deve achar quando uma das palavras não existe no nome', () {
       expect(nomes('arroz pizza'), isEmpty);
     });
+
+    test('Na alergia, deve achar o alimento sem o preparo, uma vez só', () {
+      expect(catalogo.buscarAlergias('camar'), ['Camarão', 'Camarão à baiana']);
+      expect(
+        catalogo.buscarAlergias('leite'),
+        containsAll(['Leite', 'Leite de vaca', 'Leite de coco']),
+      );
+      expect(catalogo.buscarAlergias('farinha trigo'), ['Farinha de trigo']);
+      // A TACO escreve "Abobora" e "Abóbora": fica o com acento.
+      expect(catalogo.buscarAlergias('abobora').first, 'Abóbora');
+      expect(catalogo.buscarAlergias('   '), isEmpty);
+    });
   });
 }
