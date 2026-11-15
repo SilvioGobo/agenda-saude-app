@@ -4,7 +4,7 @@ Aplicativo móvel Flutter para monitoramento preventivo de idosos e pessoas com 
 crônicas (diabéticos e cardiopatas). Conecta dois perfis: **Paciente** (registra rotina,
 usa smartwatch) e **Acompanhante** (supervisiona remotamente, recebe alertas).
 
-A especificação completa está em `TCC_1_FINAL - Gabriel Menegati_Silvio Daniel.pdf`
+A especificação completa está em `TCC_2_FINAL - Gabriel Menegati_Silvio Daniel.pdf`
 (requisitos RF001–RF008, casos de uso, diagrama de classes, mockups). O documento é a
 fonte da verdade: em caso de dúvida sobre comportamento ou escopo, consulte-o antes de
 inventar. O código Flutter fica em `agenda_saude_app/`.

@@ -14,7 +14,7 @@ O app conecta dois perfis:
   um em cards, recebe alertas em tempo real e consulta os relatórios.
 
 A especificação completa (requisitos RF001–RF008, casos de uso, diagrama de classes e
-mockups) está em [`TCC_1_FINAL - Gabriel Menegati_Silvio Daniel.pdf`](<TCC_1_FINAL - Gabriel Menegati_Silvio Daniel.pdf>).
+mockups) está em [`TCC_2_FINAL - Gabriel Menegati_Silvio Daniel.pdf`](<TCC_2_FINAL - Gabriel Menegati_Silvio Daniel.pdf>).
 Em caso de dúvida sobre comportamento ou escopo, o documento é a fonte da verdade.
 
 ## O que já funciona
